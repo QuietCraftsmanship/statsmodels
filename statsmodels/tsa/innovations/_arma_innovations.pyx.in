@@ -51,7 +51,7 @@ cdef {{prefix}}toeplitz(int n, int offset0, int offset1,
                         {{cython_type}} [:, :] out_matrix):
     """
     toeplitz(int n, int o0, int o1, {{cython_type}} [:] in_column, {{cython_type}} [:, :] out_matrix
-    
+
     Construct a Toeplitz block in a matrix in place
 
     Parameters
@@ -73,7 +73,6 @@ cdef {{prefix}}toeplitz(int n, int offset0, int offset1,
     -----
     This function constructs the Toeplitz block in-place and does not return
     any output.
-
     """
     cdef Py_ssize_t i, j
 
@@ -94,7 +93,7 @@ cpdef {{prefix}}arma_transformed_acovf_fast({{cython_type}} [:] ar,
                                             {{cython_type}} [:] arma_acovf):
     """
     arma_transformed_acovf_fast({{cython_type}} [:] ar, {{cython_type}} [:] ma, {{cython_type}} [:] arma_acovf)
-    
+
     Quickly construct the autocovariance matrix for a transformed process.
 
     Using the autocovariance function for an ARMA process, constructs the
@@ -152,7 +151,6 @@ cpdef {{prefix}}arma_transformed_acovf_fast({{cython_type}} [:] ar,
     .. [1] Brockwell, Peter J., and Richard A. Davis. 2009.
        Time Series: Theory and Methods. 2nd ed. 1991.
        New York, NY: Springer.
-
     """
     cdef Py_ssize_t nobs, p, q, m, m2, n, i, j, r, tmp_ix
     cdef cnp.npy_intp dim1[1]
@@ -203,7 +201,7 @@ cpdef {{prefix}}arma_innovations_algo_fast(int nobs,
                                            {{cython_type}} [:] acovf2):
     """
     arma_innovations_algo_fast(int nobs, {{cython_type}} [:] ar_params, {{cython_type}} [:] ma_params, {{cython_type}} [:, :] acovf, {{cython_type}} [:] acovf2)
-    
+
     Quickly apply innovations algorithm for an ARMA process.
 
     Parameters
@@ -243,7 +241,6 @@ cpdef {{prefix}}arma_innovations_algo_fast(int nobs,
     .. [1] Brockwell, Peter J., and Richard A. Davis. 2009.
        Time Series: Theory and Methods. 2nd ed. 1991.
        New York, NY: Springer.
-
     """
     cdef Py_ssize_t i, j, k, n, _n, m, m2, p, q, start, start2
     cdef cnp.npy_intp dim1[1]
@@ -307,7 +304,7 @@ cpdef {{prefix}}arma_innovations_filter({{cython_type}} [:] endog,
                                         {{cython_type}} [:, :] theta):
     """
     arma_innovations_filter({{cython_type}} [:] endog, {{cython_type}} [:] ar_params, {{cython_type}} [:] ma_params, {{cython_type}} [:, :] theta):
-    
+
     Innovations filter for an ARMA process.
 
     Parameters
@@ -340,7 +337,6 @@ cpdef {{prefix}}arma_innovations_filter({{cython_type}} [:] endog,
     .. [1] Brockwell, Peter J., and Richard A. Davis. 2009.
        Time Series: Theory and Methods. 2nd ed. 1991.
        New York, NY: Springer.
-
     """
     cdef Py_ssize_t nobs, i, k, j, m, p, q
     cdef cnp.npy_intp dim1[1]
@@ -379,7 +375,7 @@ cpdef {{prefix}}arma_innovations({{cython_type}} [:] endog,
                                       {{cython_type}} sigma2):
     """
     arma_innovations({{cython_type}} [:] endog, {{cython_type}} [:] ar_params, {{cython_type}} [:] ma_params):
-    
+
     Compute innovations and variances based on an ARMA process.
 
     Parameters
@@ -410,7 +406,6 @@ cpdef {{prefix}}arma_innovations({{cython_type}} [:] endog,
     .. [1] Brockwell, Peter J., and Richard A. Davis. 2009.
        Time Series: Theory and Methods. 2nd ed. 1991.
        New York, NY: Springer.
-
     """
     cdef Py_ssize_t nobs = len(endog), i
     cdef {{cython_type}} const
@@ -472,7 +467,6 @@ cpdef {{prefix}}arma_loglikeobs_fast({{cython_type}} [:] endog,
     .. [1] Brockwell, Peter J., and Richard A. Davis. 2009.
        Time Series: Theory and Methods. 2nd ed. 1991.
        New York, NY: Springer.
-
     """
 
     cdef Py_ssize_t nobs = len(endog), i

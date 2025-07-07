@@ -23,7 +23,7 @@ subject.  Some specific linear mixed effects models are
   These random terms additively determine the conditional mean of each
   observation based on its covariate values.
 
-The Statsmodels implementation of LME is primarily group-based,
+The statsmodels implementation of LME is primarily group-based,
 meaning that random effects must be independently-realized for
 responses in different groups.  There are two types of random effects
 in our implementation of mixed models: (i) random coefficients
@@ -64,14 +64,14 @@ identically distributed with zero mean, and variance :math:`\tau_1^2`,
 and the :math:`\eta_{2j}` are independent and identically distributed
 with zero mean, and variance :math:`\tau_2^2`.
 
-Statsmodels MixedLM handles most non-crossed random effects models,
+statsmodels MixedLM handles most non-crossed random effects models,
 and some crossed models.  To include crossed random effects in a
 model, it is necessary to treat the entire dataset as a single group.
 The variance components arguments to the model can then be used to
 define models with various combinations of crossed and non-crossed
 random effects.
 
-The Statsmodels LME framework currently supports post-estimation
+The statsmodels LME framework currently supports post-estimation
 inference via Wald tests and confidence intervals on the coefficients,
 profile likelihood analysis, likelihood ratio testing, and AIC.
 
@@ -91,7 +91,7 @@ Examples
 
 Detailed examples can be found here
 
-* `Mixed LM <examples/notebooks/generated/mixed_lm_example.html>`__
+* `Mixed LM <examples/notebooks/generated/mixed_lm_example.ipynb>`_
 
 There are some notebook examples on the Wiki:
 `Wiki notebooks for MixedLM <https://github.com/statsmodels/statsmodels/wiki/Examples#linear-mixed-models>`_
@@ -166,7 +166,7 @@ Lindstrom and Bates.
 The following two documents are written more from the perspective of
 users:
 
-* http://lme4.r-forge.r-project.org/lMMwR/lrgprt.pdf
+* https://r-forge.r-project.org/scm/viewvc.php/*checkout*/www/lMMwR/lrgprt.pdf?revision=949&root=lme4&pathrev=1781
 
 * http://lme4.r-forge.r-project.org/slides/2009-07-07-Rennes/3Longitudinal-4.pdf
 

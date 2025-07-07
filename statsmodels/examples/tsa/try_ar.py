@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 21 21:45:24 2010
 
 Author: josef-pktd
 """
 
-from __future__ import print_function
 import numpy as np
 from scipy import signal
 

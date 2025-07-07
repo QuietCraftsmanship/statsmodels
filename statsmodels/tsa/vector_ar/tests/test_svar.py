@@ -3,8 +3,8 @@ Test SVAR estimation
 """
 from statsmodels.compat.platform import PLATFORM_WIN
 
-from numpy.testing import assert_almost_equal, assert_allclose
 import numpy as np
+from numpy.testing import assert_allclose, assert_almost_equal
 import pytest
 
 import statsmodels.datasets.macrodata
@@ -15,15 +15,15 @@ DECIMAL_5 = 5
 DECIMAL_4 = 4
 
 
-class TestSVAR(object):
+class TestSVAR:
     @classmethod
     def setup_class(cls):
         mdata = statsmodels.datasets.macrodata.load_pandas().data
         mdata = mdata[['realgdp', 'realcons', 'realinv']]
         data = mdata.values
         data = np.diff(np.log(data), axis=0)
-        A = np.asarray([[1, 0, 0], ['E', 1, 0], ['E', 'E', 1]])
-        B = np.asarray([['E', 0, 0], [0, 'E', 0], [0, 0, 'E']])
+        A = np.asarray([[1, 0, 0], ['E', 1, 0], ['E', 'E', 1]], dtype="U")
+        B = np.asarray([['E', 0, 0], [0, 'E', 0], [0, 0, 'E']], dtype="U")
         results = SVAR(data, svar_type='AB', A=A, B=B).fit(maxlags=3)
         cls.res1 = results
         #cls.res2 = results_svar.SVARdataResults()
@@ -74,3 +74,32 @@ class TestSVAR(object):
         # Windows precision limits require non-zero atol
         atol = 1e-6 if PLATFORM_WIN else 1e-8
         assert_allclose(errband1, errband2, rtol=1e-8, atol=atol)
+
+
+def test_oneparam():
+    # regression test, one parameter in A, B, issue #9302
+    np.random.seed(873562)
+    lags = 2
+    nobs = 200
+    y = np.random.randn(nobs, 3)
+    y[1:] += 0.5 * y[:-1]
+    A = np.asarray([[1, "E"], [0, 1.]])
+    # A_guess = np.asarray([[1, 0.2], [0, 1.]])
+    B = np.eye(2, dtype=object)
+
+    k=2
+    model = SVAR(y[:, :k], svar_type="AB", A=A, B=B)
+    model.k_exog_user = 0
+    results = model.fit(maxlags=lags, solver="bfgs")  # "newton")
+    results.k_exog_user = 0
+    results.summary()
+
+    # regression number
+    assert_allclose(results.A[0, 1], -0.075818, atol=1e-5)
+
+    results = model.fit(maxlags=lags, solver="newton")
+    results.k_exog_user = 0
+    results.summary()
+
+    # regression number
+    assert_allclose(results.A[0, 1], -0.075818, atol=1e-5)

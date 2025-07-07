@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """linear model with Theil prior probabilistic restrictions, generalized Ridge
 
 Created on Tue Dec 20 00:10:10 2011
@@ -22,29 +21,23 @@ open issues
 
 
 there is something fishy with the result instance, some things, e.g.
-normalized_cov_params, don't look like they update correctly as we
+normalized_cov_params, do not look like they update correctly as we
 search over lambda -> some stale state again ?
 
 I added df_model to result class using the hatmatrix, but df_model is defined
 in model instance not in result instance. -> not clear where refactoring should
-occur. df_resid doesn't get updated correctly.
+occur. df_resid does not get updated correctly.
 problem with definition of df_model, it has 1 subtracted for constant
 
 
 
 """
-from __future__ import print_function
 from statsmodels.compat.python import lrange
 import numpy as np
+
 from statsmodels.tools.decorators import cache_readonly
 from statsmodels.regression.linear_model import OLS, GLS, RegressionResults
-
-
-def atleast_2dcols(x):
-    x = np.asarray(x)
-    if x.ndim == 1:
-        x = x[:, None]
-    return x
+from statsmodels.regression.feasible_gls import atleast_2dcols
 
 
 class TheilGLS(GLS):
@@ -104,7 +97,7 @@ class TheilGLS(GLS):
 
     Baum, Christopher slides for tgmixed in Stata
 
-    (I don't remember what I used when I first wrote the code.)
+    (I do not remember what I used when I first wrote the code.)
 
     Parameters
     ----------
@@ -126,12 +119,11 @@ class TheilGLS(GLS):
     sigma : None or array_like
         Sigma is the covariance matrix of the error term that is used in the same
         way as in GLS.
-
     """
 
     def __init__(self, endog, exog, r_matrix=None, q_matrix=None,
                  sigma_prior=None, sigma=None):
-        super(TheilGLS, self).__init__(endog, exog, sigma=sigma)
+        super().__init__(endog, exog, sigma=sigma)
 
         if r_matrix is not None:
             r_matrix = np.asarray(r_matrix)
@@ -184,7 +176,7 @@ class TheilGLS(GLS):
         ----------
         pen_weight : float
             penalization factor for the restriction, default is 1.
-        cov_type : string, 'data-prior' or 'sandwich'
+        cov_type : str, 'data-prior' or 'sandwich'
             'data-prior' assumes that the stochastic restriction reflects a
             previous sample. The covariance matrix of the parameter estimate
             is in this case the same form as the one of GLS.
@@ -215,7 +207,6 @@ class TheilGLS(GLS):
 
         The sandwich form of the covariance estimator is not robust to
         misspecified heteroscedasticity or autocorrelation.
-
         """
         lambd = pen_weight
         #this does duplicate transformation, but I need resid not wresid
@@ -265,7 +256,7 @@ class TheilGLS(GLS):
 
         Parameters
         ----------
-        method : string
+        method : str
             the name of an attribute of the results class. Currently the following
             are available aic, aicc, bic, gc and gcv.
         start_params : float
@@ -284,12 +275,11 @@ class TheilGLS(GLS):
         Notes
         -----
         This uses `scipy.optimize.fmin` as optimizer.
-
         """
         if optim_args is None:
             optim_args = {}
 
-        #this doesn't make sense, since number of parameters stays unchanged
+        #this does not make sense, since number of parameters stays unchanged
         # information criteria changes if we use df_model based on trace(hat_matrix)
         #need leave-one-out, gcv; or some penalization for weak priors
         #added extra penalization for lambd
@@ -312,7 +302,7 @@ class TheilGLS(GLS):
 class TheilRegressionResults(RegressionResults):
 
     def __init__(self, *args, **kwds):
-        super(TheilRegressionResults, self).__init__(*args, **kwds)
+        super().__init__(*args, **kwds)
 
         # overwrite df_model and df_resid
         self.df_model = self.hatmatrix_trace() - 1 #assume constant
@@ -342,7 +332,7 @@ class TheilRegressionResults(RegressionResults):
         '''
         # TODO is this still correct with sandwich normalized_cov_params, I guess not
         xpxi = self.model.normalized_cov_params
-        #something fishy with self.normalized_cov_params in result, doesn't update
+        #something fishy with self.normalized_cov_params in result, does not update
         #print(self.model.wexog.shape, np.dot(xpxi, self.model.wexog.T).shape
         return (self.model.wexog * np.dot(xpxi, self.model.wexog.T).T).sum(1)
 
@@ -352,7 +342,7 @@ class TheilRegressionResults(RegressionResults):
         """
         return self.hatmatrix_diag.sum()
 
-##    #this doesn't update df_resid
+##    #this does not update df_resid
 ##    @property   #needs to be property or attribute (no call)
 ##    def df_model(self):
 ##        return self.hatmatrix_trace()
@@ -370,13 +360,15 @@ class TheilRegressionResults(RegressionResults):
     @cache_readonly
     def aicc(self):
         aic = np.log(self.mse_resid) + 1
-        aic += 2 * (1. + self.hatmatrix_trace()) / (self.nobs - self.hatmatrix_trace() -2)
-        return aic
-
+        eff_dof = self.nobs - self.hatmatrix_trace() - 2
+        if eff_dof > 0:
+            adj = 2 * (1. + self.hatmatrix_trace()) / eff_dof
+        else:
+            adj = np.inf
+        return aic + adj
 
     def test_compatibility(self):
         """Hypothesis test for the compatibility of prior mean with data
-
         """
         # TODO: should we store the OLS results ?  not needed so far, but maybe cache
         #params_ols = np.linalg.pinv(self.model.exog).dot(self.model.endog)
@@ -393,7 +385,6 @@ class TheilRegressionResults(RegressionResults):
         # TODO: return results class
         return statistic, pvalue, df
 
-
     def share_data(self):
         """a measure for the fraction of the data in the estimation result
 
@@ -405,7 +396,6 @@ class TheilRegressionResults(RegressionResults):
             share of data defined as the ration between effective degrees of
             freedom of the model and the number (TODO should be rank) of the
             explanatory variables.
-
         """
 
         # this is hatmatrix_trace / self.exog.shape[1]
@@ -426,6 +416,7 @@ def coef_restriction_meandiff(n_coeffs, n_vars=None, position=0):
         full[:, position:position+n_coeffs] = reduced
         return full
 
+
 def coef_restriction_diffbase(n_coeffs, n_vars=None, position=0, base_idx=0):
 
     reduced = -np.eye(n_coeffs)  #make all rows, drop one row later
@@ -442,8 +433,10 @@ def coef_restriction_diffbase(n_coeffs, n_vars=None, position=0, base_idx=0):
         full[:, position:position+n_coeffs] = reduced
         return full
 
+
 def next_odd(d):
     return d + (1 - d % 2)
+
 
 def coef_restriction_diffseq(n_coeffs, degree=1, n_vars=None, position=0, base_idx=0):
     #check boundaries, returns "valid" ?

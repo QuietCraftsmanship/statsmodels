@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 '''
     Using a model built from the the state crime dataset, plot the leverage
     statistics vs. normalized residuals squared.  Observations with
     Large-standardized Residuals will be labeled in the plot.
 '''
 
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
+
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 crime_data = sm.datasets.statecrime.load_pandas()

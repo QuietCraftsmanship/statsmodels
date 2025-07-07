@@ -1,12 +1,10 @@
-from __future__ import division, print_function, absolute_import
-
 import warnings
 
 import numpy as np
 from numpy.polynomial.hermite_e import HermiteE
-from statsmodels.compat.scipy import factorial
-from scipy.stats import rv_continuous
 import scipy.special as special
+from scipy.special import factorial
+from scipy.stats import rv_continuous
 
 # TODO:
 # * actually solve (31) of Blinnikov & Moessner
@@ -22,20 +20,21 @@ _faa_di_bruno_cache = {
 
 
 def _faa_di_bruno_partitions(n):
-    """ Return all non-negative integer solutions of the diophantine equation
+    """
+    Return all non-negative integer solutions of the diophantine equation
 
             n*k_n + ... + 2*k_2 + 1*k_1 = n   (1)
 
     Parameters
     ----------
-    n: int
+    n : int
         the r.h.s. of Eq. (1)
 
     Returns
     -------
-    partitions: a list of solutions of (1). Each solution is itself
-        a list of the form `[(m, k_m), ...]` for non-zero `k_m`.
-        Notice that the index `m` is 1-based.
+    partitions : list
+        Each solution is itself a list of the form `[(m, k_m), ...]`
+        for non-zero `k_m`. Notice that the index `m` is 1-based.
 
     Examples:
     ---------
@@ -43,7 +42,6 @@ def _faa_di_bruno_partitions(n):
     [[(1, 2)], [(2, 1)]]
     >>> for p in _faa_di_bruno_partitions(4):
     ...     assert 4 == sum(m * k for (m, k) in p)
-
     """
     if n < 1:
         raise ValueError("Expected a positive integer; got %s instead" % n)
@@ -60,18 +58,17 @@ def cumulant_from_moments(momt, n):
 
     Parameters
     ----------
-    momt: array_like
+    momt : array_like
         `momt[j]` contains `(j+1)`-th moment.
         These can be raw moments around zero, or central moments
         (in which case, `momt[0]` == 0).
-    n: integer
+    n : int
         which cumulant to calculate (must be >1)
 
     Returns
     -------
-    kappa: float
+    kappa : float
         n-th cumulant.
-
     """
     if n < 1:
         raise ValueError("Expected a positive integer. Got %s instead." % n)
@@ -106,7 +103,7 @@ class ExpandedNormal(rv_continuous):
 
     Parameters
     ----------
-    cum: array_like
+    cum : array_like
         `cum[j]` contains `(j+1)`-th cumulant: cum[0] is the mean,
         cum[1] is the variance and so on.
 
@@ -124,7 +121,7 @@ class ExpandedNormal(rv_continuous):
 
     >>> import matplotlib.pyplot as plt
     >>> from scipy import stats
-    >>> from scipy.misc import factorial
+    >>> from scipy.special import factorial
     >>> df = 12
     >>> chi2_c = [2**(j-1) * factorial(j-1) * df for j in range(1, 5)]
     >>> edgw_chi2 = ExpandedNormal(chi2_c, name='edgw_chi2', momtype=0)
@@ -148,10 +145,9 @@ class ExpandedNormal(rv_continuous):
          specification of distributions, Revue de l'Institut Internat.
          de Statistique. 5: 307 (1938), reprinted in
          R.A. Fisher, Contributions to Mathematical Statistics. Wiley, 1950.
-    .. [*] http://en.wikipedia.org/wiki/Edgeworth_series
+    .. [*] https://en.wikipedia.org/wiki/Edgeworth_series
     .. [*] S. Blinnikov and R. Moessner, Expansions for nearly Gaussian
         distributions, Astron. Astrophys. Suppl. Ser. 130, 193 (1998)
-
     """
     def __init__(self, cum, name='Edgeworth expanded normal', **kwds):
         if len(cum) < 2:
@@ -172,7 +168,7 @@ class ExpandedNormal(rv_continuous):
 
         kwds.update({'name': name,
                      'momtype': 0})   # use pdf, not ppf in self.moment()
-        super(ExpandedNormal, self).__init__(**kwds)
+        super().__init__(**kwds)
 
     def _pdf(self, x):
         y = (x - self._mu) / self._sigma
@@ -192,7 +188,7 @@ class ExpandedNormal(rv_continuous):
         # scale cumulants by \sigma
         mu, sigma = cum[0], np.sqrt(cum[1])
         lam = np.asarray(cum)
-        for j, l in enumerate(lam):
+        for j in range(lam.shape[0]):
             lam[j] /= cum[1]**j
 
         coef = np.zeros(lam.size * 3 - 5)

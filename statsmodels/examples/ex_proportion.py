@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Sun Apr 21 07:59:26 2013
@@ -6,7 +5,6 @@ Created on Sun Apr 21 07:59:26 2013
 Author: Josef Perktold
 """
 
-from __future__ import print_function
 from statsmodels.compat.python import lmap
 import numpy as np
 import matplotlib.pyplot as plt

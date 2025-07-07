@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 F test for null hypothesis that coefficients in several regressions are the same
 
@@ -52,12 +51,12 @@ Created on Sat Mar 27 01:48:01 2010
 Author: josef-pktd
 """
 import numpy as np
-from statsmodels.compat.python import zip
 from scipy import stats
+
 from statsmodels.regression.linear_model import OLS, WLS
 
 
-class OneWayLS(object):
+class OneWayLS:
     '''Class to test equality of regression coefficients across groups
 
     This class performs tests whether the linear regression coefficients are
@@ -95,7 +94,7 @@ class OneWayLS(object):
       (which in turn is verified against NIST for not badly scaled problems)
     * f-test for simple structural break is the same as in original script
     * power and size of test look ok in examples
-    * not checked/verified for heteroscedastic case
+    * not checked/verified for heteroskedastic case
       - for constant only: ftest result is the same with WLS as with OLS - check?
 
     check: I might be mixing up group names (unique)
@@ -294,7 +293,6 @@ class OneWayLS(object):
             summtable = self.summarytable
         else:
             _, summtable = res.ftest_summary()
-        txt = ''
         #print ft[0]  #skip because table is nicer
         templ = \
 '''Table of F-tests for overall or pairwise equality of coefficients'
@@ -319,7 +317,7 @@ Alternative model: all coefficients are allowed to be different'
 not verified but looks close to f-test result'
 
 
-Ols parameters by group from individual, separate ols regressions'
+OLS parameters by group from individual, separate ols regressions'
 %(olsbg)s
 for group in sorted(res.olsbygroup):
     r = res.olsbygroup[group]
@@ -335,7 +333,7 @@ standard dev', np.sqrt(res.sigmabygroup)
 
         from statsmodels.iolib import SimpleTable
         resvals = {}
-        resvals['tab'] = str(SimpleTable([(['%r' % (row[0],)]
+        resvals['tab'] = str(SimpleTable([([f'{row[0]!r}']
                             + list(row[1])
                             + ['*']*(row[1][1]>0.5).item() ) for row in summtable],
                           headers=['pair', 'F-statistic','p-value','df_denom',

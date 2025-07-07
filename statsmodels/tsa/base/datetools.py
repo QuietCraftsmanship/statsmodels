@@ -1,13 +1,13 @@
 """
 Tools for working with dates
 """
-from statsmodels.compat.python import (lrange, lzip, lmap,
-                                       asstr, zip, map)
-import re
-import datetime
+from statsmodels.compat.python import asstr, lmap, lrange, lzip
 
-from pandas import to_datetime
+import datetime
+import re
+
 import numpy as np
+from pandas import to_datetime
 
 _quarter_to_day = {
         "1" : (3, 31),
@@ -107,7 +107,7 @@ def date_range_str(start, end=None, length=None):
         List of strings
     """
     flags = re.IGNORECASE | re.VERBOSE
-    #_check_range_inputs(end, length, freq)
+
     start = start.lower()
     if re.search(_m_pattern, start, flags):
         annual_freq = 12
@@ -127,21 +127,24 @@ def date_range_str(start, end=None, length=None):
     if end is not None:
         end = end.lower()
         yr2, offset2 = lmap(int, end.replace(":","").split(split))
-        length = (yr2 - yr1) * annual_freq + offset2
-    elif length:
+    else:  # length > 0
+        if not length:
+            raise ValueError("length must be provided if end is None")
         yr2 = yr1 + length // annual_freq
         offset2 = length % annual_freq + (offset1 - 1)
-    years = np.repeat(lrange(yr1+1, yr2), annual_freq).tolist()
-    years = np.r_[[str(yr1)]*(annual_freq+1-offset1), years] # tack on first year
-    years = np.r_[years, [str(yr2)]*offset2] # tack on last year
+    years = [str(yr) for yr in np.repeat(lrange(yr1 + 1, yr2), annual_freq)]
+    # tack on first year
+    years = [(str(yr1))] * (annual_freq + 1 - offset1) + years
+    # tack on last year
+    years = years + [(str(yr2))] * offset2
     if split != 'a':
-        offset = np.tile(np.arange(1, annual_freq+1), yr2-yr1-1)
-        offset = np.r_[np.arange(offset1, annual_freq+1).astype('a2'), offset]
-        offset = np.r_[offset, np.arange(1,offset2+1).astype('a2')]
-        date_arr_range = [''.join([i, split, asstr(j)]) for i,j in
-                                                        zip(years, offset)]
+        offset = np.tile(np.arange(1, annual_freq + 1), yr2 - yr1 - 1).astype("S2")
+        offset = np.r_[np.arange(offset1, annual_freq + 1).astype('S2'), offset]
+        offset = np.r_[offset, np.arange(1, offset2 + 1).astype('S2')]
+        date_arr_range = [''.join([i, split, asstr(j)])
+                          for i, j in zip(years, offset)]
     else:
-        date_arr_range = years.tolist()
+        date_arr_range = years
     return date_arr_range
 
 
@@ -151,14 +154,14 @@ def dates_from_str(dates):
 
     Parameters
     ----------
-    dates : array-like
+    dates : array_like
         A sequence of abbreviated dates as string. For instance,
         '1996m1' or '1996Q1'. The datetime dates are at the end of the
         period.
 
     Returns
     -------
-    date_list : array
+    date_list : ndarray
         A list of datetime types.
     """
     return lmap(date_parser, dates)
@@ -181,12 +184,13 @@ def dates_from_range(start, end=None, length=None):
     --------
     >>> import statsmodels.api as sm
     >>> import pandas as pd
+    >>> nobs = 50
     >>> dates = pd.date_range('1960m1', length=nobs)
 
 
     Returns
     -------
-    date_list : array
+    date_list : ndarray
         A list of datetime types.
     """
     dates = date_range_str(start, end, length)

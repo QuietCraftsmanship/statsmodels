@@ -6,7 +6,7 @@ This script checks Gaussian models.
 See the generated file "gee_gaussian_simulation_check.txt" for
 results.
 """
-from statsmodels.compat.python import range, lrange, zip
+from statsmodels.compat.python import lrange
 import scipy
 import numpy as np
 from itertools import product
@@ -14,7 +14,7 @@ from statsmodels.genmod.families import Gaussian
 from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.genmod.cov_struct import Autoregressive, Nested
 
-class GEE_simulator(object):
+class GEE_simulator:
 
     #
     # Parameters that must be defined
@@ -245,7 +245,7 @@ if __name__ == "__main__":
         # older numpy versions do not have formatter option
         pass
 
-    OUT = open("gee_gaussian_simulation_check.txt", "w")
+    OUT = open("gee_gaussian_simulation_check.txt", "w", encoding="utf-8")
 
     nrep = 100
 

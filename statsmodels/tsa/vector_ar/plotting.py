@@ -1,9 +1,11 @@
-from statsmodels.compat.python import lrange, range
+from statsmodels.compat.python import lrange
+
 import numpy as np
+
 import statsmodels.tsa.vector_ar.util as util
 
 
-class MPLConfigurator(object):
+class MPLConfigurator:
 
     def __init__(self):
         self._inverse_actions = []
@@ -69,12 +71,12 @@ def plot_var_forc(prior, forc, err_upper, err_lower,
     for j in range(k):
         ax = plt.subplot(rows, cols, j+1)
 
-        p1 = ax.plot(prange, prior[:, j], 'k', label='Observed')
-        p2 = ax.plot(rng_f, np.r_[prior[-1:, j], forc[:, j]], 'k--',
+        ax.plot(prange, prior[:, j], 'k', label='Observed')
+        ax.plot(rng_f, np.r_[prior[-1:, j], forc[:, j]], 'k--',
                      label='Forecast')
 
         if plot_stderr:
-            p3 = ax.plot(rng_err, err_upper[:, j], 'k-.',
+            ax.plot(rng_err, err_upper[:, j], 'k-.',
                          label='Forc 2 STD err')
             ax.plot(rng_err, err_lower[:, j], 'k-.')
 
@@ -96,7 +98,6 @@ def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
     ----------
     y :
     error : array or None
-
     """
     import matplotlib.pyplot as plt
 
@@ -104,7 +105,10 @@ def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
         axes = plt.gca()
 
     x = x if x is not None else lrange(len(y))
-    plot_action = lambda y, fmt: axes.plot(x, y, fmt)
+
+    def plot_action(y, fmt):
+        return axes.plot(x, y, fmt)
+
     plot_action(y, value_fmt)
 
     #changed this
@@ -124,9 +128,6 @@ def plot_full_acorr(acorr, fontsize=8, linewidth=8, xlabel=None,
 
     Parameters
     ----------
-
-
-
     """
     import matplotlib.pyplot as plt
 

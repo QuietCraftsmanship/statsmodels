@@ -1,11 +1,10 @@
 .. module:: statsmodels
    :synopsis: Statistical analysis in Python
 
-
 .. currentmodule:: statsmodels
 
 *****************
-About Statsmodels
+About statsmodels
 *****************
 
 Background
@@ -44,17 +43,29 @@ adjust the user interface as we gain more experience and obtain feedback.
 These changes will always be noted in our release notes available in the
 documentation.
 
+Reporting Bugs
+^^^^^^^^^^^^^^
+If you encounter a bug or an unexpected behavior, please report it on
+`the issue tracker <https://github.com/statsmodels/statsmodels/issues>`_.
+Use the ``show_versions`` command to list the installed versions of
+statsmodels and its dependencies.
+
+.. autosummary::
+   :toctree: generated/
+
+   ~tools.print_version.show_versions
+
+
 Financial Support
 -----------------
 
 We are grateful for the financial support that we obtained for the
 development of statsmodels:
 
- Google `www.google.com <https://www.google.com/>`_ : Google Summer of Code
- (GSOC) 2009-2017.
-
- AQR `www.aqr.com <https://www.aqr.com/>`_ : financial sponsor for the work on
- Vector Autoregressive Models (VAR) by Wes McKinney
+* Google `www.google.com <https://www.google.com/>`_ : Google Summer of Code
+  (GSOC) 2009-2017.
+* AQR `www.aqr.com <https://www.aqr.com/>`_ : financial sponsor for the work on
+  Vector Autoregressive Models (VAR) by Wes McKinney
 
 We would also like to thank our hosting providers, `github
 <https://github.com/>`_ for the public code repository, `github.io
@@ -62,7 +73,79 @@ We would also like to thank our hosting providers, `github
 and `python.org <https://www.python.org/>`_ for making our downloads available
 on PyPi.
 
-We also thank our continuous integration providers,
+We also thank our current and previous continuous integration providers, `Azure <https://azure.microsoft.com/>`_,
 `Travis CI <https://travis-ci.org/>`_ and `AppVeyor <https://ci.appveyor.com>`_ for
 unit testing, and `Codecov <https://codecov.io>`_ and `Coveralls <https://coveralls.io>`_ for
 code coverage.
+
+Brand Marks
+-----------
+
+Please make use of the statsmodels logos when preparing demonstrations involving
+statsmodels code.
+
+Color
+^^^^^
+
++----------------+---------------------+
+| Horizontal     | |color-horizontal|  |
++----------------+---------------------+
+| Vertical       | |color-vertical|    |
++----------------+---------------------+
+| Logo Only      | |color-notext|      |
++----------------+---------------------+
+
+Monochrome (Dark)
+^^^^^^^^^^^^^^^^^
+
++----------------+---------------------+
+| Horizontal     | |dark-horizontal|   |
++----------------+---------------------+
+| Vertical       | |dark-vertical|     |
++----------------+---------------------+
+| Logo Only      | |dark-notext|       |
++----------------+---------------------+
+
+Monochrome (Light)
+^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+   The light brand marks are light grey on transparent, and so are difficult to see on this
+   page. They are intended for use on a dark background.
+
+
++----------------+---------------------+
+| Horizontal     | |light-horizontal|  |
++----------------+---------------------+
+| Vertical       | |light-vertical|    |
++----------------+---------------------+
+| Logo Only      | |light-notext|      |
++----------------+---------------------+
+
+.. |color-horizontal| image:: images/statsmodels-logo-v2-horizontal.svg
+   :width: 50%
+
+.. |color-vertical| image:: images/statsmodels-logo-v2.svg
+   :width: 14%
+
+.. |color-notext| image:: images/statsmodels-logo-v2-no-text.svg
+   :width: 9%
+
+.. |dark-horizontal| image:: images/statsmodels-logo-v2-horizontal-dark.svg
+   :width: 50%
+
+.. |dark-vertical| image:: images/statsmodels-logo-v2-dark.svg
+   :width: 14%
+
+.. |dark-notext| image:: images/statsmodels-logo-v2-no-text-dark.svg
+   :width: 9%
+
+.. |light-horizontal| image:: images/statsmodels-logo-v2-horizontal-light.svg
+   :width: 50%
+
+.. |light-vertical| image:: images/statsmodels-logo-v2-light.svg
+   :width: 14%
+
+.. |light-notext| image:: images/statsmodels-logo-v2-no-text-light.svg
+   :width: 9%

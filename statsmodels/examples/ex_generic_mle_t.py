@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Jul 28 08:28:04 2010
 
@@ -6,10 +5,9 @@ Author: josef-pktd
 """
 
 
-from __future__ import print_function
 import numpy as np
-
 from scipy import special
+
 import statsmodels.api as sm
 from statsmodels.base.model import GenericLikelihoodModel
 from statsmodels.tools.numdiff import approx_hess
@@ -51,7 +49,7 @@ class MyT(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -59,7 +57,7 @@ class MyT(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
+        -----
         .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
         #print len(params),
@@ -252,7 +250,7 @@ array([ 31.93524822,  22.0333515 ,          NaN,  29.90198792,
 Traceback (most recent call last):
   [...]
     raise LinAlgError, 'Singular matrix'
-numpy.linalg.linalg.LinAlgError: Singular matrix
+numpy.linalg.LinAlgError: Singular matrix
 >>> resp.params
 array([  1.58253308e-01,   1.73188603e-01,   1.77357447e-01,
          2.06707494e-02,  -1.31174789e-01,   8.79915580e-01,

@@ -13,13 +13,13 @@ changes to code by josef-pktd:
 
 """
 
-from statsmodels.compat.python import range, lrange
+from statsmodels.compat.python import lrange
 import numpy as np
 from itertools import combinations
 
 
 ################################################################################
-class LeaveOneOut(object):
+class LeaveOneOut:
     """
     Leave-One-Out cross validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -56,7 +56,7 @@ class LeaveOneOut(object):
     def __iter__(self):
         n = self.n
         for i in range(n):
-            test_index  = np.zeros(n, dtype=np.bool)
+            test_index  = np.zeros(n, dtype=bool)
             test_index[i] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
@@ -71,11 +71,10 @@ class LeaveOneOut(object):
 
 
 ################################################################################
-class LeavePOut(object):
+class LeavePOut:
     """
     Leave-P-Out cross validation iterator:
     Provides train/test indexes to split data in train test sets
-
     """
 
     def __init__(self, n, p):
@@ -115,7 +114,7 @@ class LeavePOut(object):
         p = self.p
         comb = combinations(lrange(n), p)
         for idx in comb:
-            test_index = np.zeros(n, dtype=np.bool)
+            test_index = np.zeros(n, dtype=bool)
             test_index[np.array(idx)] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
@@ -131,7 +130,7 @@ class LeavePOut(object):
 
 
 ################################################################################
-class KFold(object):
+class KFold:
     """
     K-Folds cross validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -177,7 +176,7 @@ class KFold(object):
         j = int(np.ceil(n/k))
 
         for i in range(k):
-            test_index  = np.zeros(n, dtype=np.bool)
+            test_index  = np.zeros(n, dtype=bool)
             if i<k-1:
                 test_index[i*j:(i+1)*j] = True
             else:
@@ -196,7 +195,7 @@ class KFold(object):
 
 
 ################################################################################
-class LeaveOneLabelOut(object):
+class LeaveOneLabelOut:
     """
     Leave-One-Label_Out cross-validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -232,7 +231,6 @@ class LeaveOneLabelOut(object):
         [[1 2]
         [3 4]] [[5 6]
         [7 8]] [1 2] [1 2]
-
         """
         self.labels = labels
 
@@ -241,14 +239,14 @@ class LeaveOneLabelOut(object):
         # We make a copy here to avoid side-effects during iteration
         labels = np.array(self.labels, copy=True)
         for i in np.unique(labels):
-            test_index  = np.zeros(len(labels), dtype=np.bool)
+            test_index  = np.zeros(len(labels), dtype=bool)
             test_index[labels==i] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
 
 
     def __repr__(self):
-        return '%s.%s(labels=%s)' % (
+        return '{}.{}(labels={})'.format(
                                 self.__class__.__module__,
                                 self.__class__.__name__,
                                 self.labels,
@@ -281,7 +279,7 @@ possible to add other arrays of the same shape[0] too
 ################################################################################
 #below: Author: josef-pktd
 
-class KStepAhead(object):
+class KStepAhead:
     """
     KStepAhead cross validation iterator:
     Provides fit/test indexes to split data in sequential sets
@@ -300,14 +298,14 @@ class KStepAhead(object):
             number of steps ahead
         start : int
             initial size of data for fitting
-        kall : boolean
+        kall : bool
             if true. all values for up to k-step ahead are included in the test index.
             If false, then only the k-th step ahead value is returnd
 
 
         Notes
         -----
-        I don't think this is really useful, because it can be done with
+        I do not think this is really useful, because it can be done with
         a very simple loop instead.
         Useful as a plugin, but it could return slices instead for faster array access.
 
@@ -350,9 +348,9 @@ class KStepAhead(object):
 
         else: #for compatibility with other iterators
             for i in range(start, n-k):
-                train_index  = np.zeros(n, dtype=np.bool)
+                train_index  = np.zeros(n, dtype=bool)
                 train_index[:i] = True
-                test_index  = np.zeros(n, dtype=np.bool)
+                test_index  = np.zeros(n, dtype=bool)
                 if self.kall:
                     test_index[i:i+k] = True # np.logical_not(test_index)
                 else:

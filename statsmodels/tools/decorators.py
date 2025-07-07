@@ -1,5 +1,6 @@
-from __future__ import print_function
 from statsmodels.tools.sm_exceptions import CacheWriteWarning
+from statsmodels.compat.pandas import cache_readonly as PandasCacheReadonly
+
 import warnings
 
 __all__ = ['cache_readonly', 'cache_writable', 'deprecated_alias',
@@ -7,8 +8,9 @@ __all__ = ['cache_readonly', 'cache_writable', 'deprecated_alias',
 
 
 class ResettableCache(dict):
+    """DO NOT USE. BACKWARD COMPAT ONLY"""
     def __init__(self, *args, **kwargs):
-        super(ResettableCache, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.__dict__ = self
 
 
@@ -42,7 +44,7 @@ def deprecated_alias(old_name, new_name, remove_version=None, msg=None,
     Instances of the `Foo` class have a `nvars` attribute, but it _should_
     be called `neqs`:
 
-    class Foo(object):
+    class Foo:
         nvars = deprecated_alias('nvars', 'neqs')
         def __init__(self, neqs):
             self.neqs = neqs
@@ -54,7 +56,7 @@ def deprecated_alias(old_name, new_name, remove_version=None, msg=None,
     """
 
     if msg is None:
-        msg = '%s is a deprecated alias for %s' % (old_name, new_name)
+        msg = f'{old_name} is a deprecated alias for {new_name}'
         if remove_version is not None:
             msg += ', will be removed in version %s' % remove_version
 
@@ -70,7 +72,7 @@ def deprecated_alias(old_name, new_name, remove_version=None, msg=None,
     return res
 
 
-class CachedAttribute(object):
+class CachedAttribute:
 
     def __init__(self, func, cachename=None):
         self.fget = func
@@ -121,9 +123,6 @@ class _cache_readonly(property):
                                cachename=self.cachename)
 
 
-cache_readonly = _cache_readonly()
-
-
 class cache_writable(_cache_readonly):
     """
     Decorator for CachedWritableAttribute
@@ -133,6 +132,19 @@ class cache_writable(_cache_readonly):
                                        cachename=self.cachename)
 
 
-def nottest(fn):
-    fn.__test__ = False
-    return fn
+# Use pandas since it works with docs correctly
+cache_readonly = PandasCacheReadonly
+# cached_value and cached_data behave identically to cache_readonly, but
+# are used by `remove_data` to
+#   a) identify array-like attributes to remove (cached_data)
+#   b) make sure certain values are evaluated before caching (cached_value)
+# TODO: Disabled since the subclasses break doc strings
+# class cached_data(PandasCacheReadonly):
+#     pass
+
+cached_data = PandasCacheReadonly
+
+# class cached_value(PandasCacheReadonly):
+#     pass
+
+cached_value = PandasCacheReadonly

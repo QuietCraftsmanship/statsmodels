@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Testing GLSAR against STATA
 
 Created on Wed May 30 09:25:24 2012
@@ -14,15 +13,16 @@ from statsmodels.tools.tools import add_constant
 from statsmodels.datasets import macrodata
 
 
-class CheckStataResultsMixin(object):
+class CheckStataResultsMixin:
 
     def test_params_table(self):
         res, results = self.res, self.results
         assert_almost_equal(res.params, results.params, 3)
         assert_almost_equal(res.bse, results.bse, 3)
-        #assert_almost_equal(res.tvalues, results.tvalues, 3) 0.0003
+        # assert_almost_equal(res.tvalues, results.tvalues, 3) 0.0003
         assert_allclose(res.tvalues, results.tvalues, atol=0, rtol=0.004)
         assert_allclose(res.pvalues, results.pvalues, atol=1e-7, rtol=0.004)
+
 
 class CheckStataResultsPMixin(CheckStataResultsMixin):
 
@@ -31,8 +31,9 @@ class CheckStataResultsPMixin(CheckStataResultsMixin):
         assert_allclose(res.fittedvalues, results.fittedvalues, rtol=0.002)
         predicted = res.predict(res.model.exog) #should be equal
         assert_allclose(predicted, results.fittedvalues, rtol=0.0016)
-        #not yet
-        #assert_almost_equal(res.fittedvalues_se, results.fittedvalues_se, 4)
+        # not yet
+        # assert_almost_equal(res.fittedvalues_se, results.fittedvalues_se, 4)
+
 
 class TestGLSARCorc(CheckStataResultsPMixin):
 
@@ -54,19 +55,18 @@ class TestGLSARCorc(CheckStataResultsPMixin):
 
         assert_almost_equal(self.res.llf, self.results.ll, 4)
 
-
     def test_glsar_arima(self):
-        from statsmodels.tsa.arima_model import ARMA
+        from statsmodels.tsa.arima.model import ARIMA
 
         endog = self.res.model.endog
         exog = self.res.model.exog
         mod1 = GLSAR(endog, exog, 3)
         res = mod1.iterative_fit(10)
-        mod_arma = ARMA(endog, order=(3,0), exog=exog[:, :-1])
-        res_arma = mod_arma.fit(method='css', iprint=0, disp=0)
-        assert_allclose(res.params, res_arma.params[[1,2,0]], atol=0.01, rtol=1e-3)
-        assert_allclose(res.model.rho, res_arma.params[3:], atol=0.05, rtol=1e-3)
-        assert_allclose(res.bse, res_arma.bse[[1,2,0]], atol=0.015, rtol=1e-3)
+        mod_arma = ARIMA(endog, order=(3,0,0), exog=exog[:, :-1])
+        res_arma = mod_arma.fit()
+        assert_allclose(res.params, res_arma.params[[1,2,0]], atol=0.01, rtol=1e-2)
+        assert_allclose(res.model.rho, res_arma.params[3:6], atol=0.05, rtol=1e-3)
+        assert_allclose(res.bse, res_arma.bse[[1,2,0]], atol=0.1, rtol=1e-3)
 
         assert_equal(len(res.history['params']), 5)
         # this should be identical, history has last fit
@@ -75,7 +75,6 @@ class TestGLSARCorc(CheckStataResultsPMixin):
         res2 = mod1.iterative_fit(4, rtol=0)
         assert_equal(len(res2.history['params']), 4)
         assert_equal(len(res2.history['rho']), 4)
-
 
     def test_glsar_iter0(self):
         endog = self.res.model.endog
@@ -86,13 +85,8 @@ class TestGLSARCorc(CheckStataResultsPMixin):
         res1 = mod1.fit()
         res0 = mod1.iterative_fit(0)
         res0b = mod1.iterative_fit(1)
-        # check iterative_fit(0) or iterative_fit(1) doesn't update rho
+        # check iterative_fit(0) or iterative_fit(1) does not update rho
         assert_allclose(res0.params, res1.params, rtol=1e-11)
         assert_allclose(res0b.params, res1.params, rtol=1e-11)
         assert_allclose(res0.model.rho, rho, rtol=1e-11)
         assert_allclose(res0b.model.rho, rho, rtol=1e-11)
-
-
-if __name__=="__main__":
-    import pytest
-    pytest.main([__file__, '-vvs', '-x', '--pdb'])

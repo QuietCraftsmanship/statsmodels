@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Jul 26 08:34:59 2010
 
@@ -18,7 +17,7 @@ Issues
   -> hessian inverts and bse look ok if row and column are dropped, pinv also works
 * GenericMLE: still get somewhere (where?)
    "CacheWriteWarning: The attribute 'bse' cannot be overwritten"
-* bfgs is too fragile, doesn't come back
+* bfgs is too fragile, does not come back
 * `nm` is slow but seems to work
 * need good start_params and their use in genericmle needs to be checked for
   consistency, set as attribute or method (called as attribute)
@@ -28,10 +27,9 @@ Issues
 
 
 """
-from __future__ import print_function
 import numpy as np
 from scipy import stats
-from statsmodels.compat.scipy import factorial
+from scipy.special import factorial
 from statsmodels.base.model import GenericLikelihoodModel
 
 
@@ -40,6 +38,7 @@ def maxabs(arr1, arr2):
 
 def maxabsrel(arr1, arr2):
     return np.max(np.abs(arr2 / arr1 - 1))
+
 
 class NonlinearDeltaCov(object):
     '''Asymptotic covariance by Deltamethod
@@ -63,8 +62,8 @@ class NonlinearDeltaCov(object):
         if params is None:
             params = self.params
         kwds.setdefault('epsilon', 1e-4)
-        from statsmodels.tools.numdiff import approx_fprime
-        return approx_fprime(params, self.fun, **kwds)
+        from statsmodels.sandbox.regression.numdiff import approx_fprime1
+        return approx_fprime1(params, self.fun, **kwds)
 
     def cov(self):
         g = self.grad()
@@ -77,11 +76,12 @@ class NonlinearDeltaCov(object):
 
     def wald(self, value):
         m = self.expected()
-        v = self.cov()
+        v = np.atleast_2d(self.cov())
         df = np.size(m)
         diff = m - value
         lmstat = np.dot(np.dot(diff.T, np.linalg.inv(v)), diff)
         return lmstat, stats.chi2.sf(lmstat, df)
+
 
 
 
@@ -106,7 +106,7 @@ class PoissonGMLE(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -114,7 +114,7 @@ class PoissonGMLE(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
+        -----
         .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
         XB = np.dot(self.exog, params)
@@ -158,10 +158,10 @@ class PoissonOffsetGMLE(GenericLikelihoodModel):
             self.offset = offset.ravel()
         else:
             self.offset = 0.
-        super(PoissonOffsetGMLE, self).__init__(endog, exog, missing=missing,
+        super().__init__(endog, exog, missing=missing,
                 **kwds)
 
-#this was added temporarily for bug-hunting, but shouldn't be needed
+#this was added temporarily for bug-hunting, but should not be needed
 #    def loglike(self, params):
 #        return -self.nloglikeobs(params).sum(0)
 
@@ -172,7 +172,7 @@ class PoissonOffsetGMLE(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -180,7 +180,7 @@ class PoissonOffsetGMLE(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
+        -----
         .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
 
@@ -206,9 +206,9 @@ class PoissonZiGMLE(GenericLikelihoodModel):
 
     def __init__(self, endog, exog=None, offset=None, missing='none', **kwds):
         # let them be none in case user wants to use inheritance
-
-        super(PoissonZiGMLE, self).__init__(endog, exog, missing=missing,
-                **kwds)
+        self.k_extra = 1
+        super().__init__(endog, exog, missing=missing,
+                extra_params_names=["zi"], **kwds)
         if offset is not None:
             if offset.ndim == 1:
                 offset = offset[:,None] #need column
@@ -222,9 +222,12 @@ class PoissonZiGMLE(GenericLikelihoodModel):
         self.nparams = self.exog.shape[1]
         #what's the shape in regression for exog if only constant
         self.start_params = np.hstack((np.ones(self.nparams), 0))
+        # need to add zi params to nparams
+        self.nparams += 1
         self.cloneattr = ['start_params']
-        #needed for t_test and summary
-        self.exog_names.append('zi')
+        # needed for t_test and summary
+        # Note: no added to super __init__ which also adjusts df_resid
+        # self.exog_names.append('zi')
 
 
     # original copied from discretemod.Poisson
@@ -234,7 +237,7 @@ class PoissonZiGMLE(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -242,7 +245,7 @@ class PoissonZiGMLE(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
+        -----
         .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
         beta = params[:-1]
@@ -255,3 +258,92 @@ class PoissonZiGMLE(GenericLikelihoodModel):
         nloglik[endog==0] = - np.log(gamm + np.exp(-nloglik[endog==0]))
 
         return nloglik
+
+
+
+
+if __name__ == '__main__':
+
+    #Example:
+    np.random.seed(98765678)
+    nobs = 1000
+    rvs = np.random.randn(nobs,6)
+    data_exog = rvs
+    data_exog = sm.add_constant(data_exog)
+    xbeta = 1 + 0.1*rvs.sum(1)
+    data_endog = np.random.poisson(np.exp(xbeta))
+    #print data_endog
+
+    modp = PoissonGMLE(data_endog, data_exog)
+    resp = modp.fit()
+    print resp.params
+    print resp.bse
+
+
+    from statsmodels.discrete.discrete_model import Poisson
+    resdp = Poisson(data_endog, data_exog).fit()
+    print '\ncompare with discretemod'
+    print 'compare params'
+    print resdp.params - resp.params
+    print 'compare bse'
+    print resdp.bse - resp.bse
+
+    gmlp = sm.GLM(data_endog, data_exog, family=sm.families.Poisson())
+    resgp = gmlp.fit()
+    ''' this creates a warning, bug bse is double defined ???
+    c:\josef\eclipsegworkspace\statsmodels-josef-experimental-gsoc\scikits\statsmodels\decorators.py:105: CacheWriteWarning: The attribute 'bse' cannot be overwritten
+      warnings.warn(errmsg, CacheWriteWarning)
+    '''
+    print '\ncompare with GLM'
+    print 'compare params'
+    print resgp.params - resp.params
+    print 'compare bse'
+    print resgp.bse - resp.bse
+
+    lam = np.exp(np.dot(data_exog, resp.params))
+    '''mean of Poisson distribution'''
+    predmean = stats.poisson.stats(lam,moments='m')
+    print np.max(np.abs(predmean - lam))
+
+    fun = lambda params: np.exp(np.dot(data_exog.mean(0), params))
+
+    lamcov = NonlinearDeltaCov(fun, resp.params, resdp.cov_params())
+    print lamcov.cov().shape
+    print lamcov.cov()
+
+    print 'analytical'
+    xm = data_exog.mean(0)
+    print np.dot(np.dot(xm, resdp.cov_params()), xm.T) * \
+            np.exp(2*np.dot(data_exog.mean(0), resp.params))
+
+    ''' cov of linear transformation of params
+    >>> np.dot(np.dot(xm, resdp.cov_params()), xm.T)
+    0.00038904130127582825
+    >>> resp.cov_params(xm)
+    0.00038902428119179394
+    >>> np.dot(np.dot(xm, resp.cov_params()), xm.T)
+    0.00038902428119179394
+    '''
+
+    print lamcov.wald(1.)
+    print lamcov.wald(2.)
+    print lamcov.wald(2.6)
+
+    do_bootstrap = False
+    if do_bootstrap:
+        m,s,r = resp.bootstrap(method='newton')
+        print m
+        print s
+        print resp.bse
+
+
+    print '\ncomparison maxabs, masabsrel'
+    print 'discr params', maxabs(resdp.params, resp.params), maxabsrel(resdp.params, resp.params)
+    print 'discr bse   ', maxabs(resdp.bse, resp.bse), maxabsrel(resdp.bse, resp.bse)
+    print 'discr bsejac', maxabs(resdp.bse, resp.bsejac), maxabsrel(resdp.bse, resp.bsejac)
+    print 'discr bsejhj', maxabs(resdp.bse, resp.bsejhj), maxabsrel(resdp.bse, resp.bsejhj)
+    print
+    print 'glm params  ', maxabs(resdp.params, resp.params), maxabsrel(resdp.params, resp.params)
+    print 'glm bse     ', maxabs(resdp.bse, resp.bse), maxabsrel(resdp.bse, resp.bse)
+
+

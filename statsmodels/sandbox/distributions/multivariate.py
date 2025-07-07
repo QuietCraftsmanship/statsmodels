@@ -14,7 +14,6 @@ Reference:
 Genz and Bretz for formula
 
 '''
-from __future__ import print_function
 import numpy as np
 from scipy import integrate, stats, special
 from scipy.stats import chi
@@ -111,7 +110,7 @@ def multivariate_t_rvs(m, S, df=np.inf, n=1):
     m = np.asarray(m)
     d = len(m)
     if df == np.inf:
-        x = 1.
+        x = np.ones(n)
     else:
         x = np.random.chisquare(df, n)/df
     z = np.random.multivariate_normal(np.zeros(d),S,(n,))

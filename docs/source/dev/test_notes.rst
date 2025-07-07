@@ -7,14 +7,21 @@ Setting up development environment locally
 ------------------------------------------
 Follow our :ref:`installation instructions <install>` and set up a suitable
 environment to build statsmodels from source. We recommend that you develop
-using a development install of statsmodels::
+using a development install of statsmodels in a `venv` by running:
 
-    python setup.py develop
+.. code-block:: bash
 
-This will compile the C code and add statsmodels to your activate python
-environment by creating links from your python environemnt's libraries
+    python -m venv .venv
+    python -m pip install -e ".[develop]"
+
+from the root directory of the git repository. The flag ``-e`` is for editable.
+
+This command compiles the C code and add statsmodels to your activate python
+environment by creating links from your python environment's libraries
 to the statsmodels source code. Therefore, changes to pure python code will
-be immediately available to the user without a re-install.
+be immediately available to the user without a re-install. Changes to C code or
+Cython code require rerunning ``python -m pip install -e ".[develop]"`` before these changes are
+available.
 
 Test Driven Development
 -----------------------
@@ -24,27 +31,17 @@ tests versus an existing statistical package, if possible.
 
 Introduction to pytest
 ----------------------
-Like many packages, statsmodels uses the `pytest testing system <https://docs.pytest.org/en/latest/contents.html>`__ and the convenient extensions in `numpy.testing <http://docs.scipy.org/doc/numpy/reference/routines.testing.html>`__.  Pytest will find any file, directory, function, or class name that starts with ``test`` or ``Test`` (classes only). Test function should start with ``test``, test classes should start with ``Test``. These functions and classes should be placed in files with names beginning with ``test`` in a directory called ``tests``.
+Like many packages, statsmodels uses the `pytest testing system <https://docs.pytest.org/en/latest/contents.html>`__ and the convenient extensions in `numpy.testing <https://docs.scipy.org/doc/numpy/reference/routines.testing.html>`__.  Pytest will find any file, directory, function, or class name that starts with ``test`` or ``Test`` (classes only). Test function should start with ``test``, test classes should start with ``Test``. These functions and classes should be placed in files with names beginning with ``test`` in a directory called ``tests``.
 
 .. _run-tests:
 
-Running the Test Suite
-----------------------
+Running Tests
+-------------
+Test are run from the command line by calling ``pytest``. Directly running tests using
+pytest requires that statsmodels is installed using ``python -m pip install -e ".[develop]"`` as described
+above.
 
-You can run all the tests by::
-
-    >>> import statsmodels.api as sm
-    >>> sm.test()
-
-You can test submodules by::
-
-    >>> sm.discrete.test()
-
-
-Running Tests using the command line
-------------------------------------
-Test can also be run from the command line by calling ``pytest``.  Tests can be run
-at different levels:
+Tests can be run at different levels of granularity:
 
 * Project level, which runs all tests.  Running the entire test suite is slow
   and normally this would only be needed if making deep changes to statsmodels.
@@ -81,7 +78,7 @@ at different levels:
 
 How To Write A Test
 -------------------
-NumPy provides a good introduction to unit testing with pytest and NumPy extensions `here <https://github.com/numpy/numpy/blob/master/doc/TESTS.rst.txt>`__. It is worth a read for some more details.
+NumPy provides a good introduction to unit testing with pytest and NumPy extensions `here <https://github.com/numpy/numpy/blob/main/doc/TESTS.rst.txt>`__. It is worth a read for some more details.
 Here, we will document a few conventions we follow that are worth mentioning. Often we want to test
 a whole model at once rather than just one function, for example. The following is a pared down
 version test_discrete.py. In this case, several different models with different options need to be
@@ -158,3 +155,60 @@ It is up to you how best to structure the results. In the discrete model example
 that there are result classes based around particular datasets with a method for loading different
 model results for that dataset. You can also include text files that hold results to be loaded by
 results classes if it is easier than putting them in the class itself.
+
+Speeding up full runs
+---------------------
+Running the full test suite is slow. Fortunately it is only necessary to run the full suite when
+making low-level changes (e.g., to ``statsmodels.base``) There are two methods available to
+speed up runs of the full test suite when needed.
+
+* Use the pytest-xdist package
+
+.. code-block:: bash
+
+   python -m pip install pytest-xdist
+   export MKL_NUM_THREADS=1
+   export OMP_NUM_THREADS=1
+   pytest -n auto statsmodels
+
+* Skip slow tests using ``--skip-slow``
+
+.. code-block:: bash
+
+   pytest --skip-slow statsmodels
+
+
+You can combine these two approaches for faster runs.
+
+.. code-block:: bash
+
+   export MKL_NUM_THREADS=1 && export OMP_NUM_THREADS=1
+   pytest -n auto --skip-slow statsmodels
+
+
+The ``test()`` method
+---------------------
+The root of statsmodels and all submodules expose a ``test()`` method which can
+be used to run all tests either in the package (``statsmodels.test()``) or in
+a module (``statsmodels.regression.test()``).  This method allows tests to be
+run from an install copy of statsmodels even it is was not installed using the
+*editable* flag as described above. This method is required for testing wheels in
+release builds and is **not** recommended for development.
+
+Using this method, all tests are run using:
+
+.. code-block:: python
+
+   import statsmodels.api as sm
+   sm.test()
+
+Submodules tests are run using:
+
+.. code-block:: python
+
+    sm.discrete.test()
+
+.. autosummary::
+   :toctree: generated/
+
+   ~statsmodels.__init__.test

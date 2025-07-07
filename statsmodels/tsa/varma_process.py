@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """ Helper and filter functions for VAR and VARMA, and basic VAR class
 
 Created on Mon Jan 11 11:04:23 2010
 Author: josef-pktd
 License: BSD
 
-This is a new version, I didn't look at the old version again, but similar
+This is a new version, I did not look at the old version again, but similar
 ideas.
 
 not copied/cleaned yet:
@@ -28,7 +27,6 @@ Extensions
 see also VAR section in Notes.txt
 
 """
-from __future__ import print_function
 import numpy as np
 from scipy import signal
 
@@ -38,8 +36,8 @@ from statsmodels.tsa.tsatools import lagmat
 def varfilter(x, a):
     '''apply an autoregressive filter to a series x
 
-    Warning: I just found out that convolve doesn't work as I
-       thought, this likely doesn't work correctly for
+    Warning: I just found out that convolve does not work as I
+       thought, this likely does not work correctly for
        nvars>3
 
 
@@ -146,13 +144,13 @@ def varinversefilter(ar, nobs, version=1):
 
     Parameters
     ----------
-    ar : array, (nlags,nvars,nvars)
+    ar : ndarray, (nlags,nvars,nvars)
         matrix lagpolynomial, currently no exog
         first row should be identity
 
     Returns
     -------
-    arinv : array, (nobs,nvars,nvars)
+    arinv : ndarray, (nobs,nvars,nvars)
 
 
     Notes
@@ -295,7 +293,6 @@ def trimone(x, front=0, back=0, axis=0):
     shape = np.array(x.shape)
     shape[axis] -= (front + back)
     #print(shape, front, back
-    shapearr = np.array(x.shape)
     startind = np.zeros(x.ndim)
     startind[axis] = front
     endind = startind + shape
@@ -321,7 +318,7 @@ def ar2lhs(ar):
     return -ar[1:]
 
 
-class _Var(object):
+class _Var:
     '''obsolete VAR class, use tsa.VAR instead, for internal use only
 
 
@@ -348,7 +345,7 @@ class _Var(object):
 
         Parameters
         ----------
-        nlags : integer
+        nlags : int
             number of lags to include in regression, same for all variables
 
         Returns
@@ -436,7 +433,7 @@ class _Var(object):
         return vargenerate(self.arhat, u, initvalues=self.y)
 
 
-class VarmaPoly(object):
+class VarmaPoly:
     '''class to keep track of Varma polynomial format
 
 
@@ -546,7 +543,7 @@ class VarmaPoly(object):
 
         Returns
         -------
-        isstationary : boolean
+        isstationary : bool
 
         *attaches*
 
@@ -575,7 +572,7 @@ class VarmaPoly(object):
 
         Returns
         -------
-        isinvertible : boolean
+        isinvertible : bool
 
         *attaches*
 

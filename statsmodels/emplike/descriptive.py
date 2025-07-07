@@ -15,13 +15,13 @@ General References:
 Owen, A. (2001). "Empirical Likelihood." Chapman and Hall
 
 """
-from __future__ import division
+import itertools
 
 import numpy as np
 from scipy import optimize
-from scipy.stats import chi2, skew, kurtosis
+from scipy.stats import chi2, kurtosis, skew
+
 from statsmodels.base.optimizer import _fit_newton
-import itertools
 from statsmodels.graphics import utils
 
 
@@ -48,7 +48,7 @@ def DescStat(endog):
         return DescStatMV(endog)
 
 
-class _OptFuncts(object):
+class _OptFuncts:
     """
     A class that holds functions that are optimized/solved.
 
@@ -64,7 +64,6 @@ class _OptFuncts(object):
     Any method starting with _ci_limits calculates the log likelihood
     ratio for a specific value of a parameter and then subtracts a
     pre-specified critical value.  This is solved so that llr - crit = 0.
-
     """
 
     def __init__(self, endog):
@@ -88,7 +87,7 @@ class _OptFuncts(object):
 
         Returns
         ------
-        data_star : array
+        data_star : ndarray
             The weighted logstar of the estimting equations
 
         Notes
@@ -187,9 +186,15 @@ class _OptFuncts(object):
             Lagrange multiplier that maximizes the log-likelihood
         """
         nobs = len(est_vect)
-        f = lambda x0: - np.sum(self._log_star(x0, est_vect, weights, nobs))
-        grad = lambda x0: - self._grad(x0, est_vect, weights, nobs)
-        hess = lambda x0: - self._hess(x0, est_vect, weights, nobs)
+
+        def f(x0):
+            return -np.sum(self._log_star(x0, est_vect, weights, nobs))
+
+        def grad(x0):
+            return -self._grad(x0, est_vect, weights, nobs)
+
+        def hess(x0):
+            return -self._hess(x0, est_vect, weights, nobs)
         kwds = {'tol': 1e-8}
         eta = eta.squeeze()
         res = _fit_newton(f, grad, eta, (), kwds, hess=hess, maxiter=50, \
@@ -327,8 +332,8 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        skew_data = ((((endog - nuis_params[0]) ** 3) /
-                    (nuis_params[1] ** 1.5))) - self.skew0
+        skew_data = (((endog - nuis_params[0]) ** 3) /
+                    (nuis_params[1] ** 1.5)) - self.skew0
         est_vect = np.column_stack((mu_data, sig_data, skew_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -359,8 +364,8 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        kurt_data = (((((endog - nuis_params[0]) ** 4) / \
-                    (nuis_params[1] ** 2))) - 3) - self.kurt0
+        kurt_data = ((((endog - nuis_params[0]) ** 4) / \
+                    (nuis_params[1] ** 2)) - 3) - self.kurt0
         est_vect = np.column_stack((mu_data, sig_data, kurt_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -391,10 +396,10 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        skew_data = ((((endog - nuis_params[0]) ** 3) / \
-                    (nuis_params[1] ** 1.5))) - self.skew0
-        kurt_data = (((((endog - nuis_params[0]) ** 4) / \
-                    (nuis_params[1] ** 2))) - 3) - self.kurt0
+        skew_data = (((endog - nuis_params[0]) ** 3) / \
+                    (nuis_params[1] ** 1.5)) - self.skew0
+        kurt_data = ((((endog - nuis_params[0]) ** 4) / \
+                    (nuis_params[1] ** 2)) - 3) - self.kurt0
         est_vect = np.column_stack((mu_data, sig_data, skew_data, kurt_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -500,7 +505,7 @@ class DescStatUV(_OptFuncts):
             Mean value to be tested
 
         return_weights : bool
-            If return_weights is True the funtion returns
+            If return_weights is True the function returns
             the weights of the observations under the null hypothesis.
             Default is False
 
@@ -540,7 +545,7 @@ class DescStatUV(_OptFuncts):
             Lagrange (see Owen pg 22) and then determine the weights.
 
             'nested brent' uses brents method to find the confidence
-            intervals but must maximize the likelihhod ratio on every
+            intervals but must maximize the likelihood ratio on every
             iteration.
 
             gamma is generally much faster.  If the optimizations does not
@@ -567,7 +572,7 @@ class DescStatUV(_OptFuncts):
 
             When using 'gamma', amount to decrease (increase) the
             minimum (maximum) by to start the search for gamma.
-            If fucntion returns f(a) and f(b) must have differnt signs,
+            If function returns f(a) and f(b) must have different signs,
             consider lowering epsilon.
 
         Returns
@@ -604,7 +609,7 @@ class DescStatUV(_OptFuncts):
 
     def test_var(self, sig2_0, return_weights=False):
         """
-        Returns  -2 x log-likelihoog ratio and the p-value for the
+        Returns  -2 x log-likelihood ratio and the p-value for the
         hypothesized variance
 
         Parameters
@@ -728,7 +733,7 @@ class DescStatUV(_OptFuncts):
 
         Returns
         -------
-        fig : matplotlib figure instance
+        Figure
             The contour plot
         """
         fig, ax = utils.create_mpl_ax()
@@ -954,7 +959,6 @@ class DescStatMV(_OptFuncts):
 
     nobs : float
         Number of observations
-
     """
 
     def __init__(self, endog):
@@ -1121,14 +1125,13 @@ class DescStatMV(_OptFuncts):
             Default is  99% confidence limit assuming normality.
 
         lower_bound : float
-            Minimum value the lower condidence limit can be.
+            Minimum value the lower confidence limit can be.
             Default is 99% confidence limit assuming normality.
 
         Returns
         -------
         interval : tuple
             Confidence interval for the correlation
-
         """
         endog = self.endog
         nobs = self.nobs

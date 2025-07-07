@@ -18,7 +18,7 @@ Submitting a Bug Report
 Making Changes to the Code
 --------------------------
 
-First, review the :ref:git_notes section for an intro to the git version
+First, review the :ref:`git_notes` section for an intro to the git version
 control system.
 
 For a pull request to be accepted, you must meet the below requirements. This
@@ -40,7 +40,7 @@ greatly helps the job of maintaining and releasing the software a shared effort.
 - Code submissions must always include tests. See our notes on :ref:`testing`.
 - Each function, class, method, and attribute needs to be documented using
   docstrings. We conform to the
-  `numpy docstring standard <https://github.com/numpy/numpy/blob/master/doc/HOWTO_DOCUMENT.rst.txt#docstring-standard>`_.
+  `numpy docstring standard <https://numpy.org/doc/stable/docs/howto_document.html#docstring-standard>`_.
 - If you are adding new functionality, you need to add it to the documentation
   by editing (or creating) the appropriate file in ``docs/source``.
 - Make sure your documentation changes parse correctly. Change into the
@@ -50,9 +50,11 @@ greatly helps the job of maintaining and releasing the software a shared effort.
     make html
 
   Check that the build output does not have *any* warnings due to your changes.
-- Follow `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_ style guidelines
-  wherever possible. Compare your code to what's in master by running
-  ``git diff upstream/master -u -- "*.py" | flake8 --diff`` prior to submitting.
+
+  Generating the docs requires additional dependencies, see ``docs/README.md`` for details.
+- Follow `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_ style guidelines wherever possible.
+  Lint your code by running ``LINT=true ./lint.sh``. 
+- Compare your changes to what’s in main by running ``git diff upstream/main``.
 - Finally, please add your changes to the release notes. Open the
   ``docs/source/release/versionX.X.rst`` file that has the version number of the
   next release and add your changes to the appropriate section.
@@ -60,7 +62,7 @@ greatly helps the job of maintaining and releasing the software a shared effort.
 How to Submit a Pull Request
 ----------------------------
 
-So you want to submit a patch to `statsmodels` but aren't too familiar with
+So you want to submit a patch to `statsmodels` but are not too familiar with
 github? Here are the steps you need to take.
 
 1. `Fork <https://help.github.com/articles/fork-a-repo/>`_ the
@@ -68,8 +70,9 @@ github? Here are the steps you need to take.
 2. `Create a new feature branch <https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging>`_.
    Each branch must be self-contained, with a single new feature or bugfix.
 3. Make sure the test suite passes. This includes testing on Python 3. The
-   easiest way to do this is to either enable `Travis-CI <https://travis-ci.org/>`_
-   on your fork, or to make a pull request and check there.
+   easiest way to do this is to make a pull request and let the bot check for
+   you. This can be slow, and if you are unsure about the fix or enhancement,
+   it is best to run pytest locally.
 4. `Submit a pull request <https://help.github.com/articles/about-pull-requests/>`_
 
 Pull requests are thoroughly reviewed before being accepted into the codebase.
@@ -86,19 +89,20 @@ Conversations about development take place on the
 License
 -------
 
-Statsmodels is released under
+statsmodels is released under
 the `Modified (3-clause) BSD license <https://opensource.org/licenses/BSD-3-Clause>`_.
 
 Contents
 --------
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
 
    git_notes
    maintainer_notes
    test_notes
    naming_conventions
+   warnings-and-exceptions
    dataset_notes
    examples
    get_involved

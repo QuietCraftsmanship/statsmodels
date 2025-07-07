@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 """Examples for linear model with heteroscedasticity estimated by feasible GLS
 
-These are examples to check the results during developement.
+These are examples to check the results during development.
 
 The assumptions:
 
@@ -16,7 +15,6 @@ Author: Josef Perktold
 
 """
 
-from __future__ import print_function
 import numpy as np
 from numpy.testing import assert_almost_equal
 
@@ -117,7 +115,7 @@ if 'ex1' in examples:
     import statsmodels.api as sm
     #z = sm.add_constant(w, prepend=True)
     z = sm.add_constant(x1/x1.max())
-    mod3 = GLSHet(y2, X2, exog_var=z1)#, link=sm.families.links.log())
+    mod3 = GLSHet(y2, X2, exog_var=z1)#, link=sm.families.links.Log())
     res3 = mod3.iterative_fit(20)
     error_var_3 = res3.mse_resid/res3.model.weights
     print(res3.params)

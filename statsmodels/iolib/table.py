@@ -46,7 +46,7 @@ column have their own datatype.) This means that you can just specify
 ``len(datatypes)<ncols`` then datatype assignment will cycle across a
 row.  E.g., if you provide 10 columns of data with ``datatypes=[0,1]``
 then you will have 5 columns of datatype 0 and 5 columns of datatype
-1, alternating.  Correspoding to this specification, you should provide
+1, alternating.  Corresponding to this specification, you should provide
 a list of two ``data_fmts`` and a list of two ``data_aligns``.
 
 Cells can be assigned labels as their `datatype` attribute.
@@ -67,7 +67,6 @@ Potential problems for Python 3
 - Calls ``next`` instead of ``__next__``.
   The 2to3 tool should handle that no problem.
   (We will switch to the `next` function if 2.5 support is ever dropped.)
-- from __future__ import division
 - Let me know if you find other problems.
 
 :contact: alan dot isaac at gmail dot com
@@ -83,11 +82,9 @@ Potential problems for Python 3
 :change: 2010-05-06 add `label_cells` to `SimpleTable`
 """
 
-from __future__ import division
-from statsmodels.compat.python import (lmap, lrange, zip, next, iteritems,
-                                       zip_longest, range, long)
+from statsmodels.compat.python import lmap, lrange
 
-from itertools import cycle
+from itertools import cycle, zip_longest
 import csv
 
 
@@ -100,7 +97,7 @@ def csv2st(csvfile, headers=False, stubs=False, title=None):
     Can also supply headers and stubs as tuples of strings.
     """
     rows = list()
-    with open(csvfile, 'r') as fh:
+    with open(csvfile, encoding="utf-8") as fh:
         reader = csv.reader(fh)
         if headers is True:
             headers = next(reader)
@@ -118,10 +115,9 @@ def csv2st(csvfile, headers=False, stubs=False, title=None):
                     rows.append(row)
         if stubs is False:
             stubs = ()
-    nrows = len(rows)
     ncols = len(rows[0])
-    if any(nrows != ncols for row in rows):
-        raise IOError('All rows of CSV file must have same length.')
+    if any(len(row) != ncols for row in rows):
+        raise OSError('All rows of CSV file must have same length.')
     return SimpleTable(data=rows, headers=headers, stubs=stubs)
 
 
@@ -163,7 +159,7 @@ class SimpleTable(list):
             sequence of K strings, one per header
         stubs : list (or tuple) of str
             sequence of R strings, one per stub
-        title : string
+        title : str
             title of the table
         datatypes : list of int
             indexes to `data_fmts`
@@ -183,7 +179,9 @@ class SimpleTable(list):
             general formatting options
         """
         self.title = title
-        self._datatypes = datatypes or lrange(len(data[0]))
+        self._datatypes = datatypes
+        if self._datatypes is None:
+            self._datatypes = [] if len(data) == 0 else lrange(len(data[0]))
         # start with default formatting
         self._txt_fmt = default_txt_fmt.copy()
         self._latex_fmt = default_latex_fmt.copy()
@@ -222,14 +220,17 @@ class SimpleTable(list):
     def _repr_html_(self, **fmt_dict):
         return self.as_html(**fmt_dict)
 
+    def _repr_latex_(self, center=True, **fmt_dict):
+        return self.as_latex_tabular(center, **fmt_dict)
+
     def _add_headers_stubs(self, headers, stubs):
         """Return None.  Adds headers and stubs to table,
         if these were provided at initialization.
         Parameters
         ----------
-        headers : list of strings
+        headers : list[str]
             K strings, where K is number of columns
-        stubs : list of strings
+        stubs : list[str]
             R strings, where R is number of non-header rows
 
         :note: a header row does not receive a stub!
@@ -316,7 +317,7 @@ class SimpleTable(list):
             return [0] * ncols
         elif request is None:  # assume no extra space desired (e.g, CSV)
             request = [0] * ncols
-        elif isinstance(request, (int, long)):
+        elif isinstance(request, int):
             request = [request] * ncols
         elif len(request) < ncols:
             request = [request[i % len(request)] for i in range(ncols)]
@@ -330,11 +331,11 @@ class SimpleTable(list):
     def get_colwidths(self, output_format, **fmt_dict):
         """Return list, the widths of each column."""
         call_args = [output_format]
-        for k, v in sorted(iteritems(fmt_dict)):
+        for k, v in sorted(fmt_dict.items()):
             if isinstance(v, list):
                 call_args.append((k, tuple(v)))
             elif isinstance(v, dict):
-                call_args.append((k, tuple(sorted(iteritems(v)))))
+                call_args.append((k, tuple(sorted(v.items()))))
             else:
                 call_args.append((k, v))
         key = tuple(call_args)
@@ -371,7 +372,7 @@ class SimpleTable(list):
         fmt = self._get_fmt('txt', **fmt_dict)
         # get rows formatted as strings
         formatted_rows = [row.as_string('text', **fmt) for row in self]
-        rowlen = len(formatted_rows[-1])  # don't use header row
+        rowlen = len(formatted_rows[-1])  # do not use header row
 
         # place decoration above the table body, if desired
         table_dec_above = fmt.get('table_dec_above', '=')
@@ -452,7 +453,6 @@ class SimpleTable(list):
 
         # Replace $$ due to bug in GH 5444
         return '\n'.join(formatted_rows).replace('$$', ' ')
-
 
     def extend_right(self, table):
         """Return None.
@@ -622,7 +622,7 @@ class Row(list):
             elif output_format == 'latex':
                 result = row_as_string + "\n" + dec_below
             else:
-                raise ValueError("I can't decorate a %s header." %
+                raise ValueError("I cannot decorate a %s header." %
                                  output_format)
         return result
 
@@ -631,7 +631,7 @@ class Row(list):
         return [cell.data for cell in self]
 
 
-class Cell(object):
+class Cell:
     """Provides a table cell.
     A cell can belong to a Row, but does not have to.
     """
@@ -679,7 +679,7 @@ class Cell(object):
         fmt = self._get_fmt(output_format, **fmt_dict)
         datatype = self.datatype
         data_aligns = fmt.get('data_aligns', 'c')
-        if isinstance(datatype, (int, long)):
+        if isinstance(datatype, int):
             align = data_aligns[datatype % len(data_aligns)]
         elif datatype == 'stub':
             # still support deprecated `stubs_align`
@@ -722,9 +722,15 @@ class Cell(object):
             if data_fmt is None:
                 data_fmt = '%s'
             data_fmts = [data_fmt]
-        if isinstance(datatype, (int, long)):
+        if isinstance(datatype, int):
             datatype = datatype % len(data_fmts)  # constrain to indexes
-            content = data_fmts[datatype] % (data,)
+            data_fmt = data_fmts[datatype]
+            if isinstance(data_fmt, str):
+                content = data_fmt % (data,)
+            elif callable(data_fmt):
+                content = data_fmt(data)
+            else:
+                raise TypeError("Must be a string or a callable")
             if datatype == 0:
                 content = self._latex_escape(content, fmt, output_format)
         elif datatype in fmt:

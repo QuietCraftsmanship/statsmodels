@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Tue Jan 08 19:03:20 2013
@@ -6,7 +5,6 @@ Created on Tue Jan 08 19:03:20 2013
 Author: Josef Perktold
 """
 
-from __future__ import print_function
 
 
 if __name__ == '__main__':

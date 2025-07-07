@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Aug 01 19:20:16 2010
 
@@ -6,7 +5,6 @@ Author: josef-pktd
 """
 
 
-from __future__ import print_function
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt

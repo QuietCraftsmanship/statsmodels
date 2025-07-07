@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example TestFForm with Li Wang DGP1
 
 Created on Tue Jan 08 19:03:20 2013
@@ -59,7 +58,6 @@ aymp.normal p-value (upper) 0.306629578855
 
 """
 
-from __future__ import print_function
 
 
 if __name__ == '__main__':

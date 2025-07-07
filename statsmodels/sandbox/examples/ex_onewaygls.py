@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example: Test for equality of coefficients across groups/regressions
 
 
@@ -8,6 +7,7 @@ Author: josef-pktd
 
 import numpy as np
 from scipy import stats
+
 #from numpy.testing import assert_almost_equal
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.onewaygls import OneWayLS
@@ -62,15 +62,15 @@ def print_results(res):
     ft = res.ftest_summary()
     #print ft[0]  #skip because table is nicer
     print('\nTable of F-tests for overall or pairwise equality of coefficients')
-##    print 'hypothesis F-statistic         p-value  df_denom df_num  reject'
-##    for row in ft[1]:
-##        print row,
-##        if row[1][1]<0.05:
-##            print '*'
-##        else:
-##            print ''
+    # print 'hypothesis F-statistic         p-value  df_denom df_num  reject'
+    for row in ft[1]:
+        val = str(row)
+        if row[1][1]<0.05:
+            print(f'{val}*')
+        else:
+            print(val)
     from statsmodels.iolib import SimpleTable
-    print(SimpleTable([(['%r' % (row[0],)]
+    print(SimpleTable([([f'{row[0]!r}']
                         + list(row[1])
                         + ['*']*(row[1][1]>0.5).item() ) for row in ft[1]],
                       headers=['pair', 'F-statistic','p-value','df_denom',
@@ -91,7 +91,7 @@ def print_results(res):
     print('Alternative model: all coefficients are allowed to be different')
     print('not verified but looks close to f-test result')
 
-    print('\nOls parameters by group from individual, separate ols regressions')
+    print('\nOLS parameters by group from individual, separate ols regressions')
     for group in sorted(res.olsbygroup):
         r = res.olsbygroup[group]
         print(group, r.params)
@@ -107,7 +107,6 @@ def print_results2(res):
     groupind = res.groups
     #res.fitjoint()  #not really necessary, because called by ftest_summary
     ft = res.ftest_summary()
-    txt = ''
     #print ft[0]  #skip because table is nicer
     templ = \
 '''Table of F-tests for overall or pairwise equality of coefficients'
@@ -132,7 +131,7 @@ Alternative model: all coefficients are allowed to be different'
 not verified but looks close to f-test result'
 
 
-Ols parameters by group from individual, separate ols regressions'
+OLS parameters by group from individual, separate ols regressions'
 %(olsbg)s
 for group in sorted(res.olsbygroup):
     r = res.olsbygroup[group]
@@ -148,7 +147,7 @@ standard dev', np.sqrt(res.sigmabygroup)
 
     from statsmodels.iolib import SimpleTable
     resvals = {}
-    resvals['tab'] = str(SimpleTable([(['%r' % (row[0],)]
+    resvals['tab'] = str(SimpleTable([([f'{row[0]!r}']
                         + list(row[1])
                         + ['*']*(row[1][1]>0.5).item() ) for row in ft[1]],
                       headers=['pair', 'F-statistic','p-value','df_denom',

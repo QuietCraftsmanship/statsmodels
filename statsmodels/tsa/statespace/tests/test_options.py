@@ -7,7 +7,6 @@ option)
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
 import numpy as np
 from statsmodels.tsa.statespace.kalman_filter import (
@@ -20,6 +19,7 @@ from statsmodels.tsa.statespace.kalman_filter import (
     FILTER_EXTENDED,
     FILTER_UNSCENTED,
     FILTER_CONCENTRATED,
+    FILTER_CHANDRASEKHAR,
 
     INVERT_UNIVARIATE,
     SOLVE_LU,
@@ -55,7 +55,7 @@ from statsmodels.tsa.statespace.simulation_smoother import (
 from numpy.testing import assert_equal
 
 
-class Options(object):
+class Options:
     @classmethod
     def setup_class(cls, *args, **kwargs):
 
@@ -103,7 +103,8 @@ class TestOptions(Options):
             model.filter_method,
             FILTER_CONVENTIONAL | FILTER_EXACT_INITIAL | FILTER_AUGMENTED |
             FILTER_SQUARE_ROOT | FILTER_UNIVARIATE | FILTER_COLLAPSED |
-            FILTER_EXTENDED | FILTER_UNSCENTED | FILTER_CONCENTRATED
+            FILTER_EXTENDED | FILTER_UNSCENTED | FILTER_CONCENTRATED |
+            FILTER_CHANDRASEKHAR
         )
         for name in model.filter_methods:
             setattr(model, name, False)
@@ -207,10 +208,10 @@ class TestOptions(Options):
         assert_equal(
             model.conserve_memory,
             MEMORY_NO_FORECAST | MEMORY_NO_PREDICTED | MEMORY_NO_FILTERED |
-            MEMORY_NO_LIKELIHOOD | MEMORY_NO_GAIN | MEMORY_NO_SMOOTHING |
-            MEMORY_NO_STD_FORECAST
+            MEMORY_NO_LIKELIHOOD | MEMORY_NO_GAIN |
+            MEMORY_NO_SMOOTHING | MEMORY_NO_STD_FORECAST
         )
-        assert_equal(model.conserve_memory, MEMORY_CONSERVE)
+        assert_equal(model.conserve_memory & MEMORY_CONSERVE, MEMORY_CONSERVE)
         for name in model.memory_options:
             if name == 'memory_conserve':
                 continue

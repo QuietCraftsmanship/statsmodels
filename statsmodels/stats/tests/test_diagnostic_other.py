@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Unit tests for generic score/LM tests and conditional moment tests
 
 Created on Mon Nov 17 08:44:06 2014
@@ -12,11 +11,11 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from statsmodels.regression.linear_model import OLS
-from statsmodels.stats._diagnostic_other import CMTNewey, CMTTauchen
 import statsmodels.stats._diagnostic_other as diao
+from statsmodels.stats._diagnostic_other import CMTNewey, CMTTauchen
 
 
-class CheckCMT(object):
+class CheckCMT:
 
     def test_score(self):
         expected = self.results_score
@@ -67,13 +66,14 @@ class TestCMTOLS(CheckCMT):
         cls.results_hc0 = (1.6385932313952, 0.4407415561953, 2)
         cls.results_opg = (1.72226002418488, 0.422684174119544, 2.0)
 
-    @classmethod    # TODO: a better structure ?
-    def attach_moment_conditions(self):
-        res_ols = self.res_ols
+    @classmethod
+    def attach_moment_conditions(cls):
+        # TODO: a better structure ?
+        res_ols = cls.res_ols
         # assumes x = column_stack([x0, x1])
-        x = self.exog_full
-        #x0 = self.res_ols.model.exog  # not used here
-        x1 = self.exog_add
+        x = cls.exog_full
+        #x0 = cls.res_ols.model.exog  # not used here
+        x1 = cls.exog_add
 
         nobs, k_constraints = x1.shape
 
@@ -85,7 +85,7 @@ class TestCMTOLS(CheckCMT):
 
         # weights used for GMM to replicate OLS
         weights = np.linalg.inv(cov_moms)
-        # we don't use last two variables
+        # we do not use last two variables
         weights[:, -k_constraints:] = 0
         weights[-k_constraints:, :] = 0
 
@@ -99,23 +99,20 @@ class TestCMTOLS(CheckCMT):
         covm = moms_obs.T.dot(moms_obs)
 
         #attach
-        self.nobs = nobs
-        self.moms = moms
-        self.moms_obs = moms_obs
-        self.cov_moms = cov_moms
-        self.covm = covm
-        self.moms_deriv = moms_deriv
-        self.weights = weights
-        self.L = L
+        cls.nobs = nobs
+        cls.moms = moms
+        cls.moms_obs = moms_obs
+        cls.cov_moms = cov_moms
+        cls.covm = covm
+        cls.moms_deriv = moms_deriv
+        cls.weights = weights
+        cls.L = L
 
     def res_score(self):
         res_ols = self.res_ols
         nobs = self.nobs
         moms = self.moms
-        moms_obs = self.moms_obs
         cov_moms = self.cov_moms
-        covm = self.covm
-        moms_deriv = self.moms_deriv
         weights = self.weights
         L = self.L
         x = self.exog_full  # for auxiliary regression only
@@ -148,7 +145,6 @@ class TestCMTOLS(CheckCMT):
         moms = self.moms
         moms_obs = self.moms_obs
         covm = self.covm
-        moms_deriv = self.moms_deriv
         weights = self.weights
         L = self.L
         x = self.exog_full
@@ -188,7 +184,6 @@ class TestCMTOLS(CheckCMT):
 
     def res_hc0(self):
         res_ols = self.res_ols
-        nobs = self.nobs
         moms = self.moms
         moms_obs = self.moms_obs
         cov_moms = self.cov_moms   # Hessian with scale

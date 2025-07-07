@@ -7,7 +7,6 @@ Author: Luca Puggini
 Created on 08/07/2015
 """
 
-from __future__ import division
 import os
 import numpy as np
 from numpy.testing import assert_allclose
@@ -48,7 +47,6 @@ def polynomial_sample_data():
     poly : smoother instance
     y : ndarray
         generated function values, demeaned
-
     """
     n = 10000
     x = np.linspace(-1, 1, n)
@@ -183,7 +181,7 @@ def test_gam_glm():
 
     glm_gam = GLMGam(y, smoother=bsplines, alpha=alpha)
     res_glm_gam = glm_gam.fit(method='bfgs', max_start_irls=0,
-                              disp=1, maxiter=10000, maxfun=5000)
+                              disp=1, maxiter=10000)
     y_gam0 = np.dot(bsplines.basis, res_glm_gam.params)
     y_gam = np.asarray(res_glm_gam.fittedvalues)
     assert_allclose(y_gam, y_gam0, rtol=1e-10)
@@ -338,7 +336,7 @@ def test_multivariate_gam_1d_data():
 
 def test_multivariate_gam_cv():
     # SMOKE test
-    # no test is performed. It only checks that there isn't any runtime error
+    # no test is performed. It only checks that there is not any runtime error
 
     def cost(x1, x2):
         return np.linalg.norm(x1 - x2) / len(x1)
@@ -617,10 +615,10 @@ def test_glm_pirls_compatibility():
     gam_glm = GLMGam(y, smoother=cs, alpha=alphas)
 
     gam_res_glm = gam_glm.fit(method='nm', max_start_irls=0,
-                              disp=1, maxiter=20000, maxfun=10000)
+                              disp=1, maxiter=20000)
     gam_res_glm = gam_glm.fit(start_params=gam_res_glm.params,
                               method='bfgs', max_start_irls=0,
-                              disp=1, maxiter=20000, maxfun=10000)
+                              disp=1, maxiter=20000)
     gam_res_pirls = gam_pirls.fit()
 
     y_est_glm = np.dot(cs.basis, gam_res_glm.params)
@@ -704,7 +702,7 @@ def test_partial_values2():
 
 
 def test_partial_values():
-    # this test is only approximate because we don't use the same spline
+    # this test is only approximate because we do not use the same spline
     # basis functions (knots) as mgcv
     cur_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(cur_dir, "results", "prediction_from_mgcv.csv")
@@ -802,7 +800,7 @@ def test_cov_params():
                     atol=1e-10)
 
     res_glm_gam = glm_gam.fit(method='bfgs', max_start_irls=0,
-                              disp=0, maxiter=5000, maxfun=5000)
+                              disp=0, maxiter=5000)
 
     assert_allclose(res_glm.cov_params(), res_glm_gam.cov_params(),
                     rtol=1e-4, atol=1e-8)

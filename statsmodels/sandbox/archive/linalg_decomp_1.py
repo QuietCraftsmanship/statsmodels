@@ -22,14 +22,13 @@ Author: josef-pktd
 Created on 2010-10-20
 '''
 
-from __future__ import print_function
 import numpy as np
 from scipy import linalg
 
 from statsmodels.tools.decorators import cache_readonly
 
 
-class PlainMatrixArray(object):
+class PlainMatrixArray:
     '''Class that defines linalg operation on an array
 
     simplest version as benchmark
@@ -121,7 +120,7 @@ class SvdArray(PlainMatrixArray):
     '''
 
     def __init__(self, data=None, sym=None):
-        super(SvdArray, self).__init__(data=data, sym=sym)
+        super().__init__(data=data, sym=sym)
 
         u, s, v = np.linalg.svd(self.x, full_matrices=1)
         self.u, self.s, self.v = u, s, v
@@ -179,7 +178,7 @@ class CholArray(PlainMatrixArray):
 
     def yt_minv_y(self, y):
         '''xSigmainvx
-        doesn't use stored cholesky yet
+        does not use stored cholesky yet
         '''
         return np.dot(x,linalg.cho_solve(linalg.cho_factor(self.m),x))
         #same as

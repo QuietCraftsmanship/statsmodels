@@ -1,27 +1,24 @@
-from statsmodels.tools._testing import PytestTester
+from statsmodels.tools._test_runner import PytestTester
 
 from .python import (
-    PY3, PY37,
-    bytes, str, unicode, string_types,
-    asunicode, asbytes, asstr, asstr2,
-    range, zip, filter, map,
-    lrange, lzip, lmap, lfilter,
-    cStringIO, StringIO, BytesIO,
-    cPickle, pickle,
-    iteritems, iterkeys, itervalues,
-    urlopen, urljoin, urlencode, HTTPError, URLError,
-    reduce, long, unichr, zip_longest,
-    builtins,
-    getargspec,
-    next, get_class
+    asunicode,
+    asbytes,
+    asstr,
+    lrange,
+    lzip,
+    lmap,
+    lfilter,
 )
 
-__all__ = ['PY3', 'PY37', 'bytes', 'str', 'unicode', 'string_types',
-           'asunicode', 'asbytes', 'asstr', 'asstr2', 'range', 'zip',
-           'filter', 'map', 'lrange', 'lzip', 'lmap', 'lfilter', 'cStringIO',
-           'StringIO', 'BytesIO', 'cPickle', 'pickle', 'iteritems',
-           'iterkeys', 'itervalues', 'urlopen', 'urljoin', 'urlencode',
-           'HTTPError', 'URLError', 'reduce', 'long', 'unichr', 'zip_longest',
-           'builtins', 'getargspec', 'next', 'get_class', 'test']
+__all__ = [
+    "asunicode",
+    "asbytes",
+    "asstr",
+    "lrange",
+    "lzip",
+    "lmap",
+    "lfilter",
+    "test",
+]
 
 test = PytestTester()

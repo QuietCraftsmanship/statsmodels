@@ -1,5 +1,7 @@
-from __future__ import print_function
-from statsmodels.compat.python import lzip, StringIO, range
+from statsmodels.compat.python import lzip
+
+from io import StringIO
+
 import numpy as np
 
 from statsmodels.iolib import SimpleTable
@@ -24,7 +26,7 @@ _default_table_fmt = dict(
 )
 
 
-class VARSummary(object):
+class VARSummary:
     default_fmt = dict(
         #data_fmts = ["%#12.6g","%#12.6g","%#10.4g","%#5.4g"],
         #data_fmts = ["%#10.4g","%#10.4g","%#10.4g","%#6.4g"],
@@ -150,11 +152,10 @@ class VARSummary(object):
         header = ('coefficient','std. error','t-stat','prob')
 
         buf = StringIO()
-        dim = k * model.k_ar + model.k_trend
+        dim = k * model.k_ar + model.k_trend + model.k_exog_user
         for i in range(k):
             section = "Results for equation %s" % model.names[i]
             buf.write(section + '\n')
-            #print >> buf, section
 
             table = SimpleTable(data[dim * i : dim * (i + 1)], header,
                                 Xnames, title=None, txt_fmt = self.default_fmt)
@@ -207,7 +208,7 @@ def hypothesis_test_table(results, title, null_hyp):
 def pprint_matrix(values, rlabels, clabels, col_space=None):
     buf = StringIO()
 
-    T, K = len(rlabels), len(clabels)
+    K = len(clabels)
 
     if col_space is None:
         min_space = 10

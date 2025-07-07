@@ -32,11 +32,11 @@ Golan, A., Judge, G., and Miller, D.  1996.  Maximum Entropy Econometrics.
 #bias and variance. Technical Report 2003/131 School of Computer Science and Software Engineer-
 #ing, Monash University.
 
-from statsmodels.compat.python import range, lzip, lmap
+from statsmodels.compat.python import lzip, lmap
 from scipy import stats
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.misc import logsumexp as sp_logsumexp
+from scipy.special import logsumexp as sp_logsumexp
 
 #TODO: change these to use maxentutils so that over/underflow is handled
 #with the logsumexp.
@@ -50,7 +50,7 @@ def logsumexp(a, axis=None):
 
     Parameters
     ----------
-    a : array-like
+    a : array_like
         The vector to exponentiate and sum
     axis : int, optional
         The axis along which to apply the operation.  Defaults is None.
@@ -96,7 +96,7 @@ def discretize(X, method="ef", nbins=None):
     ----------
     bins : int, optional
         Number of bins.  Default is floor(sqrt(N))
-    method : string
+    method : str
         "ef" is equal-frequency binning
         "ew" is equal-width binning
 
@@ -179,7 +179,7 @@ def shannonentropy(px, logbase=2):
     -----
     shannonentropy(0) is defined as 0
     """
-#TODO: haven't defined the px,py case?
+#TODO: have not defined the px,py case?
     px = np.asarray(px)
     if not np.all(px <= 1) or not np.all(px >= 0):
         raise ValueError("px does not define proper distribution")
@@ -196,7 +196,7 @@ def shannoninfo(px, logbase=2):
 
     Parameters
     ----------
-    px : float or array-like
+    px : float or array_like
         `px` is a discrete probability distribution
 
     Returns
@@ -218,9 +218,9 @@ def condentropy(px, py, pxpy=None, logbase=2):
 
     Parameters
     ----------
-    px : array-like
-    py : array-like
-    pxpy : array-like, optional
+    px : array_like
+    py : array_like
+    pxpy : array_like, optional
         If pxpy is None, the distributions are assumed to be independent
         and conendtropy(px,py) = shannonentropy(px)
     logbase : int or np.e
@@ -250,11 +250,11 @@ def mutualinfo(px,py,pxpy, logbase=2):
 
     Parameters
     ----------
-    px : array-like
+    px : array_like
         Discrete probability distribution of random variable X
-    py : array-like
+    py : array_like
         Discrete probability distribution of random variable Y
-    pxpy : 2d array-like
+    pxpy : 2d array_like
         The joint probability distribution of random variables X and Y.
         Note that if X and Y are independent then the mutual information
         is zero.
@@ -284,11 +284,11 @@ def corrent(px,py,pxpy,logbase=2):
 
     Parameters
     ----------
-    px : array-like
+    px : array_like
         Discrete probability distribution of random variable X
-    py : array-like
+    py : array_like
         Discrete probability distribution of random variable Y
-    pxpy : 2d array-like, optional
+    pxpy : 2d array_like, optional
         Joint probability distribution of X and Y.  If pxpy is None, X and Y
         are assumed to be independent.
     logbase : int or np.e, optional
@@ -324,11 +324,11 @@ def covent(px,py,pxpy,logbase=2):
 
     Parameters
     ----------
-    px : array-like
+    px : array_like
         Discrete probability distribution of random variable X
-    py : array-like
+    py : array_like
         Discrete probability distribution of random variable Y
-    pxpy : 2d array-like, optional
+    pxpy : 2d array_like, optional
         Joint probability distribution of X and Y.  If pxpy is None, X and Y
         are assumed to be independent.
     logbase : int or np.e, optional
@@ -366,7 +366,7 @@ def renyientropy(px,alpha=1,logbase=2,measure='R'):
 
     Parameters
     ----------
-    px : array-like
+    px : array_like
         Discrete probability distribution of random variable X.  Note that
         px is assumed to be a proper probability distribution.
     logbase : int or np.e, optional
@@ -417,11 +417,11 @@ def gencrossentropy(px,py,pxpy,alpha=1,logbase=2, measure='T'):
 
     Parameters
     ----------
-    px : array-like
+    px : array_like
         Discrete probability distribution of random variable X
-    py : array-like
+    py : array_like
         Discrete probability distribution of random variable Y
-    pxpy : 2d array-like, optional
+    pxpy : 2d array_like, optional
         Joint probability distribution of X and Y.  If pxpy is None, X and Y
         are assumed to be independent.
     logbase : int or np.e, optional
@@ -430,7 +430,6 @@ def gencrossentropy(px,py,pxpy,alpha=1,logbase=2, measure='T'):
         The measure is the type of generalized cross-entropy desired. 'T' is
         the cross-entropy version of the Tsallis measure.  'CR' is Cressie-Read
         measure.
-
     """
 
 
@@ -507,7 +506,7 @@ and Synthesis")
     print("H(Pe) + Pe*log(K-1) = %0.4g >= H(X|Y) = %0.4g" % \
             (H_pe+pe*np.log2(2), H_XgivenY))
     print("or using the weaker inequality")
-    print("Pe = %0.4g >= [H(X) - 1]/log(K) = %0.4g" % (pe, (H_X - 1)/np.log2(3)))
+    print(f"Pe = {pe:0.4g} >= [H(X) - 1]/log(K) = {(H_X - 1)/np.log2(3):0.4g}")
     print("Consider now, table 3.5, where there is additional information")
     print("The conditional probabilities of P(X|Y=y) are ")
     w2 = np.array([[0.,0.,1.],[1/3.,1/3.,1/3.],[1/6.,1/3.,1/2.]])

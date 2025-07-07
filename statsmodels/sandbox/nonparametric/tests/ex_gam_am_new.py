@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example for gam.AdditiveModel and PolynomialSmoother
 
 This example was written as a test case.
@@ -10,8 +9,7 @@ Created on Fri Nov 04 13:45:43 2011
 Author: Josef Perktold
 
 """
-from __future__ import print_function
-from statsmodels.compat.python import lrange, zip
+from statsmodels.compat.python import lrange
 
 import numpy as np
 
@@ -25,7 +23,7 @@ np.random.seed(8765993)
 #DGP: simple polynomial
 order = 3
 sigma_noise = 0.5
-nobs = 1000  #1000 #with 1000, OLS and Additivemodel aggree in params at 2 decimals
+nobs = 1000  #1000 #with 1000, OLS and Additivemodel agree in params at 2 decimals
 lb, ub = -3.5, 4#2.5
 x1 = np.linspace(lb, ub, nobs)
 x2 = np.sin(2*x1)

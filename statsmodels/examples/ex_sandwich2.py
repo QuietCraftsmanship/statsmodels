@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """Cluster robust standard errors for OLS
 
 Created on Fri Dec 16 12:52:13 2011
 Author: Josef Perktold
 """
+from urllib.request import urlretrieve
 
-from statsmodels.compat.python import urlretrieve
 import numpy as np
 from numpy.testing import assert_almost_equal
 
@@ -19,7 +18,7 @@ import statsmodels.iolib.foreign as dta
 try:
     srs = dta.genfromdta("srs.dta")
     print('using local file')
-except IOError:
+except OSError:
     urlretrieve('http://www.ats.ucla.edu/stat/stata/seminars/svy_stata_intro/srs.dta', 'srs.dta')
     print('downloading file')
     srs = dta.genfromdta("srs.dta")
@@ -28,7 +27,7 @@ except IOError:
 #    #does currently not cache file
 
 y = srs['api00']
-#older numpy don't reorder
+#older numpy do not reorder
 #x = srs[['growth', 'emer', 'yr_rnd']].view(float).reshape(len(y), -1)
 #force sequence
 x = np.column_stack([srs[ii] for ii in ['growth', 'emer', 'yr_rnd']])

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Sat Dec 24 07:31:47 2011
@@ -6,9 +5,8 @@ Created on Sat Dec 24 07:31:47 2011
 Author: Josef Perktold
 """
 
-from __future__ import print_function
 import numpy as np
-import statsmodels.sandbox.stats.diagnostic as dia
+import statsmodels.stats.diagnostic as dia
 
 canada_raw = '''\
      405.36646642737	    929.610513893698	    7.52999999999884	    386.136109062605

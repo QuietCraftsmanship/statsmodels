@@ -13,7 +13,7 @@ cimport numpy as np
 cdef class sStatespace(object):
     # Statespace dimensions
     cdef readonly int nobs, k_endog, k_states, k_posdef
-    
+
     # Statespace representation matrices
     cdef readonly np.float32_t [::1,:] obs, obs_intercept, state_intercept
     cdef readonly np.float32_t [:] initial_state
@@ -26,10 +26,11 @@ cdef class sStatespace(object):
 
     # Flags
     cdef readonly int time_invariant
-    cdef readonly int initialized
+    cdef readonly int initialized, initialized_diffuse, initialized_stationary
     cdef public int diagonal_obs_cov
+    cdef readonly int _diagonal_obs_cov
     cdef public int subset_design
-    cdef public int companion_transition
+    cdef public int companion_transition, identity_transition
 
     # Temporary arrays
     cdef np.float32_t [::1,:] tmp
@@ -44,6 +45,7 @@ cdef class sStatespace(object):
     cdef readonly np.float32_t [::1,:] transform_cholesky
     cdef readonly np.float32_t [::1,:] transform_obs_cov
     cdef readonly np.float32_t [::1,:] transform_design
+    cdef readonly np.float32_t [:] transform_obs_intercept
     cdef readonly np.float32_t transform_determinant
 
     cdef readonly np.float32_t [:] collapse_obs
@@ -68,26 +70,27 @@ cdef class sStatespace(object):
     cdef np.float32_t * _initial_diffuse_state_cov
 
     # Current location
-    cdef int t
-    cdef int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
-    cdef int _nmissing
+    cdef readonly int t
+    cdef readonly int _previous_t
+    cdef readonly int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
+    cdef readonly int _nmissing
 
     # Functions
-    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse)
+    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*)
 
     cdef void set_dimensions(self, unsigned int k_endog, unsigned int k_states, unsigned int k_posdef)
     cdef void select_state_cov(self, unsigned int t)
     cdef int select_missing(self, unsigned int t)
     cdef void _select_missing_entire_obs(self, unsigned int t)
     cdef void _select_missing_partial_obs(self, unsigned int t)
-    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse) except *
-    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t) except *
-    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t) except *
+    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*) except *
+    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
+    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
 
 cdef class dStatespace(object):
     # Statespace dimensions
     cdef readonly int nobs, k_endog, k_states, k_posdef
-    
+
     # Statespace representation matrices
     cdef readonly np.float64_t [::1,:] obs, obs_intercept, state_intercept
     cdef readonly np.float64_t [:] initial_state
@@ -100,10 +103,11 @@ cdef class dStatespace(object):
 
     # Flags
     cdef readonly int time_invariant
-    cdef readonly int initialized
+    cdef readonly int initialized, initialized_diffuse, initialized_stationary
     cdef public int diagonal_obs_cov
+    cdef readonly int _diagonal_obs_cov
     cdef public int subset_design
-    cdef public int companion_transition
+    cdef public int companion_transition, identity_transition
 
     # Temporary arrays
     cdef np.float64_t [::1,:] tmp
@@ -118,6 +122,7 @@ cdef class dStatespace(object):
     cdef readonly np.float64_t [::1,:] transform_cholesky
     cdef readonly np.float64_t [::1,:] transform_obs_cov
     cdef readonly np.float64_t [::1,:] transform_design
+    cdef readonly np.float64_t [:] transform_obs_intercept
     cdef readonly np.float64_t transform_determinant
 
     cdef readonly np.float64_t [:] collapse_obs
@@ -142,26 +147,27 @@ cdef class dStatespace(object):
     cdef np.float64_t * _initial_diffuse_state_cov
 
     # Current location
-    cdef int t
-    cdef int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
-    cdef int _nmissing
+    cdef readonly int t
+    cdef readonly int _previous_t
+    cdef readonly int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
+    cdef readonly int _nmissing
 
     # Functions
-    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse)
+    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*)
 
     cdef void set_dimensions(self, unsigned int k_endog, unsigned int k_states, unsigned int k_posdef)
     cdef void select_state_cov(self, unsigned int t)
     cdef int select_missing(self, unsigned int t)
     cdef void _select_missing_entire_obs(self, unsigned int t)
     cdef void _select_missing_partial_obs(self, unsigned int t)
-    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse) except *
-    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t) except *
-    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t) except *
+    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*) except *
+    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
+    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
 
 cdef class cStatespace(object):
     # Statespace dimensions
     cdef readonly int nobs, k_endog, k_states, k_posdef
-    
+
     # Statespace representation matrices
     cdef readonly np.complex64_t [::1,:] obs, obs_intercept, state_intercept
     cdef readonly np.complex64_t [:] initial_state
@@ -174,10 +180,11 @@ cdef class cStatespace(object):
 
     # Flags
     cdef readonly int time_invariant
-    cdef readonly int initialized
+    cdef readonly int initialized, initialized_diffuse, initialized_stationary
     cdef public int diagonal_obs_cov
+    cdef readonly int _diagonal_obs_cov
     cdef public int subset_design
-    cdef public int companion_transition
+    cdef public int companion_transition, identity_transition
 
     # Temporary arrays
     cdef np.complex64_t [::1,:] tmp
@@ -192,6 +199,7 @@ cdef class cStatespace(object):
     cdef readonly np.complex64_t [::1,:] transform_cholesky
     cdef readonly np.complex64_t [::1,:] transform_obs_cov
     cdef readonly np.complex64_t [::1,:] transform_design
+    cdef readonly np.complex64_t [:] transform_obs_intercept
     cdef readonly np.complex64_t transform_determinant
 
     cdef readonly np.complex64_t [:] collapse_obs
@@ -216,26 +224,27 @@ cdef class cStatespace(object):
     cdef np.complex64_t * _initial_diffuse_state_cov
 
     # Current location
-    cdef int t
-    cdef int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
-    cdef int _nmissing
+    cdef readonly int t
+    cdef readonly int _previous_t
+    cdef readonly int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
+    cdef readonly int _nmissing
 
     # Functions
-    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse)
+    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*)
 
     cdef void set_dimensions(self, unsigned int k_endog, unsigned int k_states, unsigned int k_posdef)
     cdef void select_state_cov(self, unsigned int t)
     cdef int select_missing(self, unsigned int t)
     cdef void _select_missing_entire_obs(self, unsigned int t)
     cdef void _select_missing_partial_obs(self, unsigned int t)
-    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse) except *
-    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t) except *
-    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t) except *
+    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*) except *
+    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
+    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
 
 cdef class zStatespace(object):
     # Statespace dimensions
     cdef readonly int nobs, k_endog, k_states, k_posdef
-    
+
     # Statespace representation matrices
     cdef readonly np.complex128_t [::1,:] obs, obs_intercept, state_intercept
     cdef readonly np.complex128_t [:] initial_state
@@ -248,10 +257,11 @@ cdef class zStatespace(object):
 
     # Flags
     cdef readonly int time_invariant
-    cdef readonly int initialized
+    cdef readonly int initialized, initialized_diffuse, initialized_stationary
     cdef public int diagonal_obs_cov
+    cdef readonly int _diagonal_obs_cov
     cdef public int subset_design
-    cdef public int companion_transition
+    cdef public int companion_transition, identity_transition
 
     # Temporary arrays
     cdef np.complex128_t [::1,:] tmp
@@ -266,6 +276,7 @@ cdef class zStatespace(object):
     cdef readonly np.complex128_t [::1,:] transform_cholesky
     cdef readonly np.complex128_t [::1,:] transform_obs_cov
     cdef readonly np.complex128_t [::1,:] transform_design
+    cdef readonly np.complex128_t [:] transform_obs_intercept
     cdef readonly np.complex128_t transform_determinant
 
     cdef readonly np.complex128_t [:] collapse_obs
@@ -290,21 +301,22 @@ cdef class zStatespace(object):
     cdef np.complex128_t * _initial_diffuse_state_cov
 
     # Current location
-    cdef int t
-    cdef int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
-    cdef int _nmissing
+    cdef readonly int t
+    cdef readonly int _previous_t
+    cdef readonly int _k_endog, _k_states, _k_posdef, _k_endog2, _k_states2, _k_posdef2, _k_endogstates, _k_statesposdef
+    cdef readonly int _nmissing
 
     # Functions
-    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse)
+    cpdef seek(self, unsigned int t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*)
 
     cdef void set_dimensions(self, unsigned int k_endog, unsigned int k_states, unsigned int k_posdef)
     cdef void select_state_cov(self, unsigned int t)
     cdef int select_missing(self, unsigned int t)
     cdef void _select_missing_entire_obs(self, unsigned int t)
     cdef void _select_missing_partial_obs(self, unsigned int t)
-    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse) except *
-    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t) except *
-    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t) except *
+    cdef void transform(self, unsigned int t, unsigned int previous_t, unsigned int transform_diagonalize, unsigned int transform_generalized_collapse, unsigned int reset=*) except *
+    cdef void transform_diagonalize(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
+    cdef int transform_generalized_collapse(self, unsigned int t, unsigned int previous_t, unsigned int reset=*) except *
 
 cdef int sselect_cov(int k, int k_posdef,
                            np.float32_t * tmp,

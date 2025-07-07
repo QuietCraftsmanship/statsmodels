@@ -1,5 +1,5 @@
 """Helper functions for graphics with Matplotlib."""
-from statsmodels.compat.python import lrange, range, long
+from statsmodels.compat.python import lrange
 
 __all__ = ['create_mpl_ax', 'create_mpl_fig']
 
@@ -8,7 +8,7 @@ def _import_mpl():
     """This function is not needed outside this utils module."""
     try:
         import matplotlib.pyplot as plt
-    except:
+    except ImportError:
         raise ImportError("Matplotlib is not found.")
 
     return plt
@@ -19,16 +19,16 @@ def create_mpl_ax(ax=None):
 
     Parameters
     ----------
-    ax : Matplotlib AxesSubplot instance, optional
+    ax : AxesSubplot, optional
         If given, this subplot is used to plot in instead of a new figure being
         created.
 
     Returns
     -------
-    fig : Matplotlib figure instance
+    fig : Figure
         If `ax` is None, the created figure.  Otherwise the figure to which
         `ax` is connected.
-    ax : Matplotlib AxesSubplot instance
+    ax : AxesSubplot
         The created axis if `ax` is None, otherwise the axis that was passed
         in.
 
@@ -49,7 +49,6 @@ def create_mpl_ax(ax=None):
 
     >>> from statsmodels.graphics import utils
     >>> fig, ax = utils.create_mpl_ax(ax)
-
     """
     if ax is None:
         plt = _import_mpl()
@@ -69,20 +68,19 @@ def create_mpl_fig(fig=None, figsize=None):
 
     Parameters
     ----------
-    fig : Matplotlib figure instance, optional
+    fig : Figure, optional
         If given, this figure is simply returned.  Otherwise a new figure is
         created.
 
     Returns
     -------
-    fig : Matplotlib figure instance
+    Figure
         If `fig` is None, the created figure.  Otherwise the input `fig` is
         returned.
 
     See Also
     --------
     create_mpl_ax
-
     """
     if fig is None:
         plt = _import_mpl()
@@ -98,7 +96,7 @@ def maybe_name_or_idx(idx, model):
     """
     if idx is None:
         idx = lrange(model.exog.shape[1])
-    if isinstance(idx, (int, long)):
+    if isinstance(idx, int):
         exog_name = model.exog_names[idx]
         exog_idx = idx
     # anticipate index as list and recurse

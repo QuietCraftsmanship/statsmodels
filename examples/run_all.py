@@ -1,8 +1,6 @@
 """
 Run all python examples to make sure they do not raise
 """
-from __future__ import print_function
-
 import tempfile
 
 SHOW_PLOT = False
@@ -30,7 +28,7 @@ if __name__ == '__main__':
     EXAMPLE_FILES = glob.glob('python/*.py')
     for example in EXAMPLE_FILES:
         KNOWN_BAD_FILE = any([bf in example for bf in BAD_FILES])
-        with open(example, 'r') as pyfile:
+        with open(example, encoding="utf-8") as pyfile:
             code = pyfile.read()
             try:
                 sys.stdout = REDIRECT_STDOUT
@@ -38,7 +36,7 @@ if __name__ == '__main__':
                 exec(code)
             except Exception as e:
                 sys.stderr = SAVE_STDERR
-                print('FAIL: {0}'.format(example), file=sys.stderr)
+                print(f'FAIL: {example}', file=sys.stderr)
                 if KNOWN_BAD_FILE:
                     print('This FAIL is expected', file=sys.stderr)
                 else:
@@ -47,7 +45,7 @@ if __name__ == '__main__':
                     print(e, file=sys.stderr)
             else:
                 sys.stdout = SAVE_STDOUT
-                print('SUCCESS: {0}'.format(example))
+                print(f'SUCCESS: {example}')
             finally:
                 plt.close('all')
 

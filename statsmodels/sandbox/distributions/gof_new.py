@@ -17,15 +17,14 @@ References
 ----------
 
 '''
-from __future__ import print_function
-from statsmodels.compat.python import range, lmap, string_types
-import numpy as np
+from statsmodels.compat.python import lmap
 
+import numpy as np
+from scipy.special import kolmogorov as ksprob
 from scipy.stats import distributions
 
 from statsmodels.tools.decorators import cache_readonly
 
-from scipy.special import kolmogorov as ksprob
 
 #from scipy.stats unchanged
 def ks_2samp(data1, data2):
@@ -99,7 +98,6 @@ def ks_2samp(data1, data2):
     >>> rvs4 = stats.norm.rvs(size=n2,loc=0.0,scale=1.0)
     >>> ks_2samp(rvs1,rvs4)
     (0.07999999999999996, 0.41126949729859719)
-
     """
     data1, data2 = lmap(np.asarray, (data1, data2))
     n1 = data1.shape[0]
@@ -117,7 +115,7 @@ def ks_2samp(data1, data2):
     en = np.sqrt(n1*n2/float(n1+n2))
     try:
         prob = ksprob((en+0.12+0.11/en)*d)
-    except:
+    except Exception:
         prob = 1.0
     return d, prob
 
@@ -136,7 +134,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
 
     Parameters
     ----------
-    rvs : string or array or callable
+    rvs : str or array or callable
         string: name of a distribution in scipy.stats
 
         array: 1-D observations of random variables
@@ -144,7 +142,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
         callable: function to generate random variables, requires keyword
         argument `size`
 
-    cdf : string or callable
+    cdf : str or callable
         string: name of a distribution in scipy.stats, if rvs is a string then
         cdf can evaluate to `False` or be the same as rvs
         callable: function to evaluate cdf
@@ -215,7 +213,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
     >>> kstest(x,'norm', alternative = 'greater')
     (0.0072115233216311081, 0.98531158590396395)
 
-    Don't reject equal distribution against alternative hypothesis: greater
+    Do not reject equal distribution against alternative hypothesis: greater
 
     >>> kstest(x,'norm', mode='asymp')
     (0.12464329735846891, 0.08944488871182088)
@@ -238,9 +236,8 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
     >>> np.random.seed(987654321)
     >>> stats.kstest(stats.t.rvs(3,size=100),'norm')
     (0.131016895759829, 0.058826222555312224)
-
     """
-    if isinstance(rvs, string_types):
+    if isinstance(rvs, str):
         #cdf = getattr(stats, rvs).cdf
         if (not cdf) or (cdf == rvs):
             cdf = getattr(distributions, rvs).cdf
@@ -249,7 +246,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
             raise AttributeError('if rvs is string, cdf has to be the same distribution')
 
 
-    if isinstance(cdf, string_types):
+    if isinstance(cdf, str):
         cdf = getattr(distributions, cdf).cdf
     if callable(rvs):
         kwds = {'size':N}
@@ -366,7 +363,7 @@ gof_pvals['scipy'] = {
 gof_pvals['scipy_approx'] = {
     'd' : pval_kstest_approx }
 
-class GOF(object):
+class GOF:
     '''One Sample Goodness of Fit tests
 
     includes Kolmogorov-Smirnov D, D+, D-, Kuiper V, Cramer-von Mises W^2, U^2 and
@@ -391,7 +388,7 @@ class GOF(object):
 
 
     def __init__(self, rvs, cdf, args=(), N=20):
-        if isinstance(rvs, string_types):
+        if isinstance(rvs, str):
             #cdf = getattr(stats, rvs).cdf
             if (not cdf) or (cdf == rvs):
                 cdf = getattr(distributions, rvs).cdf
@@ -400,7 +397,7 @@ class GOF(object):
                 raise AttributeError('if rvs is string, cdf has to be the same distribution')
 
 
-        if isinstance(cdf, string_types):
+        if isinstance(cdf, str):
             cdf = getattr(distributions, cdf).cdf
         if callable(rvs):
             kwds = {'size':N}
@@ -473,7 +470,7 @@ class GOF(object):
 
     @cache_readonly
     def asqu(self):
-        '''Stephens 1974, doesn't have p-value formula for A^2'''
+        '''Stephens 1974, does not have p-value formula for A^2'''
         nobs = self.nobs
         cdfvals = self.cdfvals
 
@@ -533,7 +530,7 @@ def asquare(cdfvals, axis=0):
     return asqu
 
 
-#class OneSGOFFittedVec(object):
+#class OneSGOFFittedVec:
 #    '''for vectorized fitting'''
     # currently I use the bootstrap as function instead of full class
 
@@ -620,7 +617,7 @@ def bootstrap2(value, distr, args=(), nobs=200, nrep=100):
     return count * 1. / nrep
 
 
-class NewNorm(object):
+class NewNorm:
     '''just a holder for modified distributions
     '''
 
@@ -641,6 +638,7 @@ class NewNorm(object):
 
 if __name__ == '__main__':
     from scipy import stats
+
     #rvs = np.random.randn(1000)
     rvs = stats.t.rvs(3, size=200)
     print('scipy kstest')

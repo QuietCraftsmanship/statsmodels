@@ -1,11 +1,14 @@
-from __future__ import absolute_import
-from distutils.version import LooseVersion
-
 import numpy as np
+from packaging.version import Version, parse
 import scipy
 
-SP_GTE_019 = LooseVersion(scipy.__version__) >= LooseVersion('0.19')
-NumpyVersion = np.lib.NumpyVersion
+SP_VERSION = parse(scipy.__version__)
+SP_LT_15 = SP_VERSION < Version("1.4.99")
+SCIPY_GT_14 = not SP_LT_15
+SP_LT_16 = SP_VERSION < Version("1.5.99")
+SP_LT_17 = SP_VERSION < Version("1.6.99")
+SP_LT_19 = SP_VERSION < Version("1.8.99")
+SP_LT_116 = SP_VERSION < Version("1.15.99")
 
 
 def _next_regular(target):
@@ -24,7 +27,7 @@ def _next_regular(target):
     if not (target & (target - 1)):
         return target
 
-    match = float('inf')  # Anything found will be smaller
+    match = float("inf")  # Anything found will be smaller
     p5 = 1
     while p5 < target:
         p35 = p5
@@ -54,8 +57,7 @@ def _next_regular(target):
 
 
 def _valarray(shape, value=np.nan, typecode=None):
-    """Return an array of all value.
-    """
+    """Return an array of all value."""
 
     out = np.ones(shape, dtype=bool) * value
     if typecode is not None:
@@ -65,57 +67,68 @@ def _valarray(shape, value=np.nan, typecode=None):
     return out
 
 
-def _lazywhere(cond, arrays, f, fillvalue=None, f2=None):
+if SP_LT_16:
+    # copied from scipy, added to scipy in 1.6.0
+    from ._scipy_multivariate_t import multivariate_t  # noqa: F401
+else:
+    from scipy.stats import multivariate_t  # noqa: F401
+
+
+def apply_where(  # type: ignore[explicit-any] # numpydoc ignore=PR01,PR02
+    cond, args, f1, f2=None, /, *, fill_value=None
+):
     """
-    np.where(cond, x, fillvalue) always evaluates x even where cond is False.
-    This one only evaluates f(arr1[cond], arr2[cond], ...).
-    For example,
-    >>> a, b = np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8])
-    >>> def f(a, b):
-        return a*b
-    >>> _lazywhere(a > 2, (a, b), f, np.nan)
-    array([ nan,  nan,  21.,  32.])
-    Notice it assumes that all `arrays` are of the same shape, or can be
-    broadcasted together.
+    Run one of two elementwise functions depending on a condition.
+
+    Equivalent to ``f1(*args) if cond else fill_value`` performed elementwise
+    when `fill_value` is defined, otherwise to ``f1(*args) if cond else f2(*args)``.
+
+    Parameters
+    ----------
+    cond : array
+        The condition, expressed as a boolean array.
+    args : Array or tuple of Arrays
+        Argument(s) to `f1` (and `f2`). Must be broadcastable with `cond`.
+    f1 : callable
+        Elementwise function of `args`, returning a single array.
+        Where `cond` is True, output will be ``f1(arg0[cond], arg1[cond], ...)``.
+    f2 : callable, optional
+        Elementwise function of `args`, returning a single array.
+        Where `cond` is False, output will be ``f2(arg0[cond], arg1[cond], ...)``.
+        Mutually exclusive with `fill_value`.
+    fill_value : Array or scalar, optional
+        If provided, value with which to fill output array where `cond` is False.
+        It does not need to be scalar; it needs however to be broadcastable with
+        `cond` and `args`.
+        Mutually exclusive with `f2`. You must provide one or the other.
+    xp : array_namespace, optional
+        The standard-compatible namespace for `cond` and `args`. Default: infer.
+
+    Returns
+    -------
+    Array
+        An array with elements from the output of `f1` where `cond` is True and either
+        the output of `f2` or `fill_value` where `cond` is False. The returned array has
+        data type determined by type promotion rules between the output of `f1` and
+        either `fill_value` or the output of `f2`.
+
+    Notes
+    -----
+    Falls back to _lazywhere if xpx.apply_where is not available.
+
+    ``xp.where(cond, f1(*args), f2(*args))`` requires explicitly evaluating `f1` even
+    when `cond` is False, and `f2` when cond is True. This function evaluates each
+    function only for their matching condition, if the backend allows for it.
+
+    On Dask, `f1` and `f2` are applied to the individual chunks and should use functions
+    from the namespace of the chunks.
+
     """
-    if fillvalue is None:
-        if f2 is None:
-            raise ValueError("One of (fillvalue, f2) must be given.")
-        else:
-            fillvalue = np.nan
-    else:
-        if f2 is not None:
-            raise ValueError("Only one of (fillvalue, f2) can be given.")
+    try:
+        import scipy._lib.array_api_extra as xpx
 
-    arrays = np.broadcast_arrays(*arrays)
-    temp = tuple(np.extract(cond, arr) for arr in arrays)
-    tcode = np.mintypecode([a.dtype.char for a in arrays])
-    out = _valarray(np.shape(arrays[0]), value=fillvalue, typecode=tcode)
-    np.place(out, cond, f(*temp))
-    if f2 is not None:
-        temp = tuple(np.extract(~cond, arr) for arr in arrays)
-        np.place(out, ~cond, f2(*temp))
+        return xpx.apply_where(cond, args, f1, f2, fill_value=fill_value)
+    except (ImportError, AttributeError):
+        from scipy._lib._util import _lazywhere
 
-    return out
-
-
-# Work around for complex chnges in gammaln in 1.0.0.
-#   loggamma introduced in 0.18.
-try:
-    from scipy.special import loggamma  # noqa:F401
-except ImportError:
-    from scipy.special import gammaln  # noqa:F401
-    loggamma = gammaln
-
-# Work around for factorial changes in 1.0.0
-
-try:
-    from scipy.special import factorial, factorial2  # noqa:F401
-except ImportError:
-    from scipy.misc import factorial, factorial2  # noqa:F401
-
-# Moved in 1.0 to special
-try:
-    from scipy.special import logsumexp  # noqa:F401
-except ImportError:
-    from scipy.misc import logsumexp  # noqa:F401
+        return _lazywhere(cond, args, f1, fill_value, f2)

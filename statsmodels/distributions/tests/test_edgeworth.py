@@ -1,20 +1,19 @@
-from __future__ import division, print_function, absolute_import
-
 import warnings
 
 import numpy as np
-from numpy.testing import (assert_equal, assert_raises,
-                           assert_allclose)
 import numpy.testing as npt
-
-from statsmodels.compat.scipy import factorial, factorial2
-from scipy.special import gamma
+from numpy.testing import assert_allclose, assert_equal, assert_raises
+from scipy.special import factorial, factorial2, gamma
 import scipy.stats as stats
 
-from statsmodels.distributions.edgeworth import (_faa_di_bruno_partitions,
-        cumulant_from_moments, ExpandedNormal)
+from statsmodels.distributions.edgeworth import (
+    ExpandedNormal,
+    _faa_di_bruno_partitions,
+    cumulant_from_moments,
+)
 
-class TestFaaDiBruno(object):
+
+class TestFaaDiBruno:
     def test_neg_arg(self):
         assert_raises(ValueError, _faa_di_bruno_partitions, -1)
         assert_raises(ValueError, _faa_di_bruno_partitions, 0)
@@ -46,7 +45,7 @@ def _chi2_cumulant(n, df):
     return 2**(n-1) * factorial(n - 1) * df
 
 
-class TestCumulants(object):
+class TestCumulants:
     def test_badvalues(self):
         assert_raises(ValueError, cumulant_from_moments, [1, 2, 3], 0)
         assert_raises(ValueError, cumulant_from_moments, [1, 2, 3], 4)
@@ -68,7 +67,7 @@ class TestCumulants(object):
             assert_allclose(kappa, _chi2_cumulant(n, df))
 
 
-class TestExpandedNormal(object):
+class TestExpandedNormal:
     def test_too_few_cumulants(self):
         assert_raises(ValueError, ExpandedNormal, [1])
 
@@ -135,8 +134,8 @@ class TestExpandedNormal(object):
     def test_pdf_no_roots(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
-            ne = ExpandedNormal([0, 1])
-            ne = ExpandedNormal([0, 1, 0.1, 0.1])
+            ExpandedNormal([0, 1])
+            ExpandedNormal([0, 1, 0.1, 0.1])
 
     def test_pdf_has_roots(self):
         with warnings.catch_warnings():

@@ -1,5 +1,4 @@
 import glob
-import io
 import os
 import sys
 
@@ -9,6 +8,21 @@ try:
     import jupyter_client  # noqa: F401
     import nbformat
     from nbconvert.preprocessors import ExecutePreprocessor
+
+    plat_win = sys.platform.startswith("win")
+    if plat_win and sys.version_info >= (3, 8):  # pragma: no cover
+        import asyncio
+
+        try:
+            from asyncio import WindowsSelectorEventLoopPolicy
+        except ImportError:
+            pass  # Can't assign a policy which doesn't exist.
+        else:
+            pol = asyncio.get_event_loop_policy()
+            if not isinstance(pol, WindowsSelectorEventLoopPolicy):
+                asyncio.set_event_loop_policy(
+                    WindowsSelectorEventLoopPolicy()
+                )
 except ImportError:
     pytestmark = pytest.mark.skip(reason='Required packages not available')
 
@@ -45,7 +59,7 @@ def notebook(request):
 
 
 if not nbs:
-    pytestmark = pytest.mark.skip(reason='No notebooks found so not tests run')
+    pytestmark = pytest.mark.skip(reason='No notebooks found so no tests run')
 
 
 @pytest.mark.slow
@@ -56,13 +70,13 @@ def test_notebook(notebook):
     filename, _ = os.path.splitext(filename)
 
     if filename in KNOWN_FAILURES:
-        pytest.skip('{0} is known to fail'.format(filename))
+        pytest.skip(f'{filename} is known to fail')
     if filename in RPY2_NOTEBOOKS and not HAS_RPY2:
-        pytest.skip('{0} since rpy2 is not installed'.format(filename))
+        pytest.skip(f'{filename} since rpy2 is not installed')
     if filename in JOBLIB_NOTEBOOKS and not JOBLIB_NOTEBOOKS:
-        pytest.skip('{0} since joblib is not installed'.format(filename))
+        pytest.skip(f'{filename} since joblib is not installed')
 
-    with io.open(fullfile, encoding='utf-8') as fp:
+    with open(fullfile, encoding='utf-8') as fp:
         nb = nbformat.read(fp, as_version=4)
 
     ep = ExecutePreprocessor(allow_errors=False,

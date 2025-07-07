@@ -20,6 +20,7 @@ cdef int FILTER_COLLAPSED        # ibid., Chapter 6.5
 cdef int FILTER_EXTENDED         # ibid., Chapter 10.2
 cdef int FILTER_UNSCENTED        # ibid., Chapter 10.3
 cdef int FILTER_CONCENTRATED     # Harvey (1989), Chapter 3.4
+cdef int FILTER_CHANDRASEKHAR    # Herbst (2015)
 
 # ### Inversion methods
 # Methods by which the terms using the inverse of the forecast error
@@ -36,8 +37,14 @@ cdef int STABILITY_FORCE_SYMMETRY
 
 # ### Memory conservation options
 cdef int MEMORY_STORE_ALL
+cdef int MEMORY_NO_FORECAST_MEAN
+cdef int MEMORY_NO_FORECAST_COV
 cdef int MEMORY_NO_FORECAST
+cdef int MEMORY_NO_PREDICTED_MEAN
+cdef int MEMORY_NO_PREDICTED_COV
 cdef int MEMORY_NO_PREDICTED
+cdef int MEMORY_NO_FILTERED_MEAN
+cdef int MEMORY_NO_FILTERED_COV
 cdef int MEMORY_NO_FILTERED
 cdef int MEMORY_NO_LIKELIHOOD
 cdef int MEMORY_NO_GAIN
@@ -77,6 +84,8 @@ cdef class sKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
+    cdef public int [:] univariate_filter
+
     # ### Kalman filter properties
     cdef readonly np.float32_t [:] loglikelihood, scale
     cdef readonly np.float32_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -100,6 +109,9 @@ cdef class sKalmanFilter(object):
     cdef readonly np.float32_t [::1,:,:] tmp1, tmp3, tmp4
     cdef readonly np.float32_t [:] tmpK0, tmpK1
     cdef readonly np.float32_t [::1,:] tmpL0, tmpL1
+
+    cdef readonly np.float32_t [::1,:] CW, CtmpW, CMW, CM, CprevFiZ, CtmpM, CMWZ
+
 
     cdef readonly np.float32_t determinant
 
@@ -184,7 +196,7 @@ cdef class sKalmanFilter(object):
     # ### Define some constants
     cdef readonly int k_endog, k_states, k_posdef, k_endog2, k_states2, k_posdef2, k_endogstates, k_statesposdef
     cdef readonly int ldwork
-    
+
     cdef allocate_arrays(self)
     cdef void set_dimensions(self)
     cpdef set_filter_method(self, int filter_method, int force_reset=*)
@@ -227,6 +239,8 @@ cdef class dKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
+    cdef public int [:] univariate_filter
+
     # ### Kalman filter properties
     cdef readonly np.float64_t [:] loglikelihood, scale
     cdef readonly np.float64_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -250,6 +264,8 @@ cdef class dKalmanFilter(object):
     cdef readonly np.float64_t [::1,:,:] tmp1, tmp3, tmp4
     cdef readonly np.float64_t [:] tmpM_inf, tmpK0, tmpK1
     cdef readonly np.float64_t [::1,:] tmpL0, tmpL1
+
+    cdef readonly np.float64_t [::1,:] CW, CtmpW, CMW, CM, CprevFiZ, CtmpM, CMWZ
 
     cdef readonly np.float64_t determinant
 
@@ -334,7 +350,7 @@ cdef class dKalmanFilter(object):
     # ### Define some constants
     cdef readonly int k_endog, k_states, k_posdef, k_endog2, k_states2, k_posdef2, k_endogstates, k_statesposdef
     cdef readonly int ldwork
-    
+
     cdef allocate_arrays(self)
     cdef void set_dimensions(self)
     cpdef set_filter_method(self, int filter_method, int force_reset=*)
@@ -377,6 +393,8 @@ cdef class cKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
+    cdef public int [:] univariate_filter
+
     # ### Kalman filter properties
     cdef readonly np.complex64_t [:] loglikelihood, scale
     cdef readonly np.complex64_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -400,6 +418,9 @@ cdef class cKalmanFilter(object):
     cdef readonly np.complex64_t [::1,:,:] tmp1, tmp3, tmp4
     cdef readonly np.complex64_t [:] tmpM_inf, tmpK0, tmpK1
     cdef readonly np.complex64_t [::1,:] tmpL0, tmpL1
+
+    cdef readonly np.complex64_t [::1,:] CW, CtmpW, CMW, CM, CprevFiZ, CtmpM, CMWZ
+
 
     cdef readonly np.complex64_t determinant
 
@@ -484,7 +505,7 @@ cdef class cKalmanFilter(object):
     # ### Define some constants
     cdef readonly int k_endog, k_states, k_posdef, k_endog2, k_states2, k_posdef2, k_endogstates, k_statesposdef
     cdef readonly int ldwork
-    
+
     cdef allocate_arrays(self)
     cdef void set_dimensions(self)
     cpdef set_filter_method(self, int filter_method, int force_reset=*)
@@ -527,6 +548,8 @@ cdef class zKalmanFilter(object):
     cdef public int filter_timing
     cdef readonly int loglikelihood_burn
 
+    cdef public int [:] univariate_filter
+
     # ### Kalman filter properties
     cdef readonly np.complex128_t [:] loglikelihood, scale
     cdef readonly np.complex128_t [::1,:] filtered_state, predicted_state, forecast, forecast_error, standardized_forecast_error
@@ -550,6 +573,9 @@ cdef class zKalmanFilter(object):
     cdef readonly np.complex128_t [::1,:,:] tmp1, tmp3, tmp4
     cdef readonly np.complex128_t [:] tmpM_inf, tmpK0, tmpK1
     cdef readonly np.complex128_t [::1,:] tmpL0, tmpL1
+
+    cdef readonly np.complex128_t [::1,:] CW, CtmpW, CMW, CM, CprevFiZ, CtmpM, CMWZ
+
 
     cdef readonly np.complex128_t determinant
 
@@ -634,7 +660,7 @@ cdef class zKalmanFilter(object):
     # ### Define some constants
     cdef readonly int k_endog, k_states, k_posdef, k_endog2, k_states2, k_posdef2, k_endogstates, k_statesposdef
     cdef readonly int ldwork
-    
+
     cdef allocate_arrays(self)
     cdef void set_dimensions(self)
     cpdef set_filter_method(self, int filter_method, int force_reset=*)

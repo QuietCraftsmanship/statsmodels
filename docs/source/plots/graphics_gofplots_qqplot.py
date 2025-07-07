@@ -1,16 +1,18 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 06 05:32:15 2012
 
 Author: Josef Perktold
 editted by: Paul Hobson (2012-08-19)
 """
-from scipy import stats
+# example with the new ProbPlot class
 from matplotlib import pyplot as plt
+import numpy as np
+from scipy import stats
+
 import statsmodels.api as sm
 
 #example from docstring
-data = sm.datasets.longley.load(as_pandas=False)
+data = sm.datasets.longley.load()
 data.exog = sm.add_constant(data.exog, prepend=True)
 mod_fit = sm.OLS(data.endog, data.exog).fit()
 res = mod_fit.resid
@@ -51,8 +53,6 @@ fig.tight_layout()
 plt.gcf()
 
 
-# example with the new ProbPlot class
-import numpy as np
 x = np.random.normal(loc=8.25, scale=3.5, size=37)
 y = np.random.normal(loc=8.00, scale=3.25, size=37)
 pp_x = sm.ProbPlot(x, fit=True)

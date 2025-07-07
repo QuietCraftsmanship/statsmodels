@@ -7,7 +7,7 @@ License: BSD-3
 
 
 Notes
-------
+-----
 
 It's pretty slow if the model is misspecified, in my first example convergence
 in loglike is not reached within 2000 iterations. Added stop criteria based
@@ -17,14 +17,13 @@ With correctly specified model, convergence is fast, in 6 iterations in
 example.
 
 """
-from __future__ import print_function
 import numpy as np
 import numpy.linalg as L
 
 from statsmodels.base.model import LikelihoodModelResults
 from statsmodels.tools.decorators import cache_readonly
 
-class Unit(object):
+class Unit:
     """
     Individual experimental unit for
     EM implementation of (repeated measures)
@@ -56,7 +55,6 @@ class Unit(object):
     mean of the random constants or coefficients are not centered.
     The covariance matrix of the random parameter estimates are not
     centered in this case. (That's how it looks to me. JP)
-
     """
 
 
@@ -140,7 +138,6 @@ class Unit(object):
         -----
         In example where the mean of the random coefficient is not zero, this
         is not a covariance but a non-centered moment. (proof by example)
-
         """
         if Sinv is not None:
             self.compute_P(Sinv)
@@ -175,8 +172,7 @@ class Unit(object):
         return - 2 * self.logL(ML=ML)
 
 
-class OneWayMixed(object):
-
+class OneWayMixed:
     """
     Model for
     EM implementation of (repeated measures)
@@ -234,7 +230,7 @@ class OneWayMixed(object):
 
     convergence criteria for iteration
     Currently convergence in the iterative solver is reached if either the loglikelihood
-    *or* the fixed effects parameter don't change above tolerance.
+    *or* the fixed effects parameter do not change above tolerance.
 
     In some examples, the fixed effects parameters converged to 1e-5 within 150 iterations
     while the log likelihood did not converge within 2000 iterations. This might be
@@ -245,7 +241,6 @@ class OneWayMixed(object):
     The above was with a misspecified model, without a constant. With a
     correctly specified model convergence is fast, within a few iterations
     (6 in example).
-
     """
 
     def __init__(self, units):
@@ -277,7 +272,6 @@ class OneWayMixed(object):
 
         Display (3.1) of
         Laird, Lange, Stram (see help(Mixed)).
-
         """
 
         for unit in self.units:
@@ -298,7 +292,6 @@ class OneWayMixed(object):
         otherwise it corresponds to (3.8).
 
         sigma is the standard deviation of the noise (residual)
-
         """
         sigmasq = 0.
         for unit in self.units:
@@ -321,7 +314,6 @@ class OneWayMixed(object):
 
         If ML, this is (3.7) in Laird, Lange, Stram (see help(Mixed)),
         otherwise it corresponds to (3.9).
-
         """
         D = 0.
         for unit in self.units:
@@ -401,9 +393,8 @@ class OneWayMixed(object):
     def logL(self, ML=False):
         """
         Return log-likelihood, REML by default.
-
         """
-        #I don't know what the difference between REML and ML is here.
+        #I do not know what the difference between REML and ML is here.
         logL = 0.
 
         for unit in self.units:
@@ -503,7 +494,7 @@ class OneWayMixedResults(LikelihoodModelResults):
         self.params = model.params
 
 
-    #need to overwrite this because we don't have a standard
+    #need to overwrite this because we do not have a standard
     #model.loglike yet
     #TODO: what todo about REML loglike, logL is not normalized
     @cache_readonly
@@ -548,7 +539,7 @@ class OneWayMixedResults(LikelihoodModelResults):
 
         Returns
         -------
-        fig : matplotlib figure instance
+        Figure
             figure with subplots
 
         Notes

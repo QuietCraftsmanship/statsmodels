@@ -1,8 +1,7 @@
 import numpy as np
-import statsmodels.api as sm
 
 
-class RegressionEffects(object):
+class RegressionEffects:
     """
     Base class for regression effects used in RegressionFDR.
 
@@ -39,7 +38,7 @@ class CorrelationEffects(RegressionEffects):
     -----
     This class implements the marginal correlation approach to
     constructing test statistics for a knockoff analysis, as
-    desscribed under (1) in section 2.2 of the Barber and Candes
+    described under (1) in section 2.2 of the Barber and Candes
     paper.
     """
 
@@ -70,7 +69,7 @@ class ForwardEffects(RegressionEffects):
     -----
     This class implements the forward selection approach to
     constructing test statistics for a knockoff analysis, as
-    desscribed under (5) in section 2.2 of the Barber and Candes
+    described under (5) in section 2.2 of the Barber and Candes
     paper.
     """
 
@@ -119,7 +118,9 @@ class OLSEffects(RegressionEffects):
     """
 
     def stats(self, parent):
-        model = sm.OLS(parent.endog, parent.exog)
+        from statsmodels.regression.linear_model import OLS
+
+        model = OLS(parent.endog, parent.exog)
         result = model.fit()
         q = len(result.params) // 2
         stats = np.abs(result.params[0:q]) - np.abs(result.params[q:])

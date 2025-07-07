@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 Author: Vincent Arel-Bundock <varel@umich.edu>
 Date: 2012-08-25
@@ -20,17 +19,19 @@ The NB-P and left-truncated model results have not been compared to other
 implementations. Note that NB-P appears to only have been implemented in the
 LIMDEP software.
 '''
+from urllib.request import urlopen
 
 import numpy as np
 from numpy.testing import assert_almost_equal
+import pandas
 from scipy.special import digamma
 from scipy.stats import nbinom
-import pandas
-import patsy
 
-from statsmodels.compat.python import urlopen
-from statsmodels.base.model import GenericLikelihoodModel
-from statsmodels.base.model import GenericLikelihoodModelResults
+from statsmodels.base.model import (
+    GenericLikelihoodModel,
+    GenericLikelihoodModelResults,
+)
+from statsmodels.formula._manager import FormulaManager
 
 
 #### Negative Binomial Log-likelihoods ####
@@ -40,7 +41,7 @@ def _ll_nbp(y, X, beta, alph, Q):
 
     References:
 
-    Greene, W. 2008. "Functional forms for the negtive binomial model
+    Greene, W. 2008. "Functional forms for the negative binomial model
         for count data". Economics Letters. Volume 99, Number 3, pp.585-590.
     Hilbe, J.M. 2011. "Negative binomial regression". Cambridge University Press.
 
@@ -106,27 +107,27 @@ class NBin(GenericLikelihoodModel):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         1-d array of the response variable.
-    exog : array-like
+    exog : array_like
         `exog` is an n x p array where n is the number of observations and p
         is the number of regressors including the intercept if one is
         included in the data.
-    ll_type: string
+    ll_type: str
         log-likelihood type
         `nb2`: Negative Binomial type-2 (most common)
         `nb1`: Negative Binomial type-1
         `nbp`: Negative Binomial type-P (Greene, 2008)
         `nbt`: Left-truncated Negative Binomial (type-2)
         `geom`: Geometric regression model
-    C: integer
+    C: int
         Cut-point for `nbt` model
     '''
     def __init__(self, endog, exog, ll_type='nb2', C=0, **kwds):
         self.exog = np.array(exog)
         self.endog = np.array(endog)
         self.C = C
-        super(NBin, self).__init__(endog, exog, **kwds)
+        super().__init__(endog, exog, **kwds)
         # Check user input
         if ll_type not in ['nb2', 'nb1', 'nbp', 'nbt', 'geom']:
             raise NameError('Valid ll_type are: nb2, nb1, nbp,  nbt, geom')
@@ -169,10 +170,10 @@ class NBin(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         if start_params is None:
-            countfit = super(NBin, self).fit(start_params=self.start_params_default,
+            countfit = super().fit(start_params=self.start_params_default,
                                              maxiter=maxiter, maxfun=maxfun, **kwds)
         else:
-            countfit = super(NBin, self).fit(start_params=start_params,
+            countfit = super().fit(start_params=start_params,
                                              maxiter=maxiter, maxfun=maxfun, **kwds)
         countfit = CountResults(self, countfit)
         return countfit
@@ -235,7 +236,6 @@ def _score_nbp(y, X, beta, thet, Q):
     lamb = np.exp(np.dot(X, beta))
     g = thet * lamb**Q
     w = g / (g + lamb)
-    r = thet / (thet+lamb)
     A = digamma(y+g) - digamma(g) + np.log(w)
     B = g*(1-w) - y*w
     dl = (A+B) * Q/lamb - B * 1/lamb
@@ -294,15 +294,23 @@ Number of Fisher Scoring iterations: 1
 '''
 
 def test_nb2():
-    y, X = patsy.dmatrices('los ~ C(type) + hmo + white', medpar)
-    y = np.array(y)[:,0]
-    nb2 = NBin(y,X,'nb2').fit(maxiter=10000, maxfun=5000)
-    assert_almost_equal(nb2.params,
-                        [2.31027893349935, 0.221248978197356, 0.706158824346228,
-                         -0.067955221930748, -0.129065442248951, 0.4457567],
-                        decimal=2)
+    y, X = FormulaManager().get_matrices("los ~ C(type) + hmo + white", medpar)
+    y = np.array(y)[:, 0]
+    nb2 = NBin(y, X, "nb2").fit(maxiter=10000, maxfun=5000)
+    assert_almost_equal(
+        nb2.params,
+        [
+            2.31027893349935,
+            0.221248978197356,
+            0.706158824346228,
+            -0.067955221930748,
+            -0.129065442248951,
+            0.4457567,
+        ],
+        decimal=2,
+    )
 
-# NB-1
+    # NB-1
 '''
 # R v2.15.1
 # COUNT v1.2.3

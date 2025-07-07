@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Dec 14 19:53:25 2009
 
@@ -14,13 +13,13 @@ change/check: instead of using marep, use fft-transform of ar and ma
     separately, use ratio check theory is correct and example works
     DONE : feels much faster than lfilter
     -> use for estimation of ARMA
-    -> use pade (scipy.misc) approximation to get starting polynomial
+    -> use pade (scipy.interpolate) approximation to get starting polynomial
        from autocorrelation (is autocorrelation of AR(p) related to marep?)
        check if pade is fast, not for larger arrays ?
-       maybe pade doesn't do the right thing for this, not tried yet
+       maybe pade does not do the right thing for this, not tried yet
        scipy.pade([ 1.    ,  0.6,  0.25, 0.125, 0.0625, 0.1],2)
        raises LinAlgError: singular matrix
-       also doesn't have roots inside unit circle ??
+       also does not have roots inside unit circle ??
     -> even without initialization, it might be fast for estimation
     -> how do I enforce stationarity and invertibility,
        need helper function
@@ -29,14 +28,13 @@ get function drop imag if close to zero from numpy/scipy source, where?
 
 """
 
-from __future__ import print_function
 import numpy as np
 import numpy.fft as fft
 #import scipy.fftpack as fft
 from scipy import signal
+
 #from try_var_convolve import maxabs
 from statsmodels.tsa.arima_process import ArmaProcess
-
 
 #trying to convert old experiments to a class
 
@@ -50,7 +48,7 @@ class ArmaFft(ArmaProcess):
     Notes
     -----
     TODO:
-    check whether we don't want to fix maxlags, and create new instance if
+    check whether we do not want to fix maxlags, and create new instance if
     maxlag changes. usage for different lengths of timeseries ?
     or fix frequency and length for fft
 
@@ -68,7 +66,7 @@ class ArmaFft(ArmaProcess):
 
     def __init__(self, ar, ma, n):
         #duplicates now that are subclassing ArmaProcess
-        super(ArmaFft, self).__init__(ar, ma)
+        super().__init__(ar, ma)
 
         self.ar = np.asarray(ar)
         self.ma = np.asarray(ma)
@@ -89,7 +87,7 @@ class ArmaFft(ArmaProcess):
             array that will be padded with zeros
         maxlag : int
             length of array after padding
-        atend : boolean
+        atend : bool
             If True (default), then the zeros are added to the end, otherwise
             to the front of the array
 
@@ -193,7 +191,7 @@ class ArmaFft(ArmaProcess):
         n = npos
         w = fft.fftfreq(2*n) * 2 * np.pi
         hw = self.fftarma(2*n)  #not sure, need to check normalization
-        #return (hw*hw.conj()).real[n//2-1:]  * 0.5 / np.pi #doesn't show in plot
+        #return (hw*hw.conj()).real[n//2-1:]  * 0.5 / np.pi #does not show in plot
         return (hw*hw.conj()).real * 0.5 / np.pi, w
 
     def spdshift(self, n):
@@ -207,7 +205,7 @@ class ArmaFft(ArmaProcess):
         hw = fft.fft(fft.fftshift(mapadded)) / fft.fft(fft.fftshift(arpadded))
         #return np.abs(spd)[n//2-1:]
         w = fft.fftfreq(n) * 2 * np.pi
-        wslice = slice(n//2-1, None, None)
+        slice(n//2-1, None, None)
         #return (hw*hw.conj()).real[wslice], w[wslice]
         return (hw*hw.conj()).real, w
 
@@ -220,8 +218,6 @@ class ArmaFft(ArmaProcess):
         #abs looks wrong
         hw = fft.fft(self.ma, n) / fft.fft(self.ar, n)
         w = fft.fftfreq(n) * 2 * np.pi
-        wslice = slice(None, n//2, None)
-        #return (np.abs(hw)**2)[wslice], w[wslice]
         return (np.abs(hw)**2) * 0.5/np.pi, w
 
     def _spddirect2(self, n):
@@ -376,19 +372,19 @@ class ArmaFft(ArmaProcess):
             fig = plt.figure()
         ax = fig.add_subplot(2,2,1)
         ax.plot(rvs)
-        ax.set_title('Random Sample \nar=%s, ma=%s' % (self.ar, self.ma))
+        ax.set_title(f'Random Sample \nar={self.ar}, ma={self.ma}')
 
         ax = fig.add_subplot(2,2,2)
         ax.plot(acf)
-        ax.set_title('Autocorrelation \nar=%s, ma=%rs' % (self.ar, self.ma))
+        ax.set_title(f'Autocorrelation \nar={self.ar}, ma={self.ma!r}s')
 
         ax = fig.add_subplot(2,2,3)
         ax.plot(wr, spdr)
-        ax.set_title('Power Spectrum \nar=%s, ma=%s' % (self.ar, self.ma))
+        ax.set_title(f'Power Spectrum \nar={self.ar}, ma={self.ma}')
 
         ax = fig.add_subplot(2,2,4)
         ax.plot(pacf)
-        ax.set_title('Partial Autocorrelation \nar=%s, ma=%s' % (self.ar, self.ma))
+        ax.set_title(f'Partial Autocorrelation \nar={self.ar}, ma={self.ma}')
 
         return fig
 
@@ -525,6 +521,7 @@ if __name__ == '__main__':
     plt.title('matplotlib')
 
     from nitime.algorithms import LD_AR_est
+
     #yule_AR_est(s, order, Nfreqs)
     wnt, spdnt = LD_AR_est(rvs, 10, 512)
     plt.figure()

@@ -1,30 +1,33 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Sat Dec 14 17:23:25 2013
 
 Author: Josef Perktold
 """
-from __future__ import print_function
 import os
-import numpy as np
-from statsmodels.sandbox.nonparametric import kernels
 
+import numpy as np
 from numpy.testing import assert_allclose, assert_array_less
+import pandas as pd
+import pytest
+
+from statsmodels.sandbox.nonparametric import kernels
 
 DEBUG = 0
 
 curdir = os.path.dirname(os.path.abspath(__file__))
 fname = 'results/results_kernel_regression.csv'
-results = np.recfromcsv(os.path.join(curdir, fname))
+results = pd.read_csv(os.path.join(curdir, fname))
 
-y = results['accident']
-x = results['service']
+y = results['accident'].to_numpy(copy=True)
+x = results['service'].to_numpy(copy=True)
 positive = x >= 0
 x = np.log(x[positive])
 y = y[positive]
 xg = np.linspace(x.min(), x.max(), 40) # grid points default in Stata
 
+
+# FIXME: do not leave this commented-out; use or move/remove
 #kern_name = 'gau'
 #kern = kernels.Gaussian()
 #kern_name = 'epan2'
@@ -34,11 +37,12 @@ xg = np.linspace(x.min(), x.max(), 40) # grid points default in Stata
 #kern_name = 'tri'
 #kern = kernels.Triangular()
 #kern_name = 'cos'
-#kern = kernels.Cosine()  #doesn't match up, nan in Stata results ?
+#kern = kernels.Cosine()  #does not match up, nan in Stata results ?
 #kern_name = 'bi'
 #kern = kernels.Biweight()
 
-class CheckKernelMixin(object):
+
+class CheckKernelMixin:
 
     se_rtol = 0.7
     upp_rtol = 0.1
@@ -81,19 +85,10 @@ class CheckKernelMixin(object):
             se_n_diff = self.se_n_diff
         assert_array_less(mask.sum(), se_n_diff + 1)  # at most 5 large diffs
 
-        if DEBUG:
-            # raises: RuntimeWarning: invalid value encountered in divide
-            print(fitted / res_fitted - 1)
-            print(se / res_se - 1)
-        # Stata only displays ci, doesn't save it
+        # Stata only displays ci, does not save it
         res_upp = res_fitted + crit * res_se
         res_low = res_fitted - crit * res_se
         self.res_fittedg = np.column_stack((res_low, res_fitted, res_upp))
-        if DEBUG:
-            print(fittedg[:, 2] / res_upp - 1)
-            print(fittedg[:, 2] - res_upp)
-            print(fittedg[:, 0] - res_low)
-            print(np.max(np.abs(fittedg[:, 2] / res_upp - 1)))
         assert_allclose(fittedg[se_valid, 2], res_upp[se_valid],
                         rtol=self.upp_rtol, atol=0.2)
         assert_allclose(fittedg[se_valid, 0], res_low[se_valid],
@@ -101,21 +96,23 @@ class CheckKernelMixin(object):
 
         #assert_allclose(fitted, res_fitted, rtol=0, atol=1e-6)
 
-    def t_est_smoothconf_data(self):
+    @pytest.mark.slow
+    @pytest.mark.smoke  # TOOD: make this an actual test?
+    def test_smoothconf_data(self):
         kern = self.kern
-        crit = 1.9599639845400545  # norm.isf(0.05 / 2)
         # no reference results saved to csv yet
-        fitted_x = np.array([kern.smoothconf(x, y, xi) for xi in x])
-        if DEBUG:
-            print(fitted_x[:, 2] - fitted_x[:, 1]) / crit
+        np.array([kern.smoothconf(x, y, xi) for xi in x])
+
 
 class TestEpan(CheckKernelMixin):
     kern_name = 'epan2'
     kern = kernels.Epanechnikov()
 
+
 class TestGau(CheckKernelMixin):
     kern_name = 'gau'
     kern = kernels.Gaussian()
+
 
 class TestUniform(CheckKernelMixin):
     kern_name = 'rec'
@@ -126,6 +123,7 @@ class TestUniform(CheckKernelMixin):
     low_rtol = 0.2
     low_atol = 0.8
 
+
 class TestTriangular(CheckKernelMixin):
     kern_name = 'tri'
     kern = kernels.Triangular()
@@ -133,13 +131,36 @@ class TestTriangular(CheckKernelMixin):
     upp_rtol = 0.15
     low_rtol = 0.3
 
-class T_estCosine(CheckKernelMixin):
+
+class TestCosine(CheckKernelMixin):
     # Stata results for Cosine look strange, has nans
     kern_name = 'cos'
     kern = kernels.Cosine2()
+
+    @pytest.mark.xfail(reason="NaN mismatch",
+                       raises=AssertionError, strict=True)
+    def test_smoothconf(self):
+        super().test_smoothconf()
+
 
 class TestBiweight(CheckKernelMixin):
     kern_name = 'bi'
     kern = kernels.Biweight()
     se_n_diff = 9
     low_rtol = 0.3
+
+
+def test_tricube():
+    # > library(kedd)
+    # > xx = c(-1., -0.75, -0.5, -0.25, 0., 0.25, 0.5, 0.75, 1.)
+    # > res = kernel.fun(x = xx, kernel="tricube",deriv.order=0)
+    # > res$kx
+
+    res_kx = [
+        0.0000000000000000, 0.1669853116259163, 0.5789448302469136,
+        0.8243179321289062, 0.8641975308641975, 0.8243179321289062,
+        0.5789448302469136, 0.1669853116259163, 0.0000000000000000
+        ]
+    xx = np.linspace(-1, 1, 9)
+    kx = kernels.Tricube()(xx)
+    assert_allclose(kx, res_kx, rtol=1e-10)

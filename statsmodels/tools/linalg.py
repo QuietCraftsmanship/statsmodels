@@ -1,10 +1,10 @@
 """
 Linear Algebra solvers and other helpers
 """
-from __future__ import print_function
-from statsmodels.compat.python import range
 import numpy as np
-from scipy.linalg import pinv, pinv2, lstsq  # noqa:F401
+
+__all__ = ["logdet_symm", "stationary_solve", "transf_constraints",
+           "matrix_sqrt"]
 
 
 def logdet_symm(m, check_symm=False):
@@ -13,7 +13,7 @@ def logdet_symm(m, check_symm=False):
 
     Parameters
     ----------
-    m : array-like
+    m : array_like
         2d array that is positive-definite (and symmetric)
 
     Returns
@@ -38,10 +38,10 @@ def stationary_solve(r, b):
 
     Parameters
     ----------
-    r : array-like
+    r : array_like
         A vector describing the coefficient matrix.  r[0] is the first
         band next to the diagonal, r[1] is the second band, etc.
-    b : array-like
+    b : array_like
         The right-hand side for which we are solving, i.e. we solve
         Tx = b and return b, where T is the Toeplitz coefficient matrix.
 
@@ -103,7 +103,6 @@ def transf_constraints(constraints):
     --------
     statsmodels.base._constraints.TransformRestriction : class to impose
         constraints by reparameterization used by `_fit_constrained`.
-
     """
 
     from scipy import linalg
@@ -140,7 +139,7 @@ def matrix_sqrt(mat, inverse=False, full=False, nullspace=False,
         If full is False (default, then the square root has reduce number
         of rows if the matrix is singular, i.e. has singular values below
         the threshold.
-    nullspace: bool
+    nullspace : bool
         If nullspace is true, then the matrix square root of the null space
         of the matrix is returned.
     threshold : float
@@ -150,7 +149,6 @@ def matrix_sqrt(mat, inverse=False, full=False, nullspace=False,
     -------
     msqrt : ndarray
         matrix square root or square root of inverse matrix.
-
     """
     # see also scipy.linalg null_space
     u, s, v = np.linalg.svd(mat)

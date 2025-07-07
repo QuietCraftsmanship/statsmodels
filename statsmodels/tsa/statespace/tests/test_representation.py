@@ -12,22 +12,30 @@ Kim, Chang-Jin, and Charles R. Nelson. 1999.
 Classical and Gibbs-Sampling Approaches with Applications".
 MIT Press Books. The MIT Press.
 """
-from __future__ import division, absolute_import, print_function
 
 import os
 import warnings
 
 import numpy as np
+from numpy.testing import (
+    assert_allclose,
+    assert_almost_equal,
+    assert_equal,
+    assert_raises,
+)
 import pandas as pd
 import pytest
 
-from statsmodels.tsa.statespace.representation import Representation
+from statsmodels.tsa.statespace import sarimax, tools
 from statsmodels.tsa.statespace.kalman_filter import (
-    KalmanFilter, FilterResults, PredictionResults)
-from statsmodels.tsa.statespace import tools, sarimax
+    FilterResults,
+    KalmanFilter,
+    PredictionResults,
+)
+from statsmodels.tsa.statespace.representation import Representation
+from statsmodels.tsa.statespace.simulation_smoother import SimulationSmoother
+
 from .results import results_kalman_filter
-from numpy.testing import (
-    assert_equal, assert_almost_equal, assert_raises, assert_allclose)
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,7 +43,7 @@ clark1989_path = os.path.join('results', 'results_clark1989_R.csv')
 clark1989_results = pd.read_csv(os.path.join(current_path, clark1989_path))
 
 
-class Clark1987(object):
+class Clark1987:
     """
     Clark's (1987) univariate unobserved components model of real GDP (as
     presented in Kim and Nelson, 1999)
@@ -123,7 +131,7 @@ class TestClark1987Single(Clark1987):
     @classmethod
     def setup_class(cls):
         pytest.skip('Not implemented')
-        super(TestClark1987Single, cls).setup_class(
+        super().setup_class(
             dtype=np.float32, conserve_memory=0
         )
         cls.results = cls.run_filter()
@@ -135,7 +143,7 @@ class TestClark1987Double(Clark1987):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987Double, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0
         )
         cls.results = cls.run_filter()
@@ -149,7 +157,7 @@ class TestClark1987SingleComplex(Clark1987):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987SingleComplex, cls).setup_class(
+        super().setup_class(
             dtype=np.complex64, conserve_memory=0
         )
         cls.results = cls.run_filter()
@@ -162,7 +170,7 @@ class TestClark1987DoubleComplex(Clark1987):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987DoubleComplex, cls).setup_class(
+        super().setup_class(
             dtype=complex, conserve_memory=0
         )
         cls.results = cls.run_filter()
@@ -174,7 +182,7 @@ class TestClark1987Conserve(Clark1987):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987Conserve, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02
         )
         cls.results = cls.run_filter()
@@ -186,7 +194,7 @@ class Clark1987Forecast(Clark1987):
     """
     @classmethod
     def setup_class(cls, dtype=float, nforecast=100, conserve_memory=0):
-        super(Clark1987Forecast, cls).setup_class(
+        super().setup_class(
             dtype=dtype, conserve_memory=conserve_memory
         )
         cls.nforecast = nforecast
@@ -219,7 +227,7 @@ class TestClark1987ForecastDouble(Clark1987Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987ForecastDouble, cls).setup_class()
+        super().setup_class()
         cls.results = cls.run_filter()
 
 
@@ -230,7 +238,7 @@ class TestClark1987ForecastDoubleComplex(Clark1987Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987ForecastDoubleComplex, cls).setup_class(
+        super().setup_class(
             dtype=complex
         )
         cls.results = cls.run_filter()
@@ -243,7 +251,7 @@ class TestClark1987ForecastConserve(Clark1987Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987ForecastConserve, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02
         )
         cls.results = cls.run_filter()
@@ -256,7 +264,7 @@ class TestClark1987ConserveAll(Clark1987):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1987ConserveAll, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02 | 0x04 | 0x08
         )
         cls.model.loglikelihood_burn = cls.true['start']
@@ -264,7 +272,7 @@ class TestClark1987ConserveAll(Clark1987):
 
     def test_loglike(self):
         assert_almost_equal(
-            self.results.llf_obs[0], self.true['loglike'], 5
+            self.results.llf, self.true['loglike'], 5
         )
 
     def test_filtered_state(self):
@@ -279,7 +287,7 @@ class TestClark1987ConserveAll(Clark1987):
         )
 
 
-class Clark1989(object):
+class Clark1989:
     """
     Clark's (1989) bivariate unobserved components model of real GDP (as
     presented in Kim and Nelson, 1999)
@@ -382,7 +390,7 @@ class TestClark1989(Clark1989):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989, cls).setup_class(dtype=float, conserve_memory=0)
+        super().setup_class(dtype=float, conserve_memory=0)
         cls.results = cls.run_filter()
 
     def test_kalman_gain(self):
@@ -397,7 +405,7 @@ class TestClark1989Conserve(Clark1989):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989Conserve, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02
         )
         cls.results = cls.run_filter()
@@ -410,7 +418,7 @@ class Clark1989Forecast(Clark1989):
     """
     @classmethod
     def setup_class(cls, dtype=float, nforecast=100, conserve_memory=0):
-        super(Clark1989Forecast, cls).setup_class(
+        super().setup_class(
             dtype=dtype, conserve_memory=conserve_memory
         )
         cls.nforecast = nforecast
@@ -452,7 +460,7 @@ class TestClark1989ForecastDouble(Clark1989Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989ForecastDouble, cls).setup_class()
+        super().setup_class()
         cls.results = cls.run_filter()
 
 
@@ -463,7 +471,7 @@ class TestClark1989ForecastDoubleComplex(Clark1989Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989ForecastDoubleComplex, cls).setup_class(
+        super().setup_class(
             dtype=complex
         )
         cls.results = cls.run_filter()
@@ -476,7 +484,7 @@ class TestClark1989ForecastConserve(Clark1989Forecast):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989ForecastConserve, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02
         )
         cls.results = cls.run_filter()
@@ -489,7 +497,7 @@ class TestClark1989ConserveAll(Clark1989):
     """
     @classmethod
     def setup_class(cls):
-        super(TestClark1989ConserveAll, cls).setup_class(
+        super().setup_class(
             dtype=float, conserve_memory=0x01 | 0x02 | 0x04 | 0x08
         )
         # cls.model.loglikelihood_burn = cls.true['start']
@@ -498,7 +506,7 @@ class TestClark1989ConserveAll(Clark1989):
 
     def test_loglike(self):
         assert_almost_equal(
-            self.results.llf_obs[0], self.true['loglike'], 2
+            self.results.llf, self.true['loglike'], 2
         )
 
     def test_filtered_state(self):
@@ -524,9 +532,9 @@ class TestClark1989ConserveAll(Clark1989):
 class TestClark1989PartialMissing(Clark1989):
     @classmethod
     def setup_class(cls):
-        super(TestClark1989PartialMissing, cls).setup_class()
+        super().setup_class()
         endog = cls.model.endog
-        endog[1, -51:] = np.NaN
+        endog[1, -51:] = np.nan
         cls.model.bind(endog)
 
         cls.results = cls.run_filter()
@@ -668,7 +676,8 @@ def test_initialization():
     mod = Representation(1, k_states=2)
 
     # Test invalid state initialization
-    assert_raises(RuntimeError, lambda: mod._initialize_state())
+    with pytest.raises(RuntimeError):
+        mod._initialize_state()
 
     # Test valid initialization
     initial_state = np.zeros(2,) + 1.5
@@ -818,7 +827,7 @@ def test_cython():
     mod._initialize_filter()
     kf = mod._kalman_filters['d']
 
-    # Rebind data, still float, check that we haven't changed
+    # Rebind data, still float, check that we have not changed
     mod.bind(endog)
     mod._initialize_filter()
     assert_equal(mod._kalman_filter, kf)
@@ -862,7 +871,6 @@ def test_loglike():
 
     # Test that self.memory_no_likelihood = True raises an error
     mod.memory_no_likelihood = True
-    assert_raises(RuntimeError, mod.loglike)
     assert_raises(RuntimeError, mod.loglikeobs)
 
 
@@ -878,7 +886,8 @@ def test_predict():
     mod['selection', :] = 1
     mod['state_cov', :] = 1
 
-    # Check that we need both forecasts and predicted output for prediction
+    # Check that we need both forecasts and predicted output for dynamic
+    # prediction
     mod.memory_no_forecast = True
     res = mod.filter()
     assert_raises(ValueError, res.predict)
@@ -886,7 +895,7 @@ def test_predict():
 
     mod.memory_no_predicted = True
     res = mod.filter()
-    assert_raises(ValueError, res.predict)
+    assert_raises(ValueError, res.predict, dynamic=True)
     mod.memory_no_predicted = False
 
     # Now get a clean filter object
@@ -917,21 +926,13 @@ def test_predict():
         assert_equal(str(w[0].message), message)
 
     # Check for a warning when providing a non-used statespace matrix
-    with warnings.catch_warnings(record=True) as w:
+    with pytest.raises(ValueError):
         res.predict(end=res.nobs+1, design=True,
                     obs_intercept=np.zeros((1, 1)))
-        message = ('Model has time-invariant design matrix, so the design'
-                   ' argument to `predict` has been ignored.')
-        assert_equal(str(w[0].message), message)
 
     # Check that an error is raised when a new time-varying matrix is not
     # provided
     assert_raises(ValueError, res.predict, end=res.nobs+1)
-
-    # Check that an error is raised when a non-two-dimensional obs_intercept
-    # is given
-    assert_raises(ValueError, res.predict, end=res.nobs+1,
-                  obs_intercept=np.zeros(1))
 
     # Check that an error is raised when an obs_intercept with incorrect length
     # is given
@@ -988,8 +989,7 @@ def test_predict():
     # Check that an error is raised when a non-two-dimensional obs_cov
     # is given
     # ...and...
-    # Check that an error is raised when an obs_cov with incorrect length
-    # is given
+    # Check that an error is raised when an obs_cov that is too short is given
     mod = KalmanFilter(endog, k_states=1, initialization='approximate_diffuse')
     mod['design', :] = 1
     mod['obs_cov'] = np.zeros((1, 1, 10))
@@ -997,10 +997,10 @@ def test_predict():
     mod['state_cov', :] = 1
     res = mod.filter()
 
-    assert_raises(ValueError, res.predict, end=res.nobs+1,
+    assert_raises(ValueError, res.predict, end=res.nobs + 2,
                   obs_cov=np.zeros((1, 1)))
-    assert_raises(ValueError, res.predict, end=res.nobs+1,
-                  obs_cov=np.zeros((1, 1, 2)))
+    assert_raises(ValueError, res.predict, end=res.nobs + 2,
+                  obs_cov=np.zeros((1, 1, 1)))
 
 
 def test_standardized_forecasts_error():
@@ -1018,8 +1018,10 @@ def test_standardized_forecasts_error():
     data['lgdp'] = np.log(data['GDP'])
 
     # Fit an ARIMA(1, 1, 0) to log GDP
-    mod = sarimax.SARIMAX(data['lgdp'], order=(1, 1, 0))
+    mod = sarimax.SARIMAX(data['lgdp'], order=(1, 1, 0),
+                          use_exact_diffuse=True)
     res = mod.fit(disp=-1)
+    d = np.maximum(res.loglikelihood_burn, res.nobs_diffuse)
 
     standardized_forecasts_error = (
         res.filter_results.forecasts_error[0] /
@@ -1027,8 +1029,8 @@ def test_standardized_forecasts_error():
     )
 
     assert_allclose(
-        res.filter_results.standardized_forecasts_error[0],
-        standardized_forecasts_error,
+        res.filter_results.standardized_forecasts_error[0, d:],
+        standardized_forecasts_error[..., d:],
     )
 
 
@@ -1044,7 +1046,7 @@ def test_simulate():
 
     # Random walk model, so simulated series is just the cumulative sum of
     # the shocks
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(np.r_[0], k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1058,7 +1060,7 @@ def test_simulate():
 
     # Local level model, so simulated series is just the cumulative sum of
     # the shocks plus the measurement shock
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(np.r_[0], k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1073,7 +1075,8 @@ def test_simulate():
     # Local level-like model with observation and state intercepts, so
     # simulated series is just the cumulative sum of the shocks minus the state
     # intercept, plus the observation intercept and the measurement shock
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(np.zeros((1, 10)), k_states=1,
+                             initialization='diffuse')
     mod['obs_intercept', 0, 0] = 5.
     mod['design', 0, 0] = 1.
     mod['state_intercept', 0, 0] = -2.
@@ -1088,7 +1091,8 @@ def test_simulate():
     assert_allclose(actual, desired)
 
     # Model with time-varying observation intercept
-    mod = KalmanFilter(k_endog=1, k_states=1, nobs=10)
+    mod = SimulationSmoother(np.zeros((1, 10)), k_states=1, nobs=10,
+                             initialization='diffuse')
     mod['obs_intercept'] = (np.arange(10)*1.).reshape(1, 10)
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
@@ -1103,7 +1107,8 @@ def test_simulate():
 
     # Model with time-varying observation intercept, check that error is raised
     # if more simulations are requested than are nobs.
-    mod = KalmanFilter(k_endog=1, k_states=1, nobs=10)
+    mod = SimulationSmoother(np.zeros((1, 10)), k_states=1, nobs=10,
+                             initialization='diffuse')
     mod['obs_intercept'] = (np.arange(10)*1.).reshape(1, 10)
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
@@ -1145,7 +1150,7 @@ def test_impulse_responses():
 
     # Random walk: 1-unit impulse response (i.e. non-orthogonalized irf) is 1
     # for all periods
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1158,7 +1163,7 @@ def test_impulse_responses():
 
     # Random walk: 2-unit impulse response (i.e. non-orthogonalized irf) is 2
     # for all periods
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1171,7 +1176,7 @@ def test_impulse_responses():
 
     # Random walk: 1-standard-deviation response (i.e. orthogonalized irf) is
     # sigma for all periods (here sigma^2 = 2)
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1184,7 +1189,7 @@ def test_impulse_responses():
 
     # Random walk: 1-standard-deviation cumulative response (i.e. cumulative
     # orthogonalized irf)
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     mod['design', 0, 0] = 1.
     mod['transition', 0, 0] = 1.
     mod['selection', 0, 0] = 1.
@@ -1202,7 +1207,7 @@ def test_impulse_responses():
 
     # Random walk: 1-unit impulse response (i.e. non-orthogonalized irf) is 1
     # for all periods, even when intercepts are present
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     mod['state_intercept', 0] = 100.
     mod['design', 0, 0] = 1.
     mod['obs_intercept', 0] = -1000.
@@ -1217,13 +1222,13 @@ def test_impulse_responses():
 
     # Univariate model (random walk): test that an error is thrown when
     # a multivariate or empty "impulse" is sent
-    mod = KalmanFilter(k_endog=1, k_states=1)
+    mod = SimulationSmoother(k_endog=1, k_states=1, initialization='diffuse')
     assert_raises(ValueError, mod.impulse_responses, impulse=1)
     assert_raises(ValueError, mod.impulse_responses, impulse=[1, 1])
     assert_raises(ValueError, mod.impulse_responses, impulse=[])
 
     # Univariate model with two uncorrelated shocks
-    mod = KalmanFilter(k_endog=1, k_states=2)
+    mod = SimulationSmoother(k_endog=1, k_states=2, initialization='diffuse')
     mod['design', 0, 0:2] = 1.
     mod['transition', :, :] = np.eye(2)
     mod['selection', :, :] = np.eye(2)
@@ -1256,7 +1261,7 @@ def test_impulse_responses():
     assert_allclose(actual, desired)
 
     # Univariate model with two correlated shocks
-    mod = KalmanFilter(k_endog=1, k_states=2)
+    mod = SimulationSmoother(k_endog=1, k_states=2, initialization='diffuse')
     mod['design', 0, 0:2] = 1.
     mod['transition', :, :] = np.eye(2)
     mod['selection', :, :] = np.eye(2)
@@ -1279,7 +1284,7 @@ def test_impulse_responses():
     assert_allclose(actual, desired)
 
     # Multivariate model with two correlated shocks
-    mod = KalmanFilter(k_endog=2, k_states=2)
+    mod = SimulationSmoother(k_endog=2, k_states=2, initialization='diffuse')
     mod['design', :, :] = np.eye(2)
     mod['transition', :, :] = np.eye(2)
     mod['selection', :, :] = np.eye(2)

@@ -1,15 +1,18 @@
-import numpy as np
 from collections import defaultdict
+
+import numpy as np
+
 import statsmodels.base.model as base
-from statsmodels.genmod import families
-from statsmodels.genmod.families import links
-from statsmodels.genmod.families import varfuncs
-import statsmodels.regression.linear_model as lm
 import statsmodels.base.wrapper as wrap
+from statsmodels.formula.formulatools import advance_eval_env
+from statsmodels.genmod import families
+from statsmodels.genmod.families import links, varfuncs
+from statsmodels.genmod.generalized_linear_model import GLM
+import statsmodels.regression.linear_model as lm
 from statsmodels.tools.decorators import cache_readonly
 
 
-class QIFCovariance(object):
+class QIFCovariance:
     """
     A covariance model for quadratic inference function regression.
 
@@ -106,11 +109,11 @@ class QIF(base.Model):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         The dependent variables of the regression.
-    exog : array-like
+    exog : array_like
         The independent variables of the regression.
-    groups : array-like
+    groups : array_like
         Labels indicating which group each observation belongs to.
         Observations in different groups should be independent.
     family : genmod family
@@ -150,8 +153,8 @@ class QIF(base.Model):
 
         groups = np.asarray(groups)
 
-        super(QIF, self).__init__(endog, exog, groups=groups,
-                                  missing=missing, **kwargs)
+        super().__init__(endog, exog, groups=groups,
+                         missing=missing, **kwargs)
 
         self.group_names = list(set(groups))
         self.nobs = len(self.endog)
@@ -180,14 +183,14 @@ class QIF(base.Model):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The model parameters at which the gradient is evaluated.
 
         Returns
         -------
-        grad : array-like
+        grad : array_like
             The gradient vector of the QIF objective function.
-        gn_deriv : array-like
+        gn_deriv : array_like
             The gradients of each estimating equation with
             respect to the parameter.
         """
@@ -215,7 +218,11 @@ class QIF(base.Model):
         cmat = np.zeros((d, d))
 
         fastvar = self.family.variance is varfuncs.constant
-        fastlink = isinstance(self.family.link, links.identity)
+        fastlink = isinstance(
+            self.family.link,
+            # TODO: Remove links.identity after deprecation final
+            (links.Identity, links.identity)
+        )
 
         for ix in self.groups_ix:
             sd = np.sqrt(va[ix])
@@ -307,13 +314,13 @@ class QIF(base.Model):
         ----------
         formula : str or generic Formula object
             The formula specifying the model
-        groups : array-like or string
+        groups : array_like or string
             Array of grouping labels.  If a string, this is the name
             of a variable in `data` that contains the grouping labels.
-        data : array-like
+        data : array_like
             The data for the model.
-        subset : array-like
-            An array-like object of booleans, integers, or index
+        subset : array_like
+            An array_like object of booleans, integers, or index
             values that indicate the subset of the data to used when
             fitting the model.
 
@@ -324,8 +331,8 @@ class QIF(base.Model):
 
         if isinstance(groups, str):
             groups = data[groups]
-
-        model = super(QIF, cls).from_formula(
+        advance_eval_env(kwargs)
+        model = super().from_formula(
                    formula, data=data, subset=subset,
                    groups=groups, *args, **kwargs)
 
@@ -338,9 +345,9 @@ class QIF(base.Model):
 
         Parameters
         ----------
-        maxiter : integer
+        maxiter : int
             Maximum number of iterations.
-        start_params : array-like, optional
+        start_params : array_like, optional
             Starting values
         tol : float
             Convergence threshold for difference of successive
@@ -361,7 +368,9 @@ class QIF(base.Model):
             self.ddof_scale = ddof_scale
 
         if start_params is None:
-            params = np.zeros(self.exog.shape[1])
+            model = GLM(self.endog, self.exog, family=self.family)
+            result = model.fit()
+            params = result.params
         else:
             params = start_params
 
@@ -401,7 +410,7 @@ class QIFResults(base.LikelihoodModelResults):
     def __init__(self, model, params, cov_params, scale,
                  use_t=False, **kwds):
 
-        super(QIFResults, self).__init__(
+        super().__init__(
             model, params, normalized_cov_params=cov_params,
             scale=scale)
 
@@ -443,11 +452,13 @@ class QIFResults(base.LikelihoodModelResults):
 
         Parameters
         ----------
-        yname : string, optional
+        yname : str, optional
             Default is `y`
-        xname : list of strings, optional
-            Default is `var_##` for ## in p the number of regressors
-        title : string, optional
+        xname : list[str], optional
+            Names for the exogenous variables, default is `var_#` for ## in
+            the number of regressors. Must match the number of parameters in
+            the model
+        title : str, optional
             Title for the top table. If not None, then this replaces
             the default title
         alpha : float

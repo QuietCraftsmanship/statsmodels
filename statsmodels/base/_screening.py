@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sat May 19 15:53:21 2018
 
@@ -12,7 +11,7 @@ import numpy as np
 from statsmodels.base._penalties import SCADSmoothed
 
 
-class ScreeningResults(object):
+class ScreeningResults:
     """Results for Variable Screening
 
     Note: Indices except for exog_idx and in the iterated case also
@@ -34,7 +33,7 @@ class ScreeningResults(object):
     idx_excl
         idx of excluded exog based on combined [exog_keep, exog] array. This is
         the complement of idx_nonzero
-    converged : boolean
+    converged : bool
         True if the iteration has converged and stopped before maxiter has been
         reached. False if maxiter has been reached.
     iterations : int
@@ -52,7 +51,7 @@ class ScreeningResults(object):
         Two-dimensional array with batch index in the first column and variable
         index withing batch in the second column. They can be used jointly as
         index for the data in the exog_iterator.
-    exog_final_names : list of strings
+    exog_final_names : list[str]
         'var<bidx>_<idx>' where `bidx` is the batch index and `idx` is the
         index of the selected column withing batch `bidx`.
     history_batches : dict of lists
@@ -60,14 +59,13 @@ class ScreeningResults(object):
         batch during the first round screening
         'idx_nonzero' is based ond the array that includes exog_keep, while
         'idx_exog' is the index based on the exog of the batch.
-
     """
     def __init__(self, screener, **kwds):
         self.screener = screener
         self.__dict__.update(**kwds)
 
 
-class VariableScreening(object):
+class VariableScreening:
     """Ultra-high, conditional sure independence screening
 
     This is an adjusted version of Fan's sure independence screening.
@@ -140,7 +138,6 @@ class VariableScreening(object):
     currently only supports numpy arrays, no exog type check or conversion
 
     currently only single columns are selected, no terms (multi column exog)
-
     """
 
     def __init__(self, model, pen_weight=None, use_weights=True, k_add=30,
@@ -182,7 +179,6 @@ class VariableScreening(object):
 
     def ranking_measure(self, res_pen, exog, keep=None):
         """compute measure for ranking exog candidates for inclusion
-
         """
         endog = self.endog
 
@@ -244,7 +240,6 @@ class VariableScreening(object):
             `idx_nonzero` contains the index of the selected exog in the full
             exog, combined exog that are always kept plust exog_candidates.
             see ScreeningResults for a full description
-
         """
         model_class = self.model_class
         if endog is None:
@@ -263,11 +258,11 @@ class VariableScreening(object):
         fit_kwds.update(fkwds)
 
         history = defaultdict(list)
-        idx_nonzero = np.arange(k_keep, dtype=np.int)
+        idx_nonzero = np.arange(k_keep, dtype=int)
         keep = np.ones(k_keep, np.bool_)
         idx_excl = np.arange(k_keep, k_vars)
         mod_pen = model_class(endog, x0, **self.init_kwds)
-        # don't penalize initial estimate
+        # do not penalize initial estimate
         mod_pen.pen_weight = 0
         res_pen = mod_pen.fit(**fit_kwds)
         start_params = res_pen.params
@@ -402,7 +397,6 @@ class VariableScreening(object):
             second column. They can be used jointly as index for the data
             in the exog_iterator.
             see ScreeningResults for a full description
-
         """
         k_keep = self.k_keep
         # res_batches = []

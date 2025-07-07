@@ -1,12 +1,11 @@
 import numpy as np
 import pandas as pd
-from collections import OrderedDict
 from statsmodels.base.model import LikelihoodModelResults
 
 
-class BayesGaussMI(object):
+class BayesGaussMI:
     """
-    BayesGaussMI uses a Gaussian model to impute multivariate data.
+    Bayesian Imputation using a Gaussian model.
 
     The approach is Bayesian.  The goal is to sample from the joint
     distribution of the mean vector, covariance matrix, and missing
@@ -34,19 +33,23 @@ class BayesGaussMI(object):
         The degrees of freedom of the inverse Wishart prior
         distribution for the covariance matrix.  Defaults to 1.
 
-    Returns:
-    -------
-    BayesGaussMI object
+    Examples
+    --------
+    A basic example with OLS. Data is generated assuming 10% is missing at
+    random.
 
-    Examples:
-    ---------
-    A basic example with OLS:
+    >>> import numpy as np
+    >>> x = np.random.standard_normal((1000, 2))
+    >>> x.flat[np.random.sample(2000) < 0.1] = np.nan
 
-    >> def model_args_fn(x):
-           # Return endog, exog from x
-           return (x[:, 0], x[:, 1:])
-    >> imp = BayesGaussMI(x)
-    >> mi = MI(imp, sm.OLS, model_args_fn)
+    The imputer is used with ``MI``.
+
+    >>> import statsmodels.api as sm
+    >>> def model_args_fn(x):
+    ...     # Return endog, exog from x
+    ...    return x[:, 0], x[:, 1:]
+    >>> imp = sm.BayesGaussMI(x)
+    >>> mi = sm.MI(imp, sm.OLS, model_args_fn)
     """
 
     def __init__(self, data, mean_prior=None, cov_prior=None, cov_prior_df=1):
@@ -55,7 +58,7 @@ class BayesGaussMI(object):
         if type(data) is pd.DataFrame:
             self.exog_names = data.columns
 
-        data = np.asarray(data)
+        data = np.require(data, requirements="W")
         self.data = data
         self._data = data
         self.mask = np.isnan(data)
@@ -65,7 +68,7 @@ class BayesGaussMI(object):
         # Identify all distinct missing data patterns
         z = 1 + np.log(1 + np.arange(self.mask.shape[1]))
         c = np.dot(self.mask, z)
-        rowmap = OrderedDict()
+        rowmap = {}
         for i, v in enumerate(c):
             if v == 0:
                 # No missing values
@@ -187,7 +190,7 @@ class BayesGaussMI(object):
         self.cov = np.linalg.inv(ma)
 
 
-class MI(object):
+class MI:
     """
     MI performs multiple imputation using a provided imputer object.
 
@@ -200,12 +203,12 @@ class MI(object):
     model_args_fn : function
         A function taking an imputed dataset as input and returning
         endog, exog.  If the model is fit using a formula, returns
-        a Dataframe used to build the model.  Optional when a formula
+        a DataFrame used to build the model.  Optional when a formula
         is used.
     model_kwds_fn : function, optional
         A function taking an imputed dataset as input and returning
         a dictionary of model keyword arguments.
-    formula : string, optional
+    formula : str, optional
         If provided, the model is constructed using the `from_formula`
         class method, otherwise the `__init__` method is used.
     fit_args : list-like, optional
@@ -221,7 +224,7 @@ class MI(object):
         Number of imputed data sets to use in the analysis
     skip : int
         Number of Gibbs iterations to skip between successive
-        mutiple imputation fits.
+        multiple imputation fits.
 
     Notes
     -----
@@ -374,15 +377,15 @@ class MIResults(LikelihoodModelResults):
         This can be any instance from the multiple imputation runs.
         It is used to get class information, the specific parameter
         and data values are not used.
-    params : array-like
+    params : array_like
         The overall multiple imputation parameter estimates.
-    normalized_cov_params : array-like (2d)
+    normalized_cov_params : array_like (2d)
         The overall variance covariance matrix of the estimates.
     """
 
     def __init__(self, mi, model, params, normalized_cov_params):
 
-        super(MIResults, self).__init__(model, params, normalized_cov_params)
+        super().__init__(model, params, normalized_cov_params)
         self.mi = mi
         self._model = model
 
@@ -392,7 +395,7 @@ class MIResults(LikelihoodModelResults):
 
         Parameters
         ----------
-        title : string, optional
+        title : str, optional
             Title for the top table. If not None, then this replaces
             the default title
         alpha : float
@@ -410,7 +413,7 @@ class MIResults(LikelihoodModelResults):
         smry = summary2.Summary()
         float_format = "%8.3f"
 
-        info = OrderedDict()
+        info = {}
         info["Method:"] = "MI"
         info["Model:"] = self.mi.model.__name__
         info["Dependent variable:"] = self._model.endog_names

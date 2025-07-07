@@ -1,4 +1,3 @@
-from __future__ import print_function
 from statsmodels.datasets.macrodata import load_pandas
 from statsmodels.tsa.base.datetools import dates_from_range
 from statsmodels.tsa.arima_model import ARIMA
@@ -24,7 +23,7 @@ cpi.diff().plot()
 log_cpi = np.log(cpi)
 
 # check the ACF and PCF plots
-acf, confint_acf = sm.tsa.acf(log_cpi.diff().values[1:], confint=95)
+acf, confint_acf = sm.tsa.acf(log_cpi.diff().values[1:], alpha=0.05)[:2]
 # center the confidence intervals about zero
 # TODO: demean? --> confint_acf -= confint_acf.mean(1)[:, None]
 pacf = sm.tsa.pacf(log_cpi.diff().values[1:], method='ols')
@@ -44,7 +43,7 @@ ax.plot(range(41), pacf, 'bo', markersize=5)
 ax.fill_between(range(41), -confint_pacf, confint_pacf, alpha=.25)
 
 
-# TODO: you'll be able to just to this when tsa-plots is in master
+# TODO: you'll be able to just to this when tsa-plots is in main
 # sm.graphics.acf_plot(x, nlags=40)
 # sm.graphics.pacf_plot(x, nlags=40)
 

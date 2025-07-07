@@ -5,17 +5,13 @@ Hard-coded from R or Stata.  Note that some of the remaining discrepancy vs.
 Stata may be because Stata uses ML by default unless you specifically ask for
 IRLS.
 """
+import os
+
 import numpy as np
 import pandas as pd
-from statsmodels.compat.python import asbytes
-from statsmodels.compat.numpy import NP_LT_113
-from . import glm_test_resids
-import os
-from statsmodels.api import add_constant, categorical
 
-# for genfromtxt changes
-import sys
-PY2 = (sys.version_info[0] < 3)
+from statsmodels.api import add_constant
+from statsmodels.genmod.tests.results import glm_test_resids
 
 # Test Precisions
 DECIMAL_4 = 4
@@ -25,7 +21,7 @@ DECIMAL_1 = 1
 DECIMAL_0 = 0
 
 
-class Longley(object):
+class Longley:
     """
     Longley used for TestGlmGaussian
 
@@ -89,6 +85,9 @@ class Longley(object):
         # TODO: taken from Stata; not available in sm yet
         self.chi2 = 1981.711859508729
 
+        self.prsquared = 0.90
+        self.prsquared_cox_snell = 1.00
+
         # self.pearson_chi2 = 836424.1293162981   # from Stata (?)
         self.fittedvalues = np.array([
             60055.659970240202, 61216.013942398131,
@@ -100,7 +99,7 @@ class Longley(object):
             70757.757825193927])
 
 
-class GaussianLog(object):
+class GaussianLog:
     """
     Uses generated data.  These results are from R and Stata.
     """
@@ -358,7 +357,7 @@ class GaussianLog(object):
             0.14665279717814039, 0.14094543192735109])
 
 
-class GaussianInverse(object):
+class GaussianInverse:
     """
     This test uses generated data.  Results are from R and Stata.
     """
@@ -599,7 +598,7 @@ class GaussianInverse(object):
             0.08382979,  0.0823717,   0.08095035,  0.07956453,  0.07821311])
 
 
-class Star98(object):
+class Star98:
     """
     Star98 class used with TestGlmBinomial
     """
@@ -630,6 +629,8 @@ class Star98(object):
         self.llf_Stata = -2998.612927807218
         self.scale = 1.
         self.pearson_chi2 = 4051.921614
+        self.prsquared = 0.8346
+        self.prsquared_cox_snell = 1.0000
         self.resids = glm_test_resids.star98_resids
         self.fittedvalues = np.array([
             0.5833118,   0.75144661,  0.50058272, 0.68534524,  0.32251021,
@@ -695,7 +696,7 @@ class Star98(object):
             0.39582747,  0.41037006,  0.34174944])
 
 
-class Lbw(object):
+class Lbw:
     '''
     The LBW data can be found here
 
@@ -706,26 +707,13 @@ class Lbw(object):
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "stata_lbw_glm.csv")
 
-        # https://github.com/statsmodels/statsmodels/pull/4432#issuecomment-379279617
-        if NP_LT_113 or PY2:
-            with open(filename, 'rb') as datafile:
-                data = np.recfromcsv(datafile)
-            vfunc = np.vectorize(lambda x: x.strip(asbytes("\"")))
-            data['race'] = vfunc(data['race'])
-        else:
-            data = pd.read_csv(filename).to_records(index=False)
-        # categorical does not work with pandas
-        data = categorical(data, col='race', drop=True)
+        data = pd.read_csv(filename)
+        dummies = pd.get_dummies(data.race, prefix="race", drop_first=False,
+                                 dtype=float)
+        data = pd.concat([data, dummies], axis=1)
         self.endog = data.low
-        design = np.column_stack((
-            data['age'],
-            data['lwt'],
-            data['race_black'],
-            data['race_other'],
-            data['smoke'],
-            data['ptl'],
-            data['ht'],
-            data['ui']))
+        design = data[["age", "lwt", "race_black", "race_other", "smoke",
+                       "ptl", "ht", "ui"]]
         self.exog = add_constant(design, prepend=False)
         # Results for Canonical Logit Link
         self.params = (
@@ -790,7 +778,7 @@ class Lbw(object):
             0.36096386,  0.54962701,  0.71996086,  0.6633756])
 
 
-class Scotvote(object):
+class Scotvote:
     """
     Scotvot class is used with TestGlmGamma.
     """
@@ -813,6 +801,8 @@ class Scotvote(object):
         # self.llf = -82.47352  # Very close to ours as is
         self.scale = 0.003584283
         self.pearson_chi2 = .0860228056
+        self.prsquared = 0.429
+        self.prsquared_cox_snell = 0.97971
         self.resids = glm_test_resids.scotvote_resids
         self.fittedvalues = np.array([
             57.80431482,  53.2733447, 50.56347993, 58.33003783,
@@ -825,7 +815,7 @@ class Scotvote(object):
             67.37947398,  60.49162862,  73.82609217,  69.61515621])
 
 
-class Cancer(object):
+class Cancer:
     '''
     The Cancer data can be found here
 
@@ -834,11 +824,11 @@ class Cancer(object):
     def __init__(self):
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "stata_cancer_glm.csv")
-        data = np.recfromcsv(open(filename, 'rb'))
+        data = pd.read_csv(filename)
         self.endog = data.studytime
-        design = np.column_stack((data.age, data.drug))
-        design = categorical(design, col=1, drop=True)
-        design = np.delete(design, 1, axis=1)  # drop first dummy
+        dummies = pd.get_dummies(pd.Series(data.drug, dtype="category"),
+                                 drop_first=True)
+        design = np.column_stack((data.age, dummies)).astype(float)
         self.exog = add_constant(design, prepend=False)
 
 
@@ -847,7 +837,7 @@ class CancerLog(Cancer):
     CancerLog is used TestGlmGammaLog
     """
     def __init__(self):
-        super(CancerLog, self).__init__()
+        super().__init__()
 
         self.resids = np.array([
             [-8.52598100e-01, -1.45739100e+00, -3.92408100e+01,
@@ -984,7 +974,7 @@ class CancerIdentity(Cancer):
     CancerIdentity is used with TestGlmGammaIdentity
     """
     def __init__(self):
-        super(CancerIdentity, self).__init__()
+        super().__init__()
 
         self.resids = np.array([
             [-8.52598100e-01,  -1.45739100e+00, -3.92408100e+01,
@@ -1121,7 +1111,7 @@ class CancerIdentity(Cancer):
             22.95054409,  21.87657748,  29.39434374,  27.24641052])
 
 
-class Cpunish(object):
+class Cpunish:
     '''
     The following are from the R script in models.datasets.cpunish
     Slightly different than published results, but should be correct
@@ -1159,7 +1149,7 @@ class Cpunish_offset(Cpunish):
     Same model as Cpunish but with offset of 100.  Many things do not change.
     '''
     def __init__(self):
-        super(Cpunish_offset, self).__init__()
+        super().__init__()
 
         self.params = (
             -1.140665e+01, 2.611017e-04, 7.781801e-02,
@@ -1170,7 +1160,7 @@ class Cpunish_offset(Cpunish):
             4.375e-01, 4.284e-01, 4.284e+00)
 
 
-class InvGauss(object):
+class InvGauss:
     '''
     Usef
 
@@ -1188,7 +1178,7 @@ class InvGauss(object):
     #    eta = np.dot(X, params)
     #    mu = 1/np.sqrt(eta)
     #    sigma = .5
-    #   This isn't correct.  Errors need to be normally distributed
+    #   This is not correct.  Errors need to be normally distributed
     #   But Y needs to be Inverse Gaussian, so we could build it up
     #   by throwing out data?
     #   Refs:
@@ -1198,13 +1188,13 @@ class InvGauss(object):
     #         and hyperbolic random variables seems to be the canonical ref
     #    Y = np.dot(X, params) + np.random.wald(mu, sigma, 1000)
     #    model = GLM(Y, X, family=models.family.InverseGaussian(link=\
-    #        models.family.links.identity()))
+    #        models.family.links.Identity()))
 
     def __init__(self):
         # set up data #
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "inv_gaussian.csv")
-        with open(filename, 'rb') as fd:
+        with open(filename, encoding="utf-8") as fd:
             data = np.genfromtxt(fd, delimiter=",", dtype=float)[1:]
         self.endog = data[:5000, 0]
         self.exog = data[:5000, 1:]
@@ -2231,7 +2221,7 @@ class InvGauss(object):
             0.9433708,   0.82376832,  1.01726905,  0.81914971,  0.73290844])
 
 
-class Medpar1(object):
+class Medpar1:
     '''
     The medpar1 data can be found here.
 
@@ -2242,9 +2232,9 @@ class Medpar1(object):
                                 "stata_medpar1_glm.csv")
         data = pd.read_csv(filename).to_records()
         self.endog = data.los
-        design = np.column_stack((data.admitype, data.codes))
-        design = categorical(design, col=0, drop=True)
-        design = np.delete(design, 1, axis=1)  # drop first dummy
+        dummies = pd.get_dummies(data.admitype, prefix="race", drop_first=True,
+                                 dtype=float)
+        design = np.column_stack((data.codes, dummies)).astype(float)
         self.exog = add_constant(design, prepend=False)
 
 
@@ -2253,7 +2243,7 @@ class InvGaussLog(Medpar1):
     InvGaussLog is used with TestGlmInvgaussLog
     """
     def __init__(self):
-        super(InvGaussLog, self).__init__()
+        super().__init__()
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "medparlogresids.csv")
         self.resids = pd.read_csv(filename, sep=',', header=None).values
@@ -3014,7 +3004,7 @@ class InvGaussIdentity(Medpar1):
     Accuracy is different for R vs Stata ML vs Stata IRLS, we are close.
     """
     def __init__(self):
-        super(InvGaussIdentity, self).__init__()
+        super().__init__()
         self.params = np.array([0.44538838, -1.05872706,  2.83947966])
         self.bse = np.array([0.02586783,  0.13830023,  0.20834864])
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -3773,7 +3763,7 @@ class InvGaussIdentity(Medpar1):
             5.34385962])
 
 
-class Committee(object):
+class Committee:
     def __init__(self):
         self.resids = np.array([
             [-5.04950800e-01,  -6.29721800e-01, -8.35499100e+01,
@@ -3842,7 +3832,7 @@ class Committee(object):
             42.75939828,   55.56133536,    0.72532053,   18.14664665])
 
 
-class Wfs(object):
+class Wfs:
     """
     Wfs used for TestGlmPoissonOffset
 
@@ -3889,7 +3879,7 @@ class Wfs(object):
             330.7497, 84.38604, 1456.757, 451.005, 67.51025]
 
 
-class CpunishTweediePower15(object):
+class CpunishTweediePower15:
     """
     # From R
     setwd('c:/workspace')
@@ -3964,7 +3954,7 @@ class CpunishTweediePower15(object):
             1.73235552803559]
 
 
-class CpunishTweediePower2(object):
+class CpunishTweediePower2:
     """
     # From R
     setwd('c:/workspace')
@@ -4040,7 +4030,7 @@ class CpunishTweediePower2(object):
             1.73761117252919]
 
 
-class CpunishTweedieLog1(object):
+class CpunishTweedieLog1:
     """
     # From R
     setwd('c:/workspace')
@@ -4118,7 +4108,7 @@ class CpunishTweedieLog1(object):
             1.83932239216282]
 
 
-class FairTweedieLog15(object):
+class FairTweedieLog15:
     """
     # From R
     setwd('c:/workspace')

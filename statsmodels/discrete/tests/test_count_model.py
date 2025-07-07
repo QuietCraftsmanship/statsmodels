@@ -1,12 +1,17 @@
-from __future__ import division
-from statsmodels.compat.scipy import SP_GTE_019
+from statsmodels.compat.platform import PLATFORM_LINUX32
 
 import numpy as np
-from numpy.testing import (assert_,
-                           assert_equal, assert_array_equal, assert_allclose)
+from numpy.testing import (
+    assert_,
+    assert_allclose,
+    assert_array_equal,
+    assert_equal,
+)
+import pandas as pd
 import pytest
 
 import statsmodels.api as sm
+
 from .results.results_discrete import RandHIE
 from .test_discrete import CheckModelMixin
 
@@ -40,7 +45,7 @@ class CheckGeneric(CheckModelMixin):
 
         alpha = np.ones(len(self.res1.params))
         alpha[-2:] = 0
-        res_reg = model.fit_regularized(alpha=alpha*0.01, disp=0, maxiter=500)
+        res_reg = model.fit_regularized(alpha=alpha*0.01, disp=False, maxiter=500)
 
         assert_allclose(res_reg.params[2:], self.res1.params[2:],
             atol=5e-2, rtol=5e-2)
@@ -68,17 +73,17 @@ class CheckGeneric(CheckModelMixin):
         # GH 4581
         assert 'Covariance Type:' in str(summ)
 
-
 class TestZeroInflatedModel_logit(CheckGeneric):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
-        cls.endog = data.endog
+        data = sm.datasets.randhie.load()
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = sm.add_constant(data.exog[:,1:4], prepend=False)
         exog_infl = sm.add_constant(data.exog[:,0], prepend=False)
         cls.res1 = sm.ZeroInflatedPoisson(data.endog, exog,
             exog_infl=exog_infl, inflation='logit').fit(method='newton', maxiter=500,
-                                                        disp=0)
+                                                        disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset']
@@ -89,13 +94,14 @@ class TestZeroInflatedModel_logit(CheckGeneric):
 class TestZeroInflatedModel_probit(CheckGeneric):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
-        cls.endog = data.endog
+        data = sm.datasets.randhie.load()
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = sm.add_constant(data.exog[:,1:4], prepend=False)
         exog_infl = sm.add_constant(data.exog[:,0], prepend=False)
         cls.res1 = sm.ZeroInflatedPoisson(data.endog, exog,
             exog_infl=exog_infl, inflation='probit').fit(method='newton', maxiter=500,
-                                                         disp=0)
+                                                         disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset']
@@ -103,17 +109,22 @@ class TestZeroInflatedModel_probit(CheckGeneric):
         res2 = RandHIE.zero_inflated_poisson_probit
         cls.res2 = res2
 
+    @pytest.mark.skipif(PLATFORM_LINUX32, reason="Fails on 32-bit Linux")
+    def test_fit_regularized(self):
+        super().test_fit_regularized()
+
 class TestZeroInflatedModel_offset(CheckGeneric):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
-        cls.endog = data.endog
+        data = sm.datasets.randhie.load()
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = sm.add_constant(data.exog[:,1:4], prepend=False)
         exog_infl = sm.add_constant(data.exog[:,0], prepend=False)
         cls.res1 = sm.ZeroInflatedPoisson(data.endog, exog,
             exog_infl=exog_infl, offset=data.exog[:,7]).fit(method='newton',
                                                             maxiter=500,
-                                                            disp=0)
+                                                            disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset']
@@ -129,22 +140,21 @@ class TestZeroInflatedModel_offset(CheckGeneric):
         model3 = sm.ZeroInflatedPoisson(model1.endog, model1.exog,
             exog_infl=model1.exog_infl, exposure=np.exp(offset))
         res3 = model3.fit(start_params=self.res1.params,
-                          method='newton', maxiter=500, disp=0)
+                          method='newton', maxiter=500, disp=False)
 
         assert_allclose(res3.params, self.res1.params, atol=1e-6, rtol=1e-6)
         fitted1 = self.res1.predict()
-        fitted3 = self.res1.predict()
+        fitted3 = res3.predict()
         assert_allclose(fitted3, fitted1, atol=1e-6, rtol=1e-6)
 
         ex = model1.exog
         ex_infl = model1.exog_infl
         offset = model1.offset
         fitted1_0 = self.res1.predict(exog=ex, exog_infl=ex_infl,
-                                      offset=offset)
+                                      offset=offset.tolist())
         fitted3_0 = res3.predict(exog=ex, exog_infl=ex_infl,
                                  exposure=np.exp(offset))
         assert_allclose(fitted3_0, fitted1_0, atol=1e-6, rtol=1e-6)
-
 
         ex = model1.exog[:10:2]
         ex_infl = model1.exog_infl[:10:2]
@@ -164,6 +174,11 @@ class TestZeroInflatedModel_offset(CheckGeneric):
         assert_allclose(fitted1_2, fitted1[:10:2], atol=1e-6, rtol=1e-6)
         assert_allclose(fitted3_2, fitted1[:10:2], atol=1e-6, rtol=1e-6)
 
+        # without specifying offset and exposure
+        fitted1_3 = self.res1.predict(exog=ex, exog_infl=ex_infl)
+        fitted3_3 = res3.predict(exog=ex, exog_infl=ex_infl)
+        assert_allclose(fitted3_3, fitted1_3, atol=1e-6, rtol=1e-6)
+
 
 class TestZeroInflatedModelPandas(CheckGeneric):
     @classmethod
@@ -173,14 +188,14 @@ class TestZeroInflatedModelPandas(CheckGeneric):
         cls.data = data
         exog = sm.add_constant(data.exog.iloc[:,1:4], prepend=False)
         exog_infl = sm.add_constant(data.exog.iloc[:,0], prepend=False)
-        # we don't need to verify convergence here
+        # we do not need to verify convergence here
         start_params = np.asarray([0.10337834587498942, -1.0459825102508549,
                                    -0.08219794475894268, 0.00856917434709146,
                                    -0.026795737379474334, 1.4823632430107334])
         model = sm.ZeroInflatedPoisson(data.endog, exog,
             exog_infl=exog_infl, inflation='logit')
         cls.res1 = model.fit(start_params=start_params, method='newton',
-                             maxiter=500, disp=0)
+                             maxiter=500, disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset']
@@ -204,48 +219,91 @@ class TestZeroInflatedModelPandas(CheckGeneric):
         assert_array_equal(model.exog_names, param_names)
 
 
-class TestZeroInflatedPoisson_predict(object):
+class TestZeroInflatedPoisson_predict:
     @classmethod
     def setup_class(cls):
         expected_params = [1, 0.5]
-        np.random.seed(123)
-        nobs = 200
+        np.random.seed(999)
+        nobs = 2000
         exog = np.ones((nobs, 2))
         exog[:nobs//2, 1] = 2
         mu_true = exog.dot(expected_params)
         cls.endog = sm.distributions.zipoisson.rvs(mu_true, 0.05,
                                                    size=mu_true.shape)
         model = sm.ZeroInflatedPoisson(cls.endog, exog)
-        cls.res = model.fit(method='bfgs', maxiter=5000, maxfun=5000, disp=0)
+        cls.res = model.fit(method='bfgs', maxiter=5000, disp=False)
+
+        cls.params_true = [mu_true,  0.05, nobs]
 
     def test_mean(self):
+        def compute_conf_interval_95(mu, prob_infl, nobs):
+            dispersion_factor = 1 + prob_infl * mu
+
+            # scalar variance of the mixture of zip
+            var = (dispersion_factor*(1-prob_infl)*mu).mean()
+            var += (((1-prob_infl)*mu)**2).mean()
+            var -= (((1-prob_infl)*mu).mean())**2
+            std = np.sqrt(var)
+            # Central limit theorem
+            conf_intv_95 = 2 * std / np.sqrt(nobs)
+            return conf_intv_95
+
+        conf_interval_95 = compute_conf_interval_95(*self.params_true)
         assert_allclose(self.res.predict().mean(), self.endog.mean(),
-                        atol=1e-2, rtol=1e-2)
+                        atol=conf_interval_95, rtol=0)
 
     def test_var(self):
-        assert_allclose((self.res.predict().mean() *
-                        self.res._dispersion_factor.mean()),
+        def compute_mixture_var(dispersion_factor, prob_main, mu):
+            # the variance of the mixture is the mixture of the variances plus
+            # a non-negative term accounting for the (weighted)
+            # dispersion of the means, see stats.stackexchange #16609 and
+            #  Casella & Berger's Statistical Inference (Example 10.2.1)
+            prob_infl = 1-prob_main
+            var = (dispersion_factor*(1-prob_infl)*mu).mean()
+            var += (((1-prob_infl)*mu)**2).mean()
+            var -= (((1-prob_infl)*mu).mean())**2
+            return var
+
+        res = self.res
+        var_fitted = compute_mixture_var(res._dispersion_factor,
+                                         res.predict(which='prob-main'),
+                                         res.predict(which='mean-main'))
+
+        assert_allclose(var_fitted.mean(),
                         self.endog.var(), atol=5e-2, rtol=5e-2)
 
     def test_predict_prob(self):
         res = self.res
-        endog = res.model.endog
 
         pr = res.predict(which='prob')
-        pr2 = sm.distributions.zipoisson.pmf(np.arange(7)[:,None],
-            res.predict(), 0.05).T
+        pr2 = sm.distributions.zipoisson.pmf(np.arange(pr.shape[1])[:, None],
+                                             res.predict(), 0.05).T
         assert_allclose(pr, pr2, rtol=0.05, atol=0.05)
+
+    def test_predict_options(self):
+        # check default exog_infl, see #4757
+        res = self.res
+        n = 5
+        pr1 = res.predict(which='prob')
+        pr0 = res.predict(exog=res.model.exog[:n], which='prob')
+        assert_allclose(pr0, pr1[:n], rtol=1e-10)
+
+        fitted1 = res.predict()
+        fitted0 = res.predict(exog=res.model.exog[:n])
+        assert_allclose(fitted0, fitted1[:n], rtol=1e-10)
+
 
 @pytest.mark.slow
 class TestZeroInflatedGeneralizedPoisson(CheckGeneric):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
-        cls.endog = data.endog
+        data = sm.datasets.randhie.load()
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = sm.add_constant(data.exog[:,1:4], prepend=False)
         exog_infl = sm.add_constant(data.exog[:,0], prepend=False)
         cls.res1 = sm.ZeroInflatedGeneralizedPoisson(data.endog, exog,
-            exog_infl=exog_infl, p=1).fit(method='newton', maxiter=500, disp=0)
+            exog_infl=exog_infl, p=1).fit(method='newton', maxiter=500, disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset', 'p']
@@ -275,7 +333,7 @@ class TestZeroInflatedGeneralizedPoisson(CheckGeneric):
 
         res_ncg = model.fit(start_params=start_params,
                             method='minimize', min_method="trust-ncg",
-                            maxiter=500, disp=0)
+                            maxiter=500, disp=False)
 
         assert_allclose(res_ncg.params, self.res2.params,
                         atol=1e-3, rtol=0.04)
@@ -285,7 +343,7 @@ class TestZeroInflatedGeneralizedPoisson(CheckGeneric):
 
         res_dog = model.fit(start_params=start_params,
                             method='minimize', min_method="dogleg",
-                            maxiter=500, disp=0)
+                            maxiter=500, disp=False)
 
         assert_allclose(res_dog.params, self.res2.params,
                         atol=1e-3, rtol=3e-3)
@@ -295,10 +353,10 @@ class TestZeroInflatedGeneralizedPoisson(CheckGeneric):
 
         # Ser random_state here to improve reproducibility
         random_state = np.random.RandomState(1)
-        seed = {'seed': random_state} if SP_GTE_019 else {}
+        seed = {'seed': random_state}
         res_bh = model.fit(start_params=start_params,
                            method='basinhopping', niter=500, stepsize=0.1,
-                           niter_success=None, disp=0, interval=1, **seed)
+                           niter_success=None, disp=False, interval=1, **seed)
 
         assert_allclose(res_bh.params, self.res2.params,
                         atol=1e-4, rtol=1e-4)
@@ -307,43 +365,71 @@ class TestZeroInflatedGeneralizedPoisson(CheckGeneric):
         # skip, res_bh reports converged is false but params agree
         #assert_(res_bh.mle_retvals['converged'] is True)
 
-class TestZeroInflatedGeneralizedPoisson_predict(object):
+class TestZeroInflatedGeneralizedPoisson_predict:
     @classmethod
     def setup_class(cls):
         expected_params = [1, 0.5, 0.5]
-        np.random.seed(1234)
-        nobs = 200
+        np.random.seed(999)
+        nobs = 2000
         exog = np.ones((nobs, 2))
         exog[:nobs//2, 1] = 2
         mu_true = exog.dot(expected_params[:-1])
         cls.endog = sm.distributions.zigenpoisson.rvs(mu_true, expected_params[-1],
                                                       2, 0.5, size=mu_true.shape)
         model = sm.ZeroInflatedGeneralizedPoisson(cls.endog, exog, p=2)
-        cls.res = model.fit(method='bfgs', maxiter=5000, maxfun=5000, disp=0)
+        cls.res = model.fit(method='bfgs', maxiter=5000, disp=False)
+
+        cls.params_true = [mu_true, expected_params[-1], 2,  0.5, nobs]
 
     def test_mean(self):
+        def compute_conf_interval_95(mu, alpha, p, prob_infl, nobs):
+            p = p-1
+            dispersion_factor = (1 + alpha * mu**p)**2 + prob_infl * mu
+
+            # scalar variance of the mixture of zip
+            var = (dispersion_factor*(1-prob_infl)*mu).mean()
+            var += (((1-prob_infl)*mu)**2).mean()
+            var -= (((1-prob_infl)*mu).mean())**2
+            std = np.sqrt(var)
+            # Central limit theorem
+            conf_intv_95 = 2 * std / np.sqrt(nobs)
+            return conf_intv_95
+
+        conf_interval_95 = compute_conf_interval_95(*self.params_true)
         assert_allclose(self.res.predict().mean(), self.endog.mean(),
-                        atol=1e-4, rtol=1e-4)
+                        atol=conf_interval_95, rtol=0)
 
     def test_var(self):
-        assert_allclose((self.res.predict().mean() *
-                        self.res._dispersion_factor.mean()),
+        def compute_mixture_var(dispersion_factor, prob_main, mu):
+            prob_infl = 1-prob_main
+            var = (dispersion_factor*(1-prob_infl)*mu).mean()
+            var += (((1-prob_infl)*mu)**2).mean()
+            var -= (((1-prob_infl)*mu).mean())**2
+            return var
+
+        res = self.res
+        var_fitted = compute_mixture_var(res._dispersion_factor,
+                                         res.predict(which='prob-main'),
+                                         res.predict(which='mean-main'))
+
+        assert_allclose(var_fitted.mean(),
                         self.endog.var(), atol=0.05, rtol=0.1)
 
     def test_predict_prob(self):
         res = self.res
-        endog = res.model.endog
 
         pr = res.predict(which='prob')
-        pr2 = sm.distributions.zinegbin.pmf(np.arange(12)[:,None],
-            res.predict(), 0.5, 2, 0.5).T
+        pr2 = sm.distributions.zinegbin.pmf(np.arange(pr.shape[1])[:, None],
+                                            res.predict(), 0.5, 2, 0.5).T
         assert_allclose(pr, pr2, rtol=0.08, atol=0.05)
+
 
 class TestZeroInflatedNegativeBinomialP(CheckGeneric):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
-        cls.endog = data.endog
+        data = sm.datasets.randhie.load()
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = sm.add_constant(data.exog[:,1], prepend=False)
         exog_infl = sm.add_constant(data.exog[:,0], prepend=False)
         # cheating for now, parameters are not well identified in this dataset
@@ -351,7 +437,7 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
         sp = np.array([1.88, -10.28, -0.20, 1.14, 1.34])
         cls.res1 = sm.ZeroInflatedNegativeBinomialP(data.endog, exog,
             exog_infl=exog_infl, p=2).fit(start_params=sp, method='nm',
-                                          xtol=1e-6, maxiter=5000, disp=0)
+                                          xtol=1e-6, maxiter=5000, disp=False)
         # for llnull test
         cls.res1._results._attach_nullmodel = True
         cls.init_keys = ['exog_infl', 'exposure', 'inflation', 'offset', 'p']
@@ -374,7 +460,7 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
 
         alpha = np.ones(len(self.res1.params))
         alpha[-2:] = 0
-        res_reg = model.fit_regularized(alpha=alpha*0.01, disp=0, maxiter=500)
+        res_reg = model.fit_regularized(alpha=alpha*0.01, disp=False, maxiter=500)
 
         assert_allclose(res_reg.params[2:], self.res1.params[2:],
             atol=1e-1, rtol=1e-1)
@@ -388,7 +474,7 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
 
         res_ncg = model.fit(start_params=start_params,
                             method='minimize', min_method="trust-ncg",
-                            maxiter=500, disp=0)
+                            maxiter=500, disp=False)
 
         assert_allclose(res_ncg.params, self.res2.params,
                         atol=1e-3, rtol=0.03)
@@ -398,7 +484,7 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
 
         res_dog = model.fit(start_params=start_params,
                             method='minimize', min_method="dogleg",
-                            maxiter=500, disp=0)
+                            maxiter=500, disp=False)
 
         assert_allclose(res_dog.params, self.res2.params,
                         atol=1e-3, rtol=3e-3)
@@ -408,7 +494,7 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
 
         res_bh = model.fit(start_params=start_params,
                            method='basinhopping', maxiter=500,
-                           niter_success=3, disp=0)
+                           niter_success=3, disp=False)
 
         assert_allclose(res_bh.params, self.res2.params,
                         atol=1e-4, rtol=3e-4)
@@ -418,13 +504,13 @@ class TestZeroInflatedNegativeBinomialP(CheckGeneric):
         #assert_(res_bh.mle_retvals['converged'] is True)
 
 
-class TestZeroInflatedNegativeBinomialP_predict(object):
+class TestZeroInflatedNegativeBinomialP_predict:
     @classmethod
     def setup_class(cls):
 
         expected_params = [1, 1, 0.5]
-        np.random.seed(987123)
-        nobs = 500
+        np.random.seed(999)
+        nobs = 5000
         exog = np.ones((nobs, 2))
         exog[:nobs//2, 1] = 0
 
@@ -433,19 +519,45 @@ class TestZeroInflatedNegativeBinomialP_predict(object):
         cls.endog = sm.distributions.zinegbin.rvs(mu_true,
                     expected_params[-1], 2, prob_infl, size=mu_true.shape)
         model = sm.ZeroInflatedNegativeBinomialP(cls.endog, exog, p=2)
-        cls.res = model.fit(method='bfgs', maxiter=5000, maxfun=5000, disp=0)
+        cls.res = model.fit(method='bfgs', maxiter=5000, disp=False)
 
         # attach others
         cls.prob_infl = prob_infl
+        cls.params_true = [mu_true, expected_params[-1], 2,  prob_infl, nobs]
 
     def test_mean(self):
-        assert_allclose(self.res.predict().mean(), self.endog.mean(),
-                        rtol=0.01)
+        def compute_conf_interval_95(mu, alpha, p, prob_infl, nobs):
+            dispersion_factor = 1 + alpha * mu**(p-1) + prob_infl * mu
+
+            # scalar variance of the mixture of zip
+            var = (dispersion_factor*(1-prob_infl)*mu).mean()
+            var += (((1-prob_infl)*mu)**2).mean()
+            var -= (((1-prob_infl)*mu).mean())**2
+            std = np.sqrt(var)
+            # Central limit theorem
+            conf_intv_95 = 2 * std / np.sqrt(nobs)
+            return conf_intv_95
+
+        conf_interval_95 = compute_conf_interval_95(*self.params_true)
+        mean_true = ((1-self.prob_infl)*self.params_true[0]).mean()
+        assert_allclose(self.res.predict().mean(),
+                        mean_true, atol=conf_interval_95, rtol=0)
 
     def test_var(self):
         # todo check precision
-        assert_allclose((self.res.predict().mean() *
-                        self.res._dispersion_factor.mean()),
+        def compute_mixture_var(dispersion_factor, prob_main, mu):
+            prob_infl = 1 - prob_main
+            var = (dispersion_factor * (1 - prob_infl) * mu).mean()
+            var += (((1 - prob_infl) * mu) ** 2).mean()
+            var -= (((1 - prob_infl) * mu).mean()) ** 2
+            return var
+
+        res = self.res
+        var_fitted = compute_mixture_var(res._dispersion_factor,
+                                         res.predict(which='prob-main'),
+                                         res.predict(which='mean-main'))
+
+        assert_allclose(var_fitted.mean(),
                         self.endog.var(), rtol=0.2)
 
     def test_predict_prob(self):
@@ -463,7 +575,7 @@ class TestZeroInflatedNegativeBinomialP_predict(object):
         assert_allclose(((prm - freq)**2).mean(), 0, rtol=1e-10, atol=1e-4)
 
     def test_predict_generic_zi(self):
-        # These tests don't use numbers from other packages.
+        # These tests do not use numbers from other packages.
         # Tests are on closeness of estimated to true/DGP values
         # and theoretical relationship between quantities
         res = self.res
@@ -529,12 +641,13 @@ class TestZeroInflatedNegativeBinomialP_predict(object):
         assert_allclose(pred_lin_unique, np.cumsum(res.params[1:3]), rtol=1e-10)
 
 
-class TestZeroInflatedNegativeBinomialP_predict2(object):
+class TestZeroInflatedNegativeBinomialP_predict2:
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.randhie.load(as_pandas=False)
+        data = sm.datasets.randhie.load()
 
-        cls.endog = data.endog
+        cls.endog = np.asarray(data.endog)
+        data.exog = np.asarray(data.exog)
         exog = data.exog
         start_params = np.array([
             -2.83983767, -2.31595924, -3.9263248,  -4.01816431, -5.52251843,
@@ -544,7 +657,7 @@ class TestZeroInflatedNegativeBinomialP_predict2(object):
         mod = sm.ZeroInflatedNegativeBinomialP(
             cls.endog, exog, exog_infl=exog, p=2)
         res = mod.fit(start_params=start_params, method="bfgs",
-                      maxiter=1000, disp=0)
+                      maxiter=1000, disp=False)
 
         cls.res = res
 
@@ -557,3 +670,19 @@ class TestZeroInflatedNegativeBinomialP_predict2(object):
         mean2 = ((1 - self.res.predict(which='prob-zero').mean()) *
                  self.res.predict(which='mean-nonzero').mean())
         assert_allclose(mean1, mean2, atol=0.2)
+
+
+class TestPandasOffset:
+
+    def test_pd_offset_exposure(self):
+        endog = pd.DataFrame({'F': [0.0, 0.0, 0.0, 0.0, 1.0]})
+        exog = pd.DataFrame({'I': [1.0, 1.0, 1.0, 1.0, 1.0],
+                             'C': [0.0, 1.0, 0.0, 1.0, 0.0]})
+        exposure = pd.Series([1., 1, 1, 2, 1])
+        offset = pd.Series([1, 1, 1, 2, 1])
+        sm.Poisson(endog=endog, exog=exog, offset=offset).fit()
+        inflations = ['logit', 'probit']
+        for inflation in inflations:
+            sm.ZeroInflatedPoisson(endog=endog, exog=exog["I"],
+                                   exposure=exposure,
+                                   inflation=inflation).fit()

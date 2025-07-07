@@ -5,7 +5,7 @@ import numpy as np
 FLOAT_EPS = np.finfo(float).eps
 
 
-class VarianceFunction(object):
+class VarianceFunction:
     """
     Relates the variance of a random variable to its mean. Defaults to 1.
 
@@ -32,12 +32,12 @@ class VarianceFunction(object):
 
         Parameters
         ----------
-        mu : array-like
+        mu : array_like
             mean parameters
 
         Returns
         -------
-        v : array
+        v : ndarray
             ones(mu.shape)
         """
         mu = np.asarray(mu)
@@ -59,7 +59,7 @@ constant is an alias of VarianceFunction()
 """
 
 
-class Power(object):
+class Power:
     """
     Power variance function
 
@@ -93,12 +93,12 @@ class Power(object):
 
         Parameters
         ----------
-        mu : array-like
+        mu : array_like
             mean parameters
 
         Returns
         -------
-        variance : array
+        variance : ndarray
             numpy.fabs(mu)**self.power
         """
         return np.power(np.fabs(mu), self.power)
@@ -142,7 +142,7 @@ This is an alias of statsmodels.family.links.Power(power=3)
 """
 
 
-class Binomial(object):
+class Binomial:
     """
     Binomial variance function
 
@@ -184,12 +184,12 @@ class Binomial(object):
 
         Parameters
         ----------
-        mu : array-like
+        mu : array_like
             mean parameters
 
         Returns
         -------
-        variance : array
+        variance : ndarray
            variance = mu/n * (1 - mu/n) * self.n
         """
         p = self._clean(mu / self.n)
@@ -213,7 +213,7 @@ This is an alias of Binomial(n=1)
 """
 
 
-class NegativeBinomial(object):
+class NegativeBinomial:
     '''
     Negative binomial variance function
 
@@ -253,12 +253,12 @@ class NegativeBinomial(object):
 
         Parameters
         ----------
-        mu : array-like
+        mu : array_like
             mean parameters
 
         Returns
         -------
-        variance : array
+        variance : ndarray
             variance = mu + alpha*mu**2
         """
         p = self._clean(mu)

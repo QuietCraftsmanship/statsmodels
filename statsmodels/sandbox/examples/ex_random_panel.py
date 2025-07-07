@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Fri May 18 13:05:47 2012
@@ -57,7 +56,7 @@ if 'ex1' in examples:
     #OLS standard errors are too small
     mod.res_pooled.params
     mod.res_pooled.bse
-    #heteroscedasticity robust doesn't help
+    #heteroscedasticity robust does not help
     mod.res_pooled.HC1_se
     #compare with cluster robust se
 
@@ -131,7 +130,7 @@ if 'ex1' in examples:
 
 
     import pandas as pa
-    #pandas.DataFrame doesn't do inplace append
+    #pandas.DataFrame does not do inplace append
     se = pa.DataFrame(res_ols.bse[None,:], index=['OLS'])
     se = se.append(pa.DataFrame(res5.bse[None,:], index=['PGLSit5']))
     clbse = sw.se_cov(sw.cov_cluster(mod.res_pooled, dgp.groups.astype(int)))

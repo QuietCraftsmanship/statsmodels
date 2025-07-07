@@ -1,19 +1,17 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed May 04 06:09:18 2011
 
 @author: josef
 """
-from __future__ import print_function
 import numpy as np
 
 
 def mean_residual_life(x, frac=None, alpha=0.05):
-    '''emprirical mean residual life or expected shortfall
+    '''empirical mean residual life or expected shortfall
 
     Parameters
     ----------
-    x : 1-dimensional array-like
+    x : 1-dimensional array_like
     frac : list[float], optional
         All entries must be between 0 and 1
     alpha : float, default 0.05
@@ -21,10 +19,10 @@ def mean_residual_life(x, frac=None, alpha=0.05):
 
     TODO:
         check formula for std of mean
-        doesn't include case for all observations
+        does not include case for all observations
         last observations std is zero
         vectorize loop using cumsum
-        frac doesn't work yet
+        frac does not work yet
     '''
 
     axis = 0  # searchsorted is 1d only
@@ -43,7 +41,8 @@ def mean_residual_life(x, frac=None, alpha=0.05):
     for i in range(len(xthreshold)-1):
         k_ind = xlargerindex[i]
         rmean = x[k_ind:].mean()
-        rstd = x[k_ind:].std()  # this doesn't work for last observations, nans
+        # this does not work for last observations, nans
+        rstd = x[k_ind:].std()
         rmstd = rstd/np.sqrt(nobs-k_ind)  # std error of mean, check formula
         result.append((k_ind, xthreshold[i], rmean, rmstd))
 

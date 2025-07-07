@@ -1,26 +1,19 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Jul 28 08:28:04 2010
 
 Author: josef-pktd
 """
-
-
-from __future__ import print_function
-from statsmodels.compat.python import zip
 import numpy as np
+from scipy import optimize, special, stats
 
-from scipy import stats, special, optimize
 import statsmodels.api as sm
 from statsmodels.base.model import GenericLikelihoodModel
-from statsmodels.tools.numdiff import approx_hess
-
 #import for kstest based estimation
 #should be replace
 # FIXME: importing these patches scipy distribution classes in-place.
-#  Don't do this.
+#  Do not do this.
 import statsmodels.sandbox.distributions.sppatch  # noqa:F401
-
+from statsmodels.tools.numdiff import approx_hess
 
 #redefine some shortcuts
 np_log = np.log
@@ -61,7 +54,7 @@ class MyT(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -69,7 +62,7 @@ class MyT(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
+        -----
         .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
         #print len(params),
@@ -159,7 +152,7 @@ print(pp.max(0))
 
 
 ##################### Example: Pareto
-# estimating scale doesn't work yet, a bug somewhere ?
+# estimating scale does not work yet, a bug somewhere ?
 # fit_ks works well, but no bse or other result statistics yet
 
 
@@ -199,7 +192,7 @@ class MyPareto(GenericLikelihoodModel):
         '''fit Pareto with nested optimization
 
         originally published on stackoverflow
-        this doesn't trim lower values during ks optimization
+        this does not trim lower values during ks optimization
 
         '''
         rvs = self.endog
@@ -231,7 +224,6 @@ class MyPareto(GenericLikelihoodModel):
         '''
         self.nobs = self.endog.shape[0]
         rvs = np.sort(self.endog)
-        rvsmin = rvs.min()
 
         def pareto_ks(loc, rvs):
             #start_scale = rvs.min() - loc # not used yet
@@ -243,7 +235,7 @@ class MyPareto(GenericLikelihoodModel):
         maxind = min(np.floor(self.nobs*0.95).astype(int), self.nobs-10)
         res = []
         for trimidx in range(self.nobs//2, maxind):
-            xmin = loc = rvs[trimidx]
+            loc = rvs[trimidx]
             res.append([trimidx, pareto_ks(loc-1e-10, rvs[trimidx:])])
         res = np.array(res)
         bestidx = res[np.argmin(res[:,1]),0].astype(int)
@@ -315,7 +307,7 @@ print(res_parks)
 
 print(res_par.params[1:].sum(), sum(res_parks[1:]), mod_par.endog.min())
 
-#start new model, so we don't get two result instances with the same model instance
+#start new model, so we do not get two result instances with the same model instance
 mod_par = MyPareto(y)
 mod_par.fixed_params = fixdf
 mod_par.fixed_paramsmask = np.isnan(fixdf)

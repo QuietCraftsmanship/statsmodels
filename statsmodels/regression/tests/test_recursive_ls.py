@@ -4,23 +4,23 @@ Tests for recursive least squares models
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
+import os
 
 import numpy as np
+from numpy.testing import assert_allclose, assert_equal, assert_raises
 import pandas as pd
 import pytest
 from scipy.stats import norm
-import os
 
 from statsmodels.datasets import macrodata
-from statsmodels.regression.linear_model import OLS
+from statsmodels.formula._manager import FormulaManager
 from statsmodels.genmod.api import GLM
-from statsmodels.tools.eval_measures import aic, bic
+from statsmodels.regression.linear_model import OLS
 from statsmodels.regression.recursive_ls import RecursiveLS
 from statsmodels.stats.diagnostic import recursive_olsresiduals
 from statsmodels.tools import add_constant
+from statsmodels.tools.eval_measures import aic, bic
 from statsmodels.tools.sm_exceptions import ValueWarning
-from numpy.testing import assert_equal, assert_raises, assert_allclose
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -55,6 +55,7 @@ def test_endog():
     mod_ols = OLS(endog, dta['m1'])
     res_ols = mod_ols.fit()
     assert_allclose(res.params, res_ols.params)
+
 
 def test_ols():
     # More comprehensive tests against OLS estimates
@@ -214,9 +215,10 @@ def test_glm(constraints=None):
     # used in OLS. Compute new ic based on llf_alternative to compare.
     actual_aic = aic(llf_alternative, res.nobs_effective, res.df_model)
     assert_allclose(actual_aic, res_glm.aic)
-    # See gh#1733 for details on why the BIC doesn't match while AIC does
+    # See gh#1733 for details on why the BIC does not match while AIC does
     # actual_bic = bic(llf_alternative, res.nobs_effective, res.df_model)
     # assert_allclose(actual_bic, res_glm.bic)
+
 
 def test_glm_constrained():
     test_glm(constraints='m1 + unemp = 1')
@@ -239,7 +241,6 @@ def test_estimates():
 
     # Test for start_params
     assert_equal(mod.start_params, 0)
-
 
     # Test the RLS coefficient estimates against those from R (quantreg)
     # Due to initialization issues, we get more agreement as we get
@@ -269,43 +270,47 @@ def test_plots(close_figures):
         register_matplotlib_converters()
     except ImportError:
         pass
-    fig = res.plot_recursive_coefficient()
+    res.plot_recursive_coefficient()
 
     # Specific variable
-    fig = res.plot_recursive_coefficient(variables=['m1'])
+    res.plot_recursive_coefficient(variables=['m1'])
 
     # All variables
-    fig = res.plot_recursive_coefficient(variables=[0, 'm1', 'pop'])
+    res.plot_recursive_coefficient(variables=[0, 'm1', 'pop'])
 
     # Basic plot
-    fig = res.plot_cusum()
+    res.plot_cusum()
 
     # Other alphas
     for alpha in [0.01, 0.10]:
-        fig = res.plot_cusum(alpha=alpha)
+        res.plot_cusum(alpha=alpha)
 
     # Invalid alpha
     assert_raises(ValueError, res.plot_cusum, alpha=0.123)
 
     # Basic plot
-    fig = res.plot_cusum_squares()
+    res.plot_cusum_squares()
 
     # Numpy input (no dates)
     mod = RecursiveLS(endog.values, exog.values)
     res = mod.fit()
 
     # Basic plot
-    fig = res.plot_recursive_coefficient()
+    res.plot_recursive_coefficient()
 
     # Basic plot
-    fig = res.plot_cusum()
+    res.plot_cusum()
 
     # Basic plot
-    fig = res.plot_cusum_squares()
+    res.plot_cusum_squares()
 
 
 def test_from_formula():
-    with pytest.warns(ValueWarning, match="No frequency information"):
+    mgr = FormulaManager()
+    if mgr.engine == 'patsy':
+        with pytest.warns(ValueWarning, match="No frequency information"):
+            mod = RecursiveLS.from_formula('cpi ~ m1', data=dta)
+    else:
         mod = RecursiveLS.from_formula('cpi ~ m1', data=dta)
 
     res = mod.fit()
@@ -337,6 +342,17 @@ def test_resid_recursive():
     res_ols = mod_ols.fit()
     desired_resid_recursive = recursive_olsresiduals(res_ols)[4][2:]
     assert_allclose(res.resid_recursive[2:], desired_resid_recursive)
+
+
+def test_recursive_olsresiduals_bad_input(reset_randomstate):
+    from statsmodels.tsa.arima.model import ARIMA
+    e = np.random.standard_normal(250)
+    y = e.copy()
+    for i in range(1, y.shape[0]):
+        y[i] += 0.1 + 0.8 * y[i - 1] + e[i]
+    res = ARIMA(y[20:], order=(1, 0, 0), trend="c").fit()
+    with pytest.raises(TypeError, match="res a regression results instance"):
+        recursive_olsresiduals(res)
 
 
 def test_cusum():
@@ -425,8 +441,9 @@ def test_constraints_stata():
 
     # See tests/results/test_rls.do
     desired = [.4699552366, .0005369357, .0005369357]
-    assert_allclose(res.bse[0], desired[0], atol=1e-1)
-    assert_allclose(res.bse[1:], desired[1:], atol=1e-4)
+    bse = np.asarray(res.bse)
+    assert_allclose(bse[0], desired[0], atol=1e-1)
+    assert_allclose(bse[1:], desired[1:], atol=1e-4)
 
     # See tests/results/test_rls.do
     desired = -534.4292052931121
@@ -459,8 +476,9 @@ def test_multiple_constraints():
 
     # See tests/results/test_rls.do
     desired = [.4699552366, .0005369357, .0005369357, 0]
-    assert_allclose(res.bse[0], desired[0], atol=1e-1)
-    assert_allclose(res.bse[1:-1], desired[1:-1], atol=1e-4)
+    bse = np.asarray(res.bse)
+    assert_allclose(bse[0], desired[0], atol=1e-1)
+    assert_allclose(bse[1:-1], desired[1:-1], atol=1e-4)
 
     # See tests/results/test_rls.do
     desired = -534.4292052931121
@@ -473,3 +491,15 @@ def test_multiple_constraints():
     llf_alternative = np.log(norm.pdf(res.resid_recursive, loc=0,
                                       scale=scale_alternative**0.5)).sum()
     assert_allclose(llf_alternative, desired)
+
+
+def test_fix_params():
+    mod = RecursiveLS([0, 1, 0, 1], [1, 1, 1, 1])
+    with pytest.raises(ValueError, match=('Linear constraints on coefficients'
+                                          ' should be given')):
+        with mod.fix_params({'const': 0.1}):
+            mod.fit()
+
+    with pytest.raises(ValueError, match=('Linear constraints on coefficients'
+                                          ' should be given')):
+        mod.fit_constrained({'const': 0.1})

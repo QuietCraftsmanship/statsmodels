@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """covariance with (nobs,nobs) loop and general kernel
 
 This is a general implementation that is not efficient for any special cases.
@@ -13,7 +12,6 @@ Author: Josef Perktold
 License: BSD-3
 
 """
-from statsmodels.compat.python import range
 import numpy as np
 
 def kernel(d1, d2, r=None, weights=None):

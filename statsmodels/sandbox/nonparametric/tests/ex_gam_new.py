@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example for GAM with Poisson Model and PolynomialSmoother
 
 This example was written as a test case.
@@ -9,8 +8,7 @@ Created on Fri Nov 04 13:45:43 2011
 
 Author: Josef Perktold
 """
-from __future__ import print_function
-from statsmodels.compat.python import lrange, zip
+from statsmodels.compat.python import lrange
 import time
 
 import numpy as np
@@ -83,7 +81,8 @@ for ss in m.smoothers:
 if example > 1:
     import matplotlib.pyplot as plt
     plt.figure()
-    for i in np.array(m.history[2:15:3]): plt.plot(i.T)
+    for i in np.array(m.history[2:15:3]):
+        plt.plot(i.T)
 
     plt.figure()
     plt.plot(exog)

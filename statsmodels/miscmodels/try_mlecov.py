@@ -5,16 +5,18 @@ toeplitz structure is not exploited, need cholesky or inv for toeplitz
 Author: josef-pktd
 '''
 
-from __future__ import print_function
 import numpy as np
 from scipy import linalg
 from scipy.linalg import toeplitz
 
-import statsmodels.api as sm
 from statsmodels.base.model import GenericLikelihoodModel
+from statsmodels.datasets import sunspots
 from statsmodels.tsa.arima_process import (
-    arma_acovf, arma_generate_sample, ArmaProcess
+    ArmaProcess,
+    arma_acovf,
+    arma_generate_sample,
 )
+
 
 def mvn_loglike_sum(x, sigma):
     '''loglike multivariate normal
@@ -101,8 +103,9 @@ def mvn_nloglike_obs(x, sigma):
     #logdetsigma = 2 * np.sum(np.log(np.diagonal(cholsigmainv)))
     x_whitened = np.dot(cholsigmainv, x)
 
-    #sigmainv = linalg.cholesky(sigma)
-    logdetsigma = np.log(np.linalg.det(sigma))
+    # Unused, commented out
+    # sigmainv = linalg.cholesky(sigma)
+    # logdetsigma = np.log(np.linalg.det(sigma))
 
     sigma2 = 1. # error variance is included in sigma
 
@@ -186,7 +189,7 @@ if __name__ == '__main__':
     #ma = [1]
     np.random.seed(9875789)
     y = arma_generate_sample(ar,ma,nobs,2)
-    y -= y.mean() #I haven't checked treatment of mean yet, so remove
+    y -= y.mean() #I have not checked treatment of mean yet, so remove
     mod = MLEGLS(y)
     mod.nar, mod.nma = 2, 2   #needs to be added, no init method
     mod.nobs = len(y)
@@ -200,7 +203,7 @@ if __name__ == '__main__':
 
     arpoly, mapoly = getpoly(mod, res.params[:-1])
 
-    data = sm.datasets.sunspots.load(as_pandas=False)
+    data = sunspots.load()
     #ys = data.endog[-100:]
 ##    ys = data.endog[12:]-data.endog[:-12]
 ##    ys -= ys.mean()

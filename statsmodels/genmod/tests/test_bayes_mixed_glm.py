@@ -17,7 +17,7 @@ def gen_simple_logit(nc, cs, s):
     lp = np.dot(exog_fe, np.r_[1, -1]) + np.dot(exog_vc, vc)
     pr = 1 / (1 + np.exp(-lp))
     y = 1 * (np.random.uniform(size=nc * cs) < pr)
-    ident = np.zeros(nc, dtype=np.int)
+    ident = np.zeros(nc, dtype=int)
 
     return y, exog_fe, exog_vc, ident
 
@@ -32,7 +32,7 @@ def gen_simple_poisson(nc, cs, s):
     lp = np.dot(exog_fe, np.r_[0.1, -0.1]) + np.dot(exog_vc, vc)
     r = np.exp(lp)
     y = np.random.poisson(r)
-    ident = np.zeros(nc, dtype=np.int)
+    ident = np.zeros(nc, dtype=int)
 
     return y, exog_fe, exog_vc, ident
 
@@ -51,7 +51,7 @@ def gen_crossed_logit(nc, cs, s1, s2):
     lp = np.dot(exog_fe, np.r_[-0.5]) + np.dot(exog_vc, vc)
     pr = 1 / (1 + np.exp(-lp))
     y = 1 * (np.random.uniform(size=nc * cs) < pr)
-    ident = np.zeros(2 * nc, dtype=np.int)
+    ident = np.zeros(2 * nc, dtype=int)
     ident[nc:] = 1
 
     return y, exog_fe, exog_vc, ident
@@ -71,7 +71,7 @@ def gen_crossed_poisson(nc, cs, s1, s2):
     lp = np.dot(exog_fe, np.r_[-0.5]) + np.dot(exog_vc, vc)
     r = np.exp(lp)
     y = np.random.poisson(r)
-    ident = np.zeros(2 * nc, dtype=np.int)
+    ident = np.zeros(2 * nc, dtype=int)
     ident[nc:] = 1
 
     return y, exog_fe, exog_vc, ident
@@ -97,7 +97,7 @@ def gen_crossed_logit_pandas(nc, cs, s1, s2):
     pr = 1 / (1 + np.exp(-lp))
     y = 1 * (np.random.uniform(size=nc * cs) < pr)
 
-    ident = np.zeros(2 * nc, dtype=np.int)
+    ident = np.zeros(2 * nc, dtype=int)
     ident[nc:] = 1
 
     df = pd.DataFrame({"fe": fe, "a": a, "b": b, "y": y})
@@ -523,8 +523,7 @@ def test_poisson_formula():
         df["z2"] = z2
 
         fml = "y ~ 0 + x1"
-        from collections import OrderedDict
-        vc_fml = OrderedDict({})
+        vc_fml = {}
         vc_fml["z1"] = "0 + C(z1)"
         vc_fml["z2"] = "0 + C(z2)"
         glmm2 = PoissonBayesMixedGLM.from_formula(fml, vc_fml, df)
@@ -576,37 +575,3 @@ def test_scale_map():
         rslts.append(rslt)
 
     assert_allclose(rslts[0].params, rslts[1].params, rtol=1e-4)
-
-def test_doc_examples():
-
-    np.random.seed(8767)
-    n = 200
-    m = 20
-    data = pd.DataFrame({"Year": np.random.uniform(0, 1, n),
-                         "Village": np.random.randint(0, m, n)})
-    data['year_cen'] = data['Year'] - data.Year.mean()
-
-    # Binomial outcome
-    lpr = np.random.normal(size=m)[data.Village]
-    lpr += np.random.normal(size=m)[data.Village] * data.year_cen
-    y = (np.random.uniform(size=n) < 1 / (1 + np.exp(-lpr)))
-    data["y"] = y.astype(np.int)
-
-    # These lines should agree with the example in the class docstring.
-    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
-    model = BinomialBayesMixedGLM.from_formula(
-                 'y ~ year_cen', random, data)
-    result = model.fit_vb()
-    _ = result
-
-    # Poisson outcome
-    lpr = np.random.normal(size=m)[data.Village]
-    lpr += np.random.normal(size=m)[data.Village] * data.year_cen
-    data["y"] = np.random.poisson(np.exp(lpr))
-
-    # These lines should agree with the example in the class docstring.
-    random = {"a": '0 + C(Village)', "b": '0 + C(Village)*year_cen'}
-    model = PoissonBayesMixedGLM.from_formula(
-                 'y ~ year_cen', random, data)
-    result = model.fit_vb()
-    _ = result

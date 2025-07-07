@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Dec 19 11:29:18 2014
 
@@ -8,16 +7,38 @@ License: BSD-3
 """
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
+from statsmodels.formula._manager import FormulaManager
 
-# this is similar to ContrastResults after t_test, partially copied and adjusted
-class PredictionResults(object):
+
+# this is similar to ContrastResults after t_test, copied and adjusted
+class PredictionResults:
+    """
+    Results class for predictions.
+
+    Parameters
+    ----------
+    predicted_mean : ndarray
+        The array containing the prediction means.
+    var_pred_mean : ndarray
+        The array of the variance of the prediction means.
+    var_resid : ndarray
+        The array of residual variances.
+    df : int
+        The degree of freedom used if dist is 't'.
+    dist : {'norm', 't', object}
+        Either a string for the normal or t distribution or another object
+        that exposes a `ppf` method.
+    row_labels : list[str]
+        Row labels used in summary frame.
+    """
 
     def __init__(self, predicted_mean, var_pred_mean, var_resid,
                  df=None, dist=None, row_labels=None):
-        self.predicted_mean = predicted_mean
-        self.var_pred_mean = var_pred_mean
+        self.predicted = predicted_mean
+        self.var_pred = var_pred_mean
         self.df = df
         self.var_resid = var_resid
         self.row_labels = row_labels
@@ -38,6 +59,21 @@ class PredictionResults(object):
 
     @property
     def se_mean(self):
+        return self.se
+
+    @property
+    def predicted_mean(self):
+        # alias for backwards compatibility
+        return self.predicted
+
+    @property
+    def var_pred_mean(self):
+        # alias for backwards compatibility
+        return self.var_pred
+
+    @property
+    def se(self):
+        # alias for backwards compatibility
         return np.sqrt(self.var_pred_mean)
 
     def conf_int(self, obs=False, alpha=0.05):
@@ -58,7 +94,6 @@ class PredictionResults(object):
         ci : ndarray, (k_constraints, 2)
             The array has the lower and the upper limit of the confidence
             interval in the columns.
-
         """
 
         se = self.se_obs if obs else self.se_mean
@@ -68,13 +103,11 @@ class PredictionResults(object):
         upper = self.predicted_mean + q * se
         return np.column_stack((lower, upper))
 
-    def summary_frame(self, what='all', alpha=0.05):
+    def summary_frame(self, alpha=0.05):
         # TODO: finish and cleanup
-        import pandas as pd
-        from collections import OrderedDict
-        ci_obs = self.conf_int(alpha=alpha, obs=True) # need to split
+        ci_obs = self.conf_int(alpha=alpha, obs=True)  # need to split
         ci_mean = self.conf_int(alpha=alpha, obs=False)
-        to_include = OrderedDict()
+        to_include = {}
         to_include['mean'] = self.predicted_mean
         to_include['mean_se'] = self.se_mean
         to_include['mean_ci_lower'] = ci_mean[:, 0]
@@ -83,10 +116,9 @@ class PredictionResults(object):
         to_include['obs_ci_upper'] = ci_obs[:, 1]
 
         self.table = to_include
-        #OrderedDict doesn't work to preserve sequence
-        # pandas dict doesn't handle 2d_array
-        #data = np.column_stack(list(to_include.values()))
-        #names = ....
+        # pandas dict does not handle 2d_array
+        # data = np.column_stack(list(to_include.values()))
+        # names = ....
         res = pd.DataFrame(to_include, index=self.row_labels,
                            columns=to_include.keys())
         return res
@@ -95,11 +127,11 @@ class PredictionResults(object):
 def get_prediction(self, exog=None, transform=True, weights=None,
                    row_labels=None, pred_kwds=None):
     """
-    compute prediction results
+    Compute prediction results.
 
     Parameters
     ----------
-    exog : array-like, optional
+    exog : array_like, optional
         The values for which you want to predict.
     transform : bool, optional
         If the model was fit via a formula, do you want to pass
@@ -111,13 +143,16 @@ def get_prediction(self, exog=None, transform=True, weights=None,
     weights : array_like, optional
         Weights interpreted as in WLS, used for the variance of the predicted
         residual.
-    args, kwargs :
-        Some models can take additional arguments or keywords, see the
-        predict method of the model for the details.
+    row_labels : list
+        A list of row labels to use.  If not provided, read `exog` is
+        available.
+    **kwargs
+        Some models can take additional keyword arguments, see the predict
+        method of the model for the details.
 
     Returns
     -------
-    prediction_results : linear_model.PredictionResults
+    linear_model.PredictionResults
         The prediction results instance contains prediction and prediction
         variance and can on demand calculate confidence intervals and summary
         tables for the prediction of the mean and of new observations.
@@ -125,8 +160,10 @@ def get_prediction(self, exog=None, transform=True, weights=None,
 
     # prepare exog and row_labels, based on base Results.predict
     if transform and hasattr(self.model, 'formula') and exog is not None:
-        from patsy import dmatrix
-        exog = dmatrix(self.model.data.design_info, exog)
+        if isinstance(exog, pd.Series):
+            # GH-6509
+            exog = pd.DataFrame(exog)
+        exog = FormulaManager().get_matrices(self.model.data.model_spec, exog)
 
     if exog is not None:
         if row_labels is None:
@@ -135,9 +172,12 @@ def get_prediction(self, exog=None, transform=True, weights=None,
                 row_labels = None
 
         exog = np.asarray(exog)
-        if exog.ndim == 1 and (self.model.exog.ndim == 1 or
-                               self.model.exog.shape[1] == 1):
-            exog = exog[:, None]
+        if exog.ndim == 1:
+            # Params informs whether a row or column vector
+            if self.params.shape[0] > 1:
+                exog = exog[None, :]
+            else:
+                exog = exog[:, None]
         exog = np.atleast_2d(exog)  # needed in count model shape[1]
     else:
         exog = self.model.exog
@@ -151,10 +191,8 @@ def get_prediction(self, exog=None, transform=True, weights=None,
     if weights is not None:
         weights = np.asarray(weights)
         if (weights.size > 1 and
-           (weights.ndim != 1 or weights.shape[0] == exog.shape[1])):
+                (weights.ndim != 1 or weights.shape[0] == exog.shape[1])):
             raise ValueError('weights has wrong shape')
-
-    ### end
 
     if pred_kwds is None:
         pred_kwds = {}

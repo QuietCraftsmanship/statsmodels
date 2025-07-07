@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Generalized Additive Models
 
@@ -8,59 +7,60 @@ Author: Josef Perktold
 created on 08/07/2015
 """
 
-from __future__ import division
-try:
-    from collections.abc import Iterable
-except ImportError:  # Python 2.7
-    from collections import Iterable
+from collections.abc import Iterable
 import copy  # check if needed when dropping python 2.7
 
 import numpy as np
-from scipy import optimize
 import pandas as pd
-
-import statsmodels.base.wrapper as wrap
-
-from statsmodels.discrete.discrete_model import Logit
-from statsmodels.genmod.generalized_linear_model import (
-    GLM, GLMResults, GLMResultsWrapper, _check_convergence)
-import statsmodels.regression.linear_model as lm
-# import statsmodels.regression._tools as reg_tools  # TODO: use this for pirls
-from statsmodels.tools.sm_exceptions import (PerfectSeparationError,
-                                             ValueWarning)
-from statsmodels.tools.decorators import cache_readonly
-from statsmodels.tools.data import _is_using_pandas
-from statsmodels.tools.linalg import matrix_sqrt
+from scipy import optimize
 
 from statsmodels.base._penalized import PenalizedMixin
-from statsmodels.gam.gam_penalties import MultivariateGamPenalty
-from statsmodels.gam.gam_cross_validation.gam_cross_validation import (
-    MultivariateGAMCVPath)
+import statsmodels.base.wrapper as wrap
+from statsmodels.discrete.discrete_model import Logit
+from statsmodels.formula._manager import FormulaManager
 from statsmodels.gam.gam_cross_validation.cross_validators import KFold
+from statsmodels.gam.gam_cross_validation.gam_cross_validation import (
+    MultivariateGAMCVPath,
+)
+from statsmodels.gam.gam_penalties import MultivariateGamPenalty
+from statsmodels.genmod.generalized_linear_model import (
+    GLM,
+    GLMResults,
+    GLMResultsWrapper,
+    _check_convergence,
+)
+import statsmodels.regression.linear_model as lm
+from statsmodels.tools.data import _is_using_pandas
+from statsmodels.tools.decorators import cache_readonly
+from statsmodels.tools.linalg import matrix_sqrt
+# import statsmodels.regression._tools as reg_tools  # TODO: use this for pirls
+from statsmodels.tools.sm_exceptions import (
+    PerfectSeparationError,
+    ValueWarning,
+)
 
 
-def _transform_predict_exog(model, exog, design_info=None):
-    """transform exog for predict using design_info
+def _transform_predict_exog(model, exog, model_spec=None):
+    """transform exog for predict using the formula's model_spec
 
     Note: this is copied from base.model.Results.predict and converted to
     standalone function with additional options.
-
-
     """
 
     is_pandas = _is_using_pandas(exog, None)
 
     exog_index = exog.index if is_pandas else None
 
-    if design_info is None:
-        design_info = getattr(model.data, 'design_info', None)
+    if model_spec is None:
+        model_spec = getattr(model.data, 'model_spec', None)
 
-    if design_info is not None and (exog is not None):
-        from patsy import dmatrix
+    if model_spec is not None and (exog is not None):
+        from statsmodels.formula._manager import FormulaManager
+
         if isinstance(exog, pd.Series):
             # we are guessing whether it should be column or row
             if (hasattr(exog, 'name') and isinstance(exog.name, str) and
-                    exog.name in design_info.describe()):
+                    exog.name in model_spec.describe()):
                 # assume we need one column
                 exog = pd.DataFrame(exog)
             else:
@@ -68,7 +68,8 @@ def _transform_predict_exog(model, exog, design_info=None):
                 exog = pd.DataFrame(exog).T
         orig_exog_len = len(exog)
         is_dict = isinstance(exog, dict)
-        exog = dmatrix(design_info, exog, return_type="dataframe")
+
+        exog = FormulaManager().get_matrices(model_spec, exog, pandas=True)
         if orig_exog_len > len(exog) and not is_dict:
             import warnings
             if exog_index is None:
@@ -117,7 +118,6 @@ class GLMGamResults(GLMResults):
     Notes
     -----
     status: experimental
-
     """
 
     def __init__(self, model, params, normalized_cov_params, scale, **kwds):
@@ -139,9 +139,9 @@ class GLMGamResults(GLMResults):
         self.model.df_resid = self.df_resid
         mu = self.fittedvalues
         self.scale = scale = self.model.estimate_scale(mu)
-        super(GLMGamResults, self).__init__(model, params,
-                                            normalized_cov_params, scale,
-                                            **kwds)
+        super().__init__(
+            model, params, normalized_cov_params, scale, **kwds
+        )
 
     def _tranform_predict_exog(self, exog=None, exog_smooth=None,
                                transform=True):
@@ -164,8 +164,9 @@ class GLMGamResults(GLMResults):
         -------
         exog_transformed : ndarray
             design matrix for the prediction
-
         """
+        if exog_smooth is not None:
+            exog_smooth = np.asarray(exog_smooth)
         exog_index = None
         if transform is False:
             # the following allows that either or both exog are not None
@@ -179,9 +180,9 @@ class GLMGamResults(GLMResults):
                     ex = np.column_stack((exog, exog_smooth))
         else:
             # transform exog_linear if needed
-            if exog is not None and hasattr(self.model, 'design_info_linear'):
+            if exog is not None and hasattr(self.model, 'model_spec_linear'):
                 exog, exog_index = _transform_predict_exog(
-                    self.model, exog, self.model.design_info_linear)
+                    self.model, exog, self.model.model_spec_linear)
 
             # create smooth basis
             if exog_smooth is not None:
@@ -221,9 +222,9 @@ class GLMGamResults(GLMResults):
         ex, exog_index = self._tranform_predict_exog(exog=exog,
                                                      exog_smooth=exog_smooth,
                                                      transform=transform)
-        predict_results = super(GLMGamResults, self).predict(ex,
-                                                             transform=False,
-                                                             **kwargs)
+        predict_results = super().predict(ex,
+                                          transform=False,
+                                          **kwargs)
         if exog_index is not None and not hasattr(
                 predict_results, 'predicted_values'):
             if predict_results.ndim == 1:
@@ -257,13 +258,11 @@ class GLMGamResults(GLMResults):
             variance and can on demand calculate confidence intervals and
             summary tables for the prediction of the mean and of new
             observations.
-
         """
         ex, exog_index = self._tranform_predict_exog(exog=exog,
                                                      exog_smooth=exog_smooth,
                                                      transform=transform)
-        return super(GLMGamResults, self).get_prediction(ex, transform=False,
-                                                         **kwargs)
+        return super().get_prediction(ex, transform=False, **kwargs)
 
     def partial_values(self, smooth_index, include_constant=True):
         """contribution of a smooth term to the linear prediction
@@ -288,7 +287,6 @@ class GLMGamResults(GLMResults):
             linear.
         se_pred : nd_array
             standard error of linear prediction
-
         """
         variable = smooth_index
         smoother = self.model.smoother
@@ -323,11 +321,11 @@ class GLMGamResults(GLMResults):
         ----------
         smooth_index : int
             index of the smooth term within list of smooth terms
-        plot_se : book
+        plot_se : bool
             If plot_se is true, then the confidence interval for the linear
             prediction will be added to the plot.
         cpr : bool
-            If cpr (component plus residual) is true, the a scatter plot of
+            If cpr (component plus residual) is true, then a scatter plot of
             the partial working residuals will be added to the plot.
         include_constant : bool
             If true, then the estimated intercept is added to the prediction
@@ -339,8 +337,9 @@ class GLMGamResults(GLMResults):
 
         Returns
         -------
-        fig : matplotlib Figure instance
-
+        Figure
+            If `ax` is None, the created figure. Otherwise, the Figure to which
+            `ax` is connected.
         """
         from statsmodels.graphics.utils import _import_mpl, create_mpl_ax
         _import_mpl()
@@ -356,15 +355,18 @@ class GLMGamResults(GLMResults):
         se = se[sort_index]
 
         fig, ax = create_mpl_ax(ax)
+
+        if cpr:
+            # TODO: resid_response does not make sense with nonlinear link
+            # use resid_working ?
+            residual = self.resid_working[sort_index]
+            cpr_ = y_est + residual
+            ax.scatter(x, cpr_, s=4)
+
         ax.plot(x, y_est, c='blue', lw=2)
         if plot_se:
             ax.plot(x, y_est + 1.96 * se, '-', c='blue')
             ax.plot(x, y_est - 1.96 * se, '-', c='blue')
-        if cpr:
-            # TODO: resid_response doesn't make sense with nonlinear link
-            # use resid_working ?
-            cpr_ = y_est + self.resid_working
-            ax.plot(x, cpr_, '.', lw=2)
 
         ax.set_xlabel(smoother.smoothers[variable].variable_name)
 
@@ -472,7 +474,8 @@ wrap.populate_wrapper(GLMGamResultsWrapper, GLMGamResults)
 
 
 class GLMGam(PenalizedMixin, GLM):
-    """Model class for generalized additive models, GAM.
+    """
+    Generalized Additive Models (GAM)
 
     This inherits from `GLM`.
 
@@ -483,25 +486,25 @@ class GLMGam(PenalizedMixin, GLM):
     Parameters
     ----------
     endog : array_like
+        The response variable.
     exog : array_like or None
         This explanatory variables are treated as linear. The model in this
         case is a partial linear model.
-    smoother : instance of additive smoother class such as Bsplines or
-        CyclicCubicSplines
-        This is a required keyword argument
-    alpha : list of floats
-        penalization weights for smooth terms. The length of the list needs
-        to be the same as the number of smooth terms in the ``smoother``
+    smoother : instance of additive smoother class
+        Examples of smoother instances include Bsplines or CyclicCubicSplines.
+    alpha : float or list of floats
+        Penalization weights for smooth terms. The length of the list needs
+        to be the same as the number of smooth terms in the ``smoother``.
     family : instance of GLM family
-        see GLM
+        See GLM.
     offset : None or array_like
-        see GLM
+        See GLM.
     exposure : None or array_like
-        see GLM
+        See GLM.
     missing : 'none'
-        missing value handling is not supported in this class
-    kwargs :
-        extra keywords are used in call to the super classes.
+        Missing value handling is not supported in this class.
+    **kwargs
+        Extra keywords are used in call to the super classes.
 
     Notes
     -----
@@ -511,7 +514,6 @@ class GLMGam(PenalizedMixin, GLM):
     (Binomial with counts, i.e. with n_trials, is most likely wrong in pirls.
     User specified var or freq weights are most likely also not correct for
     all results.)
-
     """
 
     _results_class = GLMGamResults
@@ -523,9 +525,11 @@ class GLMGam(PenalizedMixin, GLM):
         # TODO: check usage of hasconst
         hasconst = kwargs.get('hasconst', None)
         xnames_linear = None
-        if hasattr(exog, 'design_info'):
-            self.design_info_linear = exog.design_info
-            xnames_linear = self.design_info_linear.column_names
+        mgr = FormulaManager()
+        model_spec = mgr.get_model_spec(exog, optional=True)
+        if model_spec:
+            self.model_spec_linear = model_spec
+            xnames_linear = list(self.model_spec_linear.column_names)
 
         is_pandas = _is_using_pandas(exog, None)
 
@@ -535,7 +539,7 @@ class GLMGam(PenalizedMixin, GLM):
         if xnames_linear is None:
             xnames_linear = self.data_linear.xnames
         if exog is not None:
-            exog_linear = np.asarray(exog)
+            exog_linear = self.data_linear.exog
             k_exog_linear = exog_linear.shape[1]
         else:
             exog_linear = None
@@ -568,20 +572,20 @@ class GLMGam(PenalizedMixin, GLM):
             exog = pd.DataFrame(exog, index=self.data_linear.row_labels,
                                 columns=xnames)
 
-        super(GLMGam, self).__init__(endog, exog=exog, family=family,
-                                     offset=offset, exposure=exposure,
-                                     penal=penal, missing=missing, **kwargs)
+        super().__init__(endog, exog=exog, family=family,
+                         offset=offset, exposure=exposure,
+                         penal=penal, missing=missing, **kwargs)
 
         if not is_pandas:
             # set exog nanmes if not given by pandas DataFrame
             self.exog_names[:] = xnames
 
-        # TODO: the generic data handling might attach the design_info from the
+        # TODO: the generic data handling might attach the model_spec from the
         #       linear part, but this is incorrect for the full model and
         #       causes problems in wald_test_terms
 
-        if hasattr(self.data, 'design_info'):
-            del self.data.design_info
+        if hasattr(self.data, 'model_spec'):
+            del self.data.model_spec
         # formula also might be attached which causes problems in predict
         if hasattr(self, 'formula'):
             self.formula_linear = self.formula
@@ -593,7 +597,7 @@ class GLMGam(PenalizedMixin, GLM):
 
         Parameters
         ----------
-        alpha : scalar, list or array-like
+        alpha : scalar, list or array_like
             penalization weight
 
         Returns
@@ -601,7 +605,6 @@ class GLMGam(PenalizedMixin, GLM):
         alpha : list
             penalization weight, list with length equal to the number of
             smooth terms
-
         """
         if not isinstance(alpha, Iterable):
             alpha = [alpha] * len(self.smoother.smoothers)
@@ -651,14 +654,14 @@ class GLMGam(PenalizedMixin, GLM):
                                       use_t=use_t, **kwargs)
                 start_params = res.params
                 del res
-            res = super(GLMGam, self).fit(start_params=start_params,
-                                          maxiter=maxiter, method=method,
-                                          tol=tol, scale=scale,
-                                          cov_type=cov_type, cov_kwds=cov_kwds,
-                                          use_t=use_t,
-                                          full_output=full_output, disp=disp,
-                                          max_start_irls=0,
-                                          **kwargs)
+            res = super().fit(start_params=start_params,
+                              maxiter=maxiter, method=method,
+                              tol=tol, scale=scale,
+                              cov_type=cov_type, cov_kwds=cov_kwds,
+                              use_t=use_t,
+                              full_output=full_output, disp=disp,
+                              max_start_irls=0,
+                              **kwargs)
         return res
 
     # pag 165 4.3 # pag 136 PIRLS
@@ -666,7 +669,6 @@ class GLMGam(PenalizedMixin, GLM):
                    scale=None, cov_type='nonrobust', cov_kwds=None, use_t=None,
                    weights=None):
         """fit model with penalized reweighted least squares
-
         """
         # TODO: this currently modifies several attributes
         # self.scale, self.scaletype, self.mu, self.weights
@@ -733,7 +735,7 @@ class GLMGam(PenalizedMixin, GLM):
             lin_pred += self._offset_exposure
             mu = self.family.fitted(lin_pred)
 
-            # We don't need to update scale in GLM/LEF models
+            # We do not need to update scale in GLM/LEF models
             # We might need it in dispersion models.
             # self.scale = self.estimate_scale(mu)
             history = self._update_history(wls_results, mu, history)
@@ -819,7 +821,6 @@ class GLMGam(PenalizedMixin, GLM):
         Status: experimental, It is possible that defaults change if there
         is a better way to find a global optimum. API (e.g. type of return)
         might also change.
-
         """
         # copy attributes that are changed, so we can reset them
         scale_keep = self.scale
@@ -906,7 +907,6 @@ class GLMGam(PenalizedMixin, GLM):
         -----
         The default alphas are defined as
         ``alphas = [np.logspace(0, 7, k_grid) for _ in range(k_smooths)]``
-
         """
 
         if cost is None:
@@ -937,7 +937,6 @@ class LogitGam(PenalizedMixin, Logit):
     penalization
 
     not verified yet.
-
     """
     def __init__(self, endog, smoother, alpha, *args, **kwargs):
         if not isinstance(alpha, Iterable):
@@ -948,8 +947,7 @@ class LogitGam(PenalizedMixin, Logit):
         self.pen_weight = 1  # TODO: pen weight should not be defined here!!
         penal = MultivariateGamPenalty(smoother, alpha=alpha)
 
-        super(LogitGam, self).__init__(endog, smoother.basis, penal=penal,
-                                       *args, **kwargs)
+        super().__init__(endog, smoother.basis, penal=penal, *args, **kwargs)
 
 
 def penalized_wls(endog, exog, penalty_matrix, weights):
@@ -972,7 +970,7 @@ def penalized_wls(endog, exog, penalty_matrix, weights):
     results : Results instance of WLS
     """
     y, x, s = endog, exog, penalty_matrix
-    # TODO: I don't understand why I need 2 * s
+    # TODO: I do not understand why I need 2 * s
     aug_y, aug_x, aug_weights = make_augmented_matrix(y, x, 2 * s, weights)
     wls_results = lm.WLS(aug_y, aug_x, aug_weights).fit()
     # TODO: use MinimalWLS during iterations, less overhead

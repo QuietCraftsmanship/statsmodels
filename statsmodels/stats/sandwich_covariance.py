@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Sandwich covariance estimators
 
 
@@ -64,7 +63,7 @@ West or similar are on the covariance matrix of the moment conditions
 
 quasi-MLE: MLE with mis-specified model where parameter estimates are
 fine (consistent ?) but cov_params needs to be adjusted similar or
-same as in sandwiches. (I didn't go through any details yet.)
+same as in sandwiches. (I did not go through any details yet.)
 
 TODO
 ----
@@ -101,11 +100,10 @@ for inference with clustered errors,” The Review of Economics and
 Statistics 90, no. 3 (2008): 414–427.
 
 """
-from statsmodels.compat.python import range
 import numpy as np
 
-from statsmodels.tools.grouputils import combine_indices, group_sums
 from statsmodels.stats.moment_helpers import se_cov
+from statsmodels.tools.grouputils import combine_indices, group_sums
 
 __all__ = ['cov_cluster', 'cov_cluster_2groups', 'cov_hac', 'cov_nw_panel',
            'cov_white_simple',
@@ -221,7 +219,6 @@ def _get_sandwich_arrays(results, cov_type=''):
     """Helper function to get scores from results
 
     Parameters
-
     """
 
     if isinstance(results, tuple):
@@ -247,7 +244,7 @@ def _get_sandwich_arrays(results, cov_type=''):
 
         # experimental support for freq_weights
         if hasattr(results.model, 'freq_weights') and not cov_type == 'clu':
-            # we don't want to square the weights in the covariance calculations
+            # we do not want to square the weights in the covariance calculations
             # assumes that freq_weights are incorporated in score_obs or equivalent
             # assumes xu/score_obs is 2D
             # temporary asarray
@@ -701,14 +698,13 @@ def lagged_groups(x, lag, groupidx):
     '''
     out0 = []
     out_lagged = []
-    for l,u in groupidx:
-        if l+lag < u: #group is longer than lag
-            out0.append(x[l+lag:u])
-            out_lagged.append(x[l:u-lag])
+    for lo, up in groupidx:
+        if lo+lag < up: #group is longer than lag
+            out0.append(x[lo+lag:up])
+            out_lagged.append(x[lo:up-lag])
 
     if out0 == []:
         raise ValueError('all groups are empty taking lags')
-    #return out0, out_lagged
     return np.vstack(out0), np.vstack(out_lagged)
 
 

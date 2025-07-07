@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 10 12:39:33 2015
 
@@ -35,7 +34,7 @@ class GLMPenalized(PenalizedMixin, GLM):
     pass
 
 
-class CheckPenalizedPoisson(object):
+class CheckPenalizedPoisson:
 
     @classmethod
     def setup_class(cls):
@@ -67,7 +66,7 @@ class CheckPenalizedPoisson(object):
         cls._initialize()
 
     @classmethod
-    def _generate_endog(self, linpred):
+    def _generate_endog(cls, linpred):
         mu = np.exp(linpred)
         np.random.seed(999)
         y = np.random.poisson(mu)
@@ -320,12 +319,20 @@ class TestPenalizedPoissonOraclePenalized2(CheckPenalizedPoisson):
         modp = PoissonPenalized(y, x[:, :cls.k_nonzero], penal=cls.penalty)
         modp.pen_weight *= 10  # need to penalize more to get oracle selection
         modp.penal.tau = 0.05
-        cls.res2 = modp.fit(method='bfgs', maxiter=100, disp=0)
+        sp2 = np.array([0.96817921, 0.43673551, 0.33096011, 0.27416614])
+        cls.res2 = modp.fit(start_params=sp2 * 0.5, method='bfgs',
+                            maxiter=100, disp=0)
+
+        params_notrim = np.array([
+            9.68178874e-01, 4.36744981e-01, 3.30965041e-01, 2.74161883e-01,
+            -2.58988461e-06, -1.24352640e-06, 4.48584458e-08, -2.46876149e-06,
+            -1.02471074e-05, -4.39248098e-06])
 
         mod = PoissonPenalized(y, x, penal=cls.penalty)
         mod.pen_weight *= 10  # need to penalize more to get oracle selection
         mod.penal.tau = 0.05
-        cls.res1 = mod.fit(method='bfgs', maxiter=100, trim=True, disp=0)
+        cls.res1 = mod.fit(start_params=params_notrim * 0.5,
+                           method='bfgs', maxiter=100, trim=True, disp=0)
 
         cls.exog_index = slice(None, cls.k_nonzero, None)
 
@@ -349,14 +356,20 @@ class TestPenalizedPoissonOraclePenalized2HC(CheckPenalizedPoisson):
         modp = PoissonPenalized(y, x[:, :cls.k_nonzero], penal=cls.penalty)
         modp.pen_weight *= 10  # need to penalize more to get oracle selection
         modp.penal.tau = 0.05
-        cls.res2 = modp.fit(cov_type=cov_type, method='bfgs', maxiter=100,
-                            disp=0)
+        sp2 = np.array([0.96817921, 0.43673551, 0.33096011, 0.27416614])
+        cls.res2 = modp.fit(start_params=sp2 * 0.5, cov_type=cov_type,
+                            method='bfgs', maxiter=100, disp=0)
+
+        params_notrim = np.array([
+            9.68178874e-01, 4.36744981e-01, 3.30965041e-01, 2.74161883e-01,
+            -2.58988461e-06, -1.24352640e-06, 4.48584458e-08, -2.46876149e-06,
+            -1.02471074e-05, -4.39248098e-06])
 
         mod = PoissonPenalized(y, x, penal=cls.penalty)
         mod.pen_weight *= 10  # need to penalize more to get oracle selection
         mod.penal.tau = 0.05
-        cls.res1 = mod.fit(cov_type=cov_type, method='bfgs', maxiter=100,
-                           trim=True, disp=0)
+        cls.res1 = mod.fit(start_params=params_notrim * 0.5,cov_type=cov_type,
+                           method='bfgs', maxiter=100, trim=True, disp=0)
 
         cls.exog_index = slice(None, cls.k_nonzero, None)
         cls.atol = 1e-12
@@ -390,7 +403,7 @@ class TestPenalizedPoissonOraclePenalized2HC(CheckPenalizedPoisson):
 class CheckPenalizedLogit(CheckPenalizedPoisson):
 
     @classmethod
-    def _generate_endog(self, linpred):
+    def _generate_endog(cls, linpred):
         mu = 1 / (1 + np.exp(-linpred + linpred.mean() - 0.5))
         np.random.seed(999)
         y = np.random.rand(len(mu)) < mu
@@ -503,7 +516,7 @@ class TestPenalizedLogitOraclePenalized2(CheckPenalizedLogit):
 class CheckPenalizedBinomCount(CheckPenalizedPoisson):
 
     @classmethod
-    def _generate_endog(self, linpred):
+    def _generate_endog(cls, linpred):
         mu = 1 / (1 + np.exp(-linpred + linpred.mean() - 0.5))
         np.random.seed(999)
         n_trials = 5 * np.ones(len(mu), int)
@@ -600,7 +613,7 @@ class TestPenalizedGLMBinomCountOracleHC2(CheckPenalizedBinomCount):
 class CheckPenalizedGaussian(CheckPenalizedPoisson):
 
     @classmethod
-    def _generate_endog(self, linpred):
+    def _generate_endog(cls, linpred):
         sig_e = np.sqrt(0.1)
         np.random.seed(999)
         y = linpred + sig_e * np.random.rand(len(linpred))
@@ -671,7 +684,7 @@ class TestPenalizedGLMGaussianL2(CheckPenalizedGaussian):
 
         weights = (np.arange(x.shape[1]) >= 4).astype(float)
         mod = GLMPenalized(y, x, family=family.Gaussian(),
-                           penal=smpen.L2ContraintsPenalty(weights=weights))
+                           penal=smpen.L2ConstraintsPenalty(weights=weights))
         # make pen_weight large to force redundant to close to zero
         mod.pen_weight *= 500
         cls.res1 = mod.fit(cov_type=cov_type, method='bfgs', maxiter=100,
@@ -698,7 +711,7 @@ class TestPenalizedGLMGaussianL2Theil(CheckPenalizedGaussian):
         # the corresponding Theil penweight seems to be 2 * nobs / sigma2_e
         cls.res2 = modp.fit(pen_weight=120.74564413221599 * 1000, use_t=False)
 
-        pen = smpen.L2ContraintsPenalty(restriction=restriction)
+        pen = smpen.L2ConstraintsPenalty(restriction=restriction)
         mod = GLMPenalized(y, x, family=family.Gaussian(),
                            penal=pen)
         # use default weight for GLMPenalized

@@ -1,11 +1,9 @@
 import os
 import re
-from io import open
 
 import numpy as np
 
-from statsmodels.tsa.vector_ar.tests.JMulTi_results.parse_jmulti_vecm_output \
-    import sublists, stringify_var_names
+from .parse_jmulti_vecm_output import stringify_var_names, sublists
 
 debug_mode = False
 
@@ -252,7 +250,7 @@ def load_results_jmulti(dataset, dt_s_list):
                 + dt_string + "_granger_causality_" \
                 + stringify_var_names(causing, "_") + ".txt"
             causality_file = os.path.join(here, causality_file)
-            causality_file = open(causality_file)
+            causality_file = open(causality_file, encoding="latin_1")
             causality_results = []
             for line in causality_file:
                 str_number = r"\d+\.\d{4}"

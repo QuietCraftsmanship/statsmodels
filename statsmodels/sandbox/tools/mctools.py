@@ -23,14 +23,15 @@ I guess this is currently only for one sided test statistics, e.g. for
 two-sided tests basend on t or normal distribution use the absolute value.
 
 '''
-from __future__ import print_function
 from statsmodels.compat.python import lrange
+
 import numpy as np
 
 from statsmodels.iolib.table import SimpleTable
 
+
 #copied from stattools
-class StatTestMC(object):
+class StatTestMC:
     """class to run Monte Carlo study on a statistical test'''
 
     TODO
@@ -64,7 +65,7 @@ class StatTestMC(object):
        not be updated, and, therefore, not correspond to the same run.
 
     .. Warning::
-       Under Construction, don't expect stability in Api or implementation
+       Under Construction, do not expect stability in Api or implementation
 
 
     Examples
@@ -96,8 +97,6 @@ class StatTestMC(object):
     the results should be presented, e.g.
 
     print(mc1.cdf(crit, [1,2,3])[1]
-
-
     """
 
     def __init__(self, dgp, statistic):
@@ -147,7 +146,7 @@ class StatTestMC(object):
             for ii in range(1, nrepl-1, nreturns):
                 x = dgp(*dgpargs) #(1e-4+np.random.randn(nobs)).cumsum()
                 #should I ravel?
-                mcres[ii] = statfun(x, *statsargs) #unitroot_adf(x, 2,trendorder=0, autolag=None)
+                mcres[ii] = statfun(x, *statsargs)
         #more than one return statistic
         else:
             self.nreturn = nreturns = len(statindices)
@@ -166,7 +165,7 @@ class StatTestMC(object):
 
         does not do any plotting
 
-        I don't remember what I wanted here, looks similar to the new cdf
+        I do not remember what I wanted here, looks similar to the new cdf
         method, but this also does a binned pdf (self.histo)
 
 
@@ -233,11 +232,11 @@ class StatTestMC(object):
 
         if self.mcres.ndim == 2:
             if idx is not None:
-                mcres = self.mcres[:,idx]
+                self.mcres[:,idx]
             else:
                 raise ValueError('currently only 1 statistic at a time')
         else:
-            mcres = self.mcres
+            pass
 
         self.frac = frac = np.asarray(frac)
 
@@ -304,7 +303,7 @@ class StatTestMC(object):
             be used in the calculation
         distpdf : callable
             probability density function of reference distribution
-        bins : integer or array_like
+        bins : {int, array_like}
             used unchanged for matplotlibs hist call
         ax : TODO: not implemented yet
         kwds : None or tuple of dicts
@@ -332,11 +331,12 @@ class StatTestMC(object):
 
 
         import matplotlib.pyplot as plt
-        #I don't want to figure this out now
+
+        #I do not want to figure this out now
 #        if ax=None:
 #            fig = plt.figure()
 #            ax = fig.addaxis()
-        fig = plt.figure()
+        plt.figure()
         plt.hist(mcres, bins=bins, normed=True, **kwds[0])
         plt.plot(lsp, distpdf(lsp), 'r', **kwds[1])
 
@@ -383,7 +383,7 @@ class StatTestMC(object):
         #TODO use stub instead
         if varnames is None:
             varnames = ['var%d' % i for i in range(mmlar.shape[1]//2)]
-        headers = ['\nprob'] + ['%s\n%s' % (i, t) for i in varnames for t in ['mc', 'dist']]
+        headers = ['\nprob'] + [f'{i}\n{t}' for i in varnames for t in ['mc', 'dist']]
         return SimpleTable(mmlar,
                           txt_fmt={'data_fmts': ["%#6.3f"]+["%#10.4f"]*(mmlar.shape[1]-1)},
                           title=title,
@@ -451,8 +451,7 @@ class StatTestMC(object):
 if __name__ == '__main__':
     from scipy import stats
 
-    from statsmodels.sandbox.stats.diagnostic import (
-                    acorr_ljungbox, unitroot_adf)
+    from statsmodels.stats.diagnostic import acorr_ljungbox
 
 
     def randwalksim(nobs=100, drift=0.0):
@@ -460,9 +459,6 @@ if __name__ == '__main__':
 
     def normalnoisesim(nobs=500, loc=0.0):
         return (loc+np.random.randn(nobs))
-
-    def adf20(x):
-        return unitroot_adf(x, 2,trendorder=0, autolag=None)
 
 #    print('\nResults with MC class'
 #    mc1 = StatTestMC(randwalksim, adf20)
@@ -473,15 +469,15 @@ if __name__ == '__main__':
     print('\nLjung Box')
 
     def lb4(x):
-        s,p = acorr_ljungbox(x, lags=4)
+        s,p = acorr_ljungbox(x, lags=4, return_df=True)
         return s[-1], p[-1]
 
     def lb1(x):
-        s,p = acorr_ljungbox(x, lags=1)
+        s,p = acorr_ljungbox(x, lags=1, return_df=True)
         return s[0], p[0]
 
     def lb(x):
-        s,p = acorr_ljungbox(x, lags=4)
+        s,p = acorr_ljungbox(x, lags=4, return_df=True)
         return np.r_[s, p]
 
     print('Results with MC class')

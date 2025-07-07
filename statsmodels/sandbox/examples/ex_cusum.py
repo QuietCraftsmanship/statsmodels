@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Apr 02 11:41:25 2010
 
@@ -12,8 +11,7 @@ import matplotlib.pyplot as plt
 
 import statsmodels.api as sm
 from statsmodels.stats.diagnostic import recursive_olsresiduals
-from statsmodels.sandbox.stats.diagnostic import _recursive_olsresiduals2 as recursive_olsresiduals2
-from statsmodels.sandbox.stats.diagnostic import (
+from statsmodels.stats.diagnostic import (
     breaks_hansen, breaks_cusumolsresid)
 
 
@@ -85,14 +83,14 @@ print('cusum test reject:')
 print(((rcusum[1:]>rcusumci[1]) | (rcusum[1:]<rcusumci[0])).any())
 
 rresid2, rparams2, rypred2, rresid_standardized2, rresid_scaled2, rcusum2, rcusumci2 = \
-            recursive_olsresiduals2(res1, skip)
+            recursive_olsresiduals(res1, skip)
 #assert_almost_equal(rparams[skip+1:], rparams2[skip:-1],13)
 assert_almost_equal(rparams[skip:], rparams2[skip:],13)
 #np.c_[rparams[skip+1:], rparams2[skip:-1]]
 #plt.show()
 
 ####################  Example break test
-H, crit95, ft, s = breaks_hansen(res1)
+H, crit95 = breaks_hansen(res1)
 print(H)
 print(crit95)
 
@@ -102,5 +100,5 @@ print(supb, pval, crit)
 ##check whether this works directly: Ploberger/Kramer framing of standard cusum
 ##no, it's different, there is another denominator
 #print breaks_cusumolsresid(rresid[skip:])
-#this function is still completely wrong, cut and paste doesn't apply
+#this function is still completely wrong, cut and paste does not apply
 #print breaks_cusum(rresid[skip:])

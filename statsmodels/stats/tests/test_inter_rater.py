@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Mon Dec 10 09:18:14 2012
@@ -109,7 +108,7 @@ def test_fleis_randolph():
     assert_allclose(fleiss_kappa(table, method='rand'), 0.785714, atol=6e-6)
 
 
-class CheckCohens(object):
+class CheckCohens:
 
     def test_results(self):
         res = self.res
@@ -122,8 +121,8 @@ class CheckCohens(object):
         assert_equal(str(res), self.res_string)
 
 
-class UnweightedCohens(CheckCohens):
-    #comparison to printout of a SAS example
+class TestUnweightedCohens(CheckCohens):
+    # comparison to printout of a SAS example
     @classmethod
     def setup_class(cls):
         #temporary: res instance is at last position
@@ -150,6 +149,7 @@ class UnweightedCohens(CheckCohens):
     def test_option(self):
         kappa = cohens_kappa(table10, return_results=False)
         assert_almost_equal(kappa, self.res2[0], decimal=4)
+
 
 class TestWeightedCohens(CheckCohens):
     #comparison to printout of a SAS example
@@ -318,7 +318,7 @@ def test_fleiss_kappa_irr():
     fleiss.stat_name = 'z'
     fleiss.statistic = 17.65183
     fleiss.p_value = 0
-    data_ = aggregate_raters(diagnoses)[0]
+    data_, _ = aggregate_raters(diagnoses)
     res1_kappa = fleiss_kappa(data_)
     assert_almost_equal(res1_kappa, fleiss.value, decimal=7)
 
@@ -346,6 +346,7 @@ def test_to_table():
 
 def test_aggregate_raters():
     data = diagnoses
-    resf = aggregate_raters(data)
+    data_, categories = aggregate_raters(data)
     colsum = np.array([26, 26, 30, 55, 43])
-    assert_equal(resf[0].sum(0), colsum)
+    assert_equal(data_.sum(0), colsum)
+    assert_equal(np.unique(diagnoses), categories)

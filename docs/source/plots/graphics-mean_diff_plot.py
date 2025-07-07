@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Test Bland-Altman
 """
 
@@ -6,9 +5,10 @@ Author: Joses Ho
 
 """
 
-import statsmodels.api as sm
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import statsmodels.api as sm
 
 # Seed the random number generator.
 # This ensures that the results below are reproducible.

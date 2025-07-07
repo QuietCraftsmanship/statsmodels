@@ -4,24 +4,35 @@ Tests for the generic MLEModel
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
+from statsmodels.compat.pandas import MONTH_END
 
 import os
 import re
 import warnings
 
 import numpy as np
+from numpy.testing import (
+    assert_,
+    assert_allclose,
+    assert_almost_equal,
+    assert_equal,
+    assert_raises,
+)
 import pandas as pd
 import pytest
 
-from statsmodels.tsa.statespace import (sarimax, varmax, kalman_filter,
-                                        kalman_smoother)
-from statsmodels.tsa.statespace.mlemodel import MLEModel, MLEResultsWrapper
 from statsmodels.datasets import nile
-from numpy.testing import (
-    assert_almost_equal, assert_equal, assert_allclose, assert_raises)
+from statsmodels.tsa.statespace import (
+    kalman_filter,
+    kalman_smoother,
+    sarimax,
+    varmax,
+)
+from statsmodels.tsa.statespace.mlemodel import MLEModel, MLEResultsWrapper
 from statsmodels.tsa.statespace.tests.results import (
-    results_sarimax, results_var_misc)
+    results_sarimax,
+    results_var_misc,
+)
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,7 +57,8 @@ def get_dummy_mod(fit=True, pandas=False):
 
     mod = sarimax.SARIMAX(
         endog, exog=exog, order=(0, 0, 0),
-        time_varying_regression=True, mle_regression=False)
+        time_varying_regression=True, mle_regression=False,
+        use_exact_diffuse=True)
 
     if fit:
         with warnings.catch_warnings():
@@ -152,9 +164,9 @@ def test_wrapping():
 
     # Test that we can change the following properties: loglikelihood_burn,
     # initial_variance, tolerance
-    assert_equal(mod.loglikelihood_burn, 1)
-    mod.loglikelihood_burn = 0
-    assert_equal(mod.ssm.loglikelihood_burn, 0)
+    assert_equal(mod.loglikelihood_burn, 0)
+    mod.loglikelihood_burn = 1
+    assert_equal(mod.ssm.loglikelihood_burn, 1)
 
     assert_equal(mod.tolerance, mod.ssm.tolerance)
     mod.tolerance = 0.123
@@ -520,7 +532,7 @@ def check_results(pandas):
     assert_almost_equal(res.resid[2:], np.zeros(mod.nobs-2))
 
     # Test loglikelihood_burn
-    assert_equal(res.loglikelihood_burn, 1)
+    assert_equal(res.loglikelihood_burn, 0)
 
 
 def test_results(pandas=False):
@@ -529,7 +541,7 @@ def test_results(pandas=False):
 
 
 def test_predict():
-    dates = pd.date_range(start='1980-01-01', end='1981-01-01', freq='AS')
+    dates = pd.date_range(start='1980-01-01', end='1981-01-01', freq='YS')
     endog = pd.Series([1, 2], index=dates)
     mod = MLEModel(endog, **kwargs)
     res = mod.filter([])
@@ -571,7 +583,7 @@ def test_forecast():
 
 
 def test_summary():
-    dates = pd.date_range(start='1980-01-01', end='1984-01-01', freq='AS')
+    dates = pd.date_range(start='1980-01-01', end='1984-01-01', freq='YS')
     endog = pd.Series([1, 2, 3, 4, 5], index=dates)
     mod = MLEModel(endog, **kwargs)
     res = mod.filter([])
@@ -600,7 +612,7 @@ def test_summary():
 def check_endog(endog, nobs=2, k_endog=1, **kwargs):
     # create the model
     mod = MLEModel(endog, **kwargs)
-    # the data directly available in the model is the Statsmodels version of
+    # the data directly available in the model is the statsmodels version of
     # the data; it should be 2-dim, C-contiguous, long-shaped:
     # (nobs, k_endog) == (2, 1)
     assert_equal(mod.endog.ndim, 2)
@@ -612,7 +624,10 @@ def check_endog(endog, nobs=2, k_endog=1, **kwargs):
     assert_equal(mod.ssm.endog.ndim, 2)
     assert_equal(mod.ssm.endog.flags['F_CONTIGUOUS'], True)
     assert_equal(mod.ssm.endog.shape, (k_endog, nobs))
-    assert_equal(mod.ssm.endog.base is mod.endog, True)
+    assert_equal(
+        mod.ssm.endog.base is mod.endog or not mod.endog.flags.writeable,
+        True
+    )
 
     return mod
 
@@ -620,8 +635,8 @@ def check_endog(endog, nobs=2, k_endog=1, **kwargs):
 def test_basic_endog():
     # Test various types of basic python endog inputs (e.g. lists, scalars...)
 
-    # Check cannot call with non-array-like
-    # fails due to checks in Statsmodels base classes
+    # Check cannot call with non-array_like
+    # fails due to checks in statsmodels base classes
     assert_raises(ValueError, MLEModel, endog=1, k_states=1)
     assert_raises(ValueError, MLEModel, endog='a', k_states=1)
     assert_raises(ValueError, MLEModel, endog=True, k_states=1)
@@ -677,7 +692,7 @@ def test_numpy_endog():
 
     # Example  (failure): 0-dim array
     endog = np.array(1.)
-    # raises error due to len(endog) failing in Statsmodels base classes
+    # raises error due to len(endog) failing in statsmodels base classes
     assert_raises(TypeError, check_endog, endog, **kwargs)
 
     # Example : 1-dim array, both C- and F-contiguous, length 2
@@ -735,7 +750,7 @@ def test_numpy_endog():
 
     # Example  (failure): 3-dim array
     endog = np.array([1., 2.]).reshape(2, 1, 1)
-    # raises error due to direct ndim check in Statsmodels base classes
+    # raises error due to direct ndim check in statsmodels base classes
     assert_raises(ValueError, check_endog, endog, **kwargs)
 
     # Example : np.array with 2 columns
@@ -760,14 +775,14 @@ def test_pandas_endog():
     # assert_raises(ValueError, check_endog, endog, **kwargs)
 
     # Example : pandas.Series
-    dates = pd.date_range(start='1980-01-01', end='1981-01-01', freq='AS')
+    dates = pd.date_range(start='1980-01-01', end='1981-01-01', freq='YS')
     endog = pd.Series([1., 2.], index=dates)
     mod = check_endog(endog, **kwargs)
     mod.filter([])
 
     # Example : pandas.Series, string datatype
     endog = pd.Series(['a', 'b'], index=dates)
-    # raises error due to direct type casting check in Statsmodels base classes
+    # raises error due to direct type casting check in statsmodels base classes
     assert_raises(ValueError, check_endog, endog, **kwargs)
 
     # Example : pandas.Series
@@ -844,9 +859,29 @@ def test_diagnostics():
         res.test_serial_correlation(method='invalid')
 
     # Smoke tests for other options
-    actual = res.test_heteroskedasticity(method=None, alternative='d',
-                                         use_f=False)
-    desired = res.test_serial_correlation(method='boxpierce')
+    res.test_heteroskedasticity(method=None, alternative='d', use_f=False)
+    res.test_serial_correlation(method='boxpierce')
+
+
+def test_small_sample_serial_correlation_test():
+    # Test the Ljung Box serial correlation test for small samples with df
+    # adjustment using the Nile dataset. Ljung-Box statistic and p-value
+    # are compared to R's Arima() and checkresiduals() functions in forecast
+    # package:
+    # library(forecast)
+    # fit <- Arima(y, order=c(1,0,1), include.constant=FALSE)
+    # checkresiduals(fit, lag=10)
+    from statsmodels.tsa.statespace.sarimax import SARIMAX
+    niledata = nile.data.load_pandas().data
+    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='YS')
+    mod = SARIMAX(
+        endog=niledata['volume'], order=(1, 0, 1), trend='n',
+        freq=niledata.index.freq)
+    res = mod.fit()
+
+    actual = res.test_serial_correlation(
+        method='ljungbox', lags=10, df_adjust=True)[0, :, -1]
+    assert_allclose(actual, [14.116, 0.0788], atol=1e-3)
 
 
 def test_diagnostics_nile_eviews():
@@ -857,7 +892,7 @@ def test_diagnostics_nile_eviews():
     # For Ljung-Box and Jarque-Bera statistics and p-values, see Figure 5
     # The Heteroskedasticity statistic is not provided in this paper.
     niledata = nile.data.load_pandas().data
-    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='AS')
+    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='YS')
 
     mod = MLEModel(
         niledata['volume'], k_states=1,
@@ -885,7 +920,7 @@ def test_diagnostics_nile_durbinkoopman():
     # Durbin and Koopman (2012); parameter values reported on page 37; test
     # statistics on page 40
     niledata = nile.data.load_pandas().data
-    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='AS')
+    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='YS')
 
     mod = MLEModel(
         niledata['volume'], k_states=1,
@@ -919,7 +954,7 @@ def test_diagnostics_nile_durbinkoopman():
 @pytest.mark.smoke
 def test_prediction_results():
     # Just smoke tests for the PredictionResults class, which is copied from
-    # elsewhere in Statsmodels
+    # elsewhere in statsmodels
 
     mod, res = get_dummy_mod()
     predict = res.get_prediction()
@@ -1017,3 +1052,204 @@ def test_lutkepohl_information_criteria():
     bic = res.info_criteria('bic') - 6 * np.log(res.nobs_effective)
     assert_allclose(aic, true['estat_aic'])
     assert_allclose(bic, true['estat_bic'])
+
+
+def test_append_extend_apply_invalid():
+    # Test for invalid options to append, extend, and apply
+    niledata = nile.data.load_pandas().data['volume']
+    niledata.index = pd.date_range('1871-01-01', '1970-01-01', freq='YS')
+
+    endog1 = niledata.iloc[:20]
+    endog2 = niledata.iloc[20:40]
+
+    mod = sarimax.SARIMAX(endog1, order=(1, 0, 0), concentrate_scale=True)
+    res1 = mod.smooth([0.5])
+
+    assert_raises(ValueError, res1.append, endog2,
+                  fit_kwargs={'cov_type': 'approx'})
+    assert_raises(ValueError, res1.extend, endog2,
+                  fit_kwargs={'cov_type': 'approx'})
+    assert_raises(ValueError, res1.apply, endog2,
+                  fit_kwargs={'cov_type': 'approx'})
+
+    assert_raises(ValueError, res1.append, endog2, fit_kwargs={'cov_kwds': {}})
+    assert_raises(ValueError, res1.extend, endog2, fit_kwargs={'cov_kwds': {}})
+    assert_raises(ValueError, res1.apply, endog2, fit_kwargs={'cov_kwds': {}})
+
+    # Test for exception when given a different frequency
+    wrong_freq = niledata.iloc[20:40]
+    wrong_freq.index = pd.date_range(
+        start=niledata.index[0], periods=len(wrong_freq), freq='MS')
+    message = ('Given `endog` does not have an index that extends the index of'
+               ' the model. Expected index frequency is')
+    with pytest.raises(ValueError, match=message):
+        res1.append(wrong_freq)
+    with pytest.raises(ValueError, match=message):
+        res1.extend(wrong_freq)
+    message = ('Given `exog` does not have an index that extends the index of'
+               ' the model. Expected index frequency is')
+    with pytest.raises(ValueError, match=message):
+        res1.append(endog2, exog=wrong_freq)
+    message = 'The indices for endog and exog are not aligned'
+    with pytest.raises(ValueError, match=message):
+        res1.extend(endog2, exog=wrong_freq)
+
+    # Test for exception when given the same frequency but not right after the
+    # end of model
+    not_cts = niledata.iloc[21:41]
+    message = ('Given `endog` does not have an index that extends the index of'
+               ' the model.$')
+    with pytest.raises(ValueError, match=message):
+        res1.append(not_cts)
+    with pytest.raises(ValueError, match=message):
+        res1.extend(not_cts)
+    message = ('Given `exog` does not have an index that extends the index of'
+               ' the model.$')
+    with pytest.raises(ValueError, match=message):
+        res1.append(endog2, exog=not_cts)
+    message = 'The indices for endog and exog are not aligned'
+    with pytest.raises(ValueError, match=message):
+        res1.extend(endog2, exog=not_cts)
+
+    # # Test for problems with non-date indexes
+    endog3 = pd.Series(niledata.iloc[:20].values)
+    endog4 = pd.Series(niledata.iloc[:40].values).iloc[20:]
+    mod2 = sarimax.SARIMAX(endog3, order=(1, 0, 0), exog=endog3,
+                           concentrate_scale=True)
+    res2 = mod2.smooth([0.2, 0.5])
+
+    # Test for exception when given the same frequency but not right after the
+    # end of model
+    not_cts = pd.Series(niledata[:41].values)[21:]
+    message = ('Given `endog` does not have an index that extends the index of'
+               ' the model.$')
+    with pytest.raises(ValueError, match=message):
+        res2.append(not_cts)
+    with pytest.raises(ValueError, match=message):
+        res2.extend(not_cts)
+    message = ('Given `exog` does not have an index that extends the index of'
+               ' the model.$')
+    with pytest.raises(ValueError, match=message):
+        res2.append(endog4, exog=not_cts)
+    message = 'The indices for endog and exog are not aligned'
+    with pytest.raises(ValueError, match=message):
+        res2.extend(endog4, exog=not_cts)
+
+
+def test_integer_params():
+    # See GH#6335
+    mod = sarimax.SARIMAX([1, 1, 1], order=(1, 0, 0), exog=[2, 2, 2],
+                          concentrate_scale=True)
+    res = mod.filter([1, 0])
+    p = res.predict(end=5, dynamic=True, exog=[3, 3, 4])
+    assert_equal(p.dtype, np.float64)
+
+
+def check_states_index(states, ix, predicted_ix, cols):
+    predicted_cov_ix = pd.MultiIndex.from_product(
+        [predicted_ix, cols]).swaplevel()
+    filtered_cov_ix = pd.MultiIndex.from_product([ix, cols]).swaplevel()
+    smoothed_cov_ix = pd.MultiIndex.from_product([ix, cols]).swaplevel()
+
+    # Predicted
+    assert_(states.predicted.index.equals(predicted_ix))
+    assert_(states.predicted.columns.equals(cols))
+
+    assert_(states.predicted_cov.index.equals(predicted_cov_ix))
+    assert_(states.predicted.columns.equals(cols))
+
+    # Filtered
+    assert_(states.filtered.index.equals(ix))
+    assert_(states.filtered.columns.equals(cols))
+
+    assert_(states.filtered_cov.index.equals(filtered_cov_ix))
+    assert_(states.filtered.columns.equals(cols))
+
+    # Smoothed
+    assert_(states.smoothed.index.equals(ix))
+    assert_(states.smoothed.columns.equals(cols))
+
+    assert_(states.smoothed_cov.index.equals(smoothed_cov_ix))
+    assert_(states.smoothed.columns.equals(cols))
+
+
+def test_states_index_periodindex():
+    nobs = 10
+    ix = pd.period_range(start='2000', periods=nobs, freq='M')
+    endog = pd.Series(np.zeros(nobs), index=ix)
+
+    mod = sarimax.SARIMAX(endog, order=(2, 0, 0))
+    res = mod.smooth([0.5, 0.1, 1.0])
+
+    predicted_ix = pd.period_range(start=ix[0], periods=nobs + 1, freq='M')
+    cols = pd.Index(['state.0', 'state.1'])
+
+    check_states_index(res.states, ix, predicted_ix, cols)
+
+
+def test_states_index_dateindex():
+    nobs = 10
+    ix = pd.date_range(start='2000', periods=nobs, freq=MONTH_END)
+    endog = pd.Series(np.zeros(nobs), index=ix)
+
+    mod = sarimax.SARIMAX(endog, order=(2, 0, 0))
+    res = mod.smooth([0.5, 0.1, 1.0])
+
+    predicted_ix = pd.date_range(start=ix[0], periods=nobs + 1, freq=MONTH_END)
+    cols = pd.Index(['state.0', 'state.1'])
+
+    check_states_index(res.states, ix, predicted_ix, cols)
+
+
+def test_states_index_int64index():
+    nobs = 10
+    ix = pd.Index(np.arange(10))
+    endog = pd.Series(np.zeros(nobs), index=ix)
+
+    mod = sarimax.SARIMAX(endog, order=(2, 0, 0))
+    res = mod.smooth([0.5, 0.1, 1.0])
+
+    predicted_ix = pd.Index(np.arange(11))
+    cols = pd.Index(['state.0', 'state.1'])
+
+    check_states_index(res.states, ix, predicted_ix, cols)
+
+
+def test_states_index_rangeindex():
+    nobs = 10
+
+    # Basic range index
+    ix = pd.RangeIndex(10)
+    endog = pd.Series(np.zeros(nobs), index=ix)
+
+    mod = sarimax.SARIMAX(endog, order=(2, 0, 0))
+    res = mod.smooth([0.5, 0.1, 1.0])
+
+    predicted_ix = pd.RangeIndex(11)
+    cols = pd.Index(['state.0', 'state.1'])
+
+    check_states_index(res.states, ix, predicted_ix, cols)
+
+    # More complex range index
+    ix = pd.RangeIndex(2, 32, 3)
+    endog = pd.Series(np.zeros(nobs), index=ix)
+
+    mod = sarimax.SARIMAX(endog, order=(2, 0, 0))
+    res = mod.smooth([0.5, 0.1, 1.0])
+
+    predicted_ix = pd.RangeIndex(2, 35, 3)
+    cols = pd.Index(['state.0', 'state.1'])
+
+    check_states_index(res.states, ix, predicted_ix, cols)
+
+
+def test_invalid_kwargs():
+    endog = [0, 0, 1.]
+    # Make sure we can create basic SARIMAX
+    sarimax.SARIMAX(endog)
+    # Now check that it raises a warning if we add an invalid keyword argument
+    with pytest.warns(FutureWarning):
+        sarimax.SARIMAX(endog, invalid_kwarg=True)
+    # (Note: once deprectation is completed in v0.15, switch to checking for
+    # a TypeError, as below)
+    # assert_raises(TypeError, sarimax.SARIMAX, endog, invalid_kwarg=True)

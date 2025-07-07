@@ -51,7 +51,7 @@ We can load a dataframe with selected columns from the unit test module.
     res_bs = gam_bs.fit()
     print(res_bs.summary())
 
-    # Optimal penalization weights alpha can be obtaine through generalized
+    # Optimal penalization weights alpha can be obtained through generalized
     # cross-validation or k-fold cross-validation.
     # The alpha above are from the unit tests against the R mgcv package.
 
@@ -72,6 +72,7 @@ Module Reference
 
 .. module:: statsmodels.gam.generalized_additive_model
    :synopsis: Generalized Additive Models
+.. currentmodule:: statsmodels.gam.generalized_additive_model
 
 Model Class
 ^^^^^^^^^^^

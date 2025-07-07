@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Score, lagrange multiplier and conditional moment tests
 robust to misspecification or without specification of higher moments
 
@@ -159,15 +158,93 @@ Wooldridge, Jeffrey M. Econometric analysis of cross section and panel data. MIT
 press, 2010.
 
 """
+import warnings
 
 import numpy as np
 from scipy import stats
 
-from statsmodels.tools.decorators import cache_readonly
 from statsmodels.regression.linear_model import OLS
+from statsmodels.tools.decorators import cache_readonly
+
+# deprecated dispersion functions, moved to discrete._diagnostic_count
 
 
-class ResultsGeneric(object):
+def dispersion_poisson(results):
+    """Score/LM type tests for Poisson variance assumptions
+
+    .. deprecated:: 0.14
+
+       dispersion_poisson moved to discrete._diagnostic_count
+
+    Null Hypothesis is
+
+    H0: var(y) = E(y) and assuming E(y) is correctly specified
+    H1: var(y) ~= E(y)
+
+    The tests are based on the constrained model, i.e. the Poisson model.
+    The tests differ in their assumed alternatives, and in their maintained
+    assumptions.
+
+    Parameters
+    ----------
+    results : Poisson results instance
+        This can be a results instance for either a discrete Poisson or a GLM
+        with family Poisson.
+
+    Returns
+    -------
+    res : ndarray, shape (7, 2)
+       each row contains the test statistic and p-value for one of the 7 tests
+       computed here.
+    description : 2-D list of strings
+       Each test has two strings a descriptive name and a string for the
+       alternative hypothesis.
+    """
+    msg = (
+        'dispersion_poisson here is deprecated, use the version in '
+        'discrete._diagnostic_count'
+    )
+    warnings.warn(msg, FutureWarning)
+
+    from statsmodels.discrete._diagnostics_count import test_poisson_dispersion
+    return test_poisson_dispersion(results, _old=True)
+
+
+def dispersion_poisson_generic(results, exog_new_test, exog_new_control=None,
+                               include_score=False, use_endog=True,
+                               cov_type='HC3', cov_kwds=None, use_t=False):
+    """A variable addition test for the variance function
+
+    .. deprecated:: 0.14
+
+       dispersion_poisson_generic moved to discrete._diagnostic_count
+
+    This uses an artificial regression to calculate a variant of an LM or
+    generalized score test for the specification of the variance assumption
+    in a Poisson model. The performed test is a Wald test on the coefficients
+    of the `exog_new_test`.
+
+    Warning: insufficiently tested, especially for options
+    """
+    msg = (
+        'dispersion_poisson_generic here is deprecated, use the version in '
+        'discrete._diagnostic_count'
+    )
+    warnings.warn(msg, FutureWarning)
+
+    from statsmodels.discrete._diagnostics_count import (
+        _test_poisson_dispersion_generic,
+    )
+
+    res_test = _test_poisson_dispersion_generic(
+        results, exog_new_test, exog_new_control= exog_new_control,
+        include_score=include_score, use_endog=use_endog,
+        cov_type=cov_type, cov_kwds=cov_kwds, use_t=use_t,
+        )
+    return res_test
+
+
+class ResultsGeneric:
 
 
     def __init__(self, **kwds):
@@ -251,7 +328,8 @@ def lm_test_glm(result, exog_extra, mean_deriv=None):
     dlinkinv = mod.family.link.inverse_deriv
 
     # derivative of mean function w.r.t. beta (linear params)
-    dm = lambda x, linpred: dlinkinv(linpred)[:,None] * x
+    def dm(x, linpred):
+        return dlinkinv(linpred)[:,None] * x
 
     var_func = mod.family.variance
 
@@ -259,7 +337,11 @@ def lm_test_glm(result, exog_extra, mean_deriv=None):
     x2 = exog_extra
 
     # test omitted
-    lin_pred = res.predict(linear=True)
+    try:
+        lin_pred = res.predict(which="linear")
+    except TypeError:
+        # TODO: Standardized to which="linear" and remove linear kwarg
+        lin_pred = res.predict(linear=True)
     dm_incl = dm(x, lin_pred)
     if x2 is not None:
         dm_excl = dm(x2, lin_pred)
@@ -327,7 +409,7 @@ def cm_test_robust(resid, resid_deriv, instruments, weights=1):
     weights : ndarray
         This is a weights function as used in WLS. The moment
         restrictions are multiplied by weights. This corresponds to the
-        inverse of the variance in a heteroscedastic model.
+        inverse of the variance in a heteroskedastic model.
 
     Returns
     -------
@@ -464,7 +546,7 @@ def lm_robust_subset(score, k_constraints, score_deriv_inv, cov_score):
     score : ndarray, 1-D
         derivative of objective function at estimated parameters
         of constrained model
-    k_constraint: int
+    k_constraint : int
         number of constraints
     score_deriv_inv : ndarray, symmetric, square
         inverse of second derivative of objective function
@@ -540,7 +622,7 @@ def lm_robust_subset_parts(score, k_constraints,
     This is the same as lm_robust_subset with arguments in parts of
     partitioned matrices.
     This can be useful, when we have the parts based on different estimation
-    procedures, i.e. when we don't have the full unconstrained model.
+    procedures, i.e. when we do not have the full unconstrained model.
 
     Calculates mainly the covariance of the constraint part of the score.
 
@@ -551,7 +633,7 @@ def lm_robust_subset_parts(score, k_constraints,
         of constrained model. These is the score component for the restricted
         part under hypothesis. The unconstrained part of the score is assumed
         to be zero.
-    k_constraint: int
+    k_constraint : int
         number of constraints
     score_deriv_uu : ndarray, symmetric, square
         first derivative of moment equation or second derivative of objective
@@ -583,7 +665,7 @@ def lm_robust_subset_parts(score, k_constraints,
     instead of calculating the score/lm test.
 
     Implementation similar to lm_robust_subset and is based on Boos 1992,
-    section 4.1 in the form attributed to Breslow (1990). It doesn't use the
+    section 4.1 in the form attributed to Breslow (1990). It does not use the
     computation attributed to Kent (1982) and Engle (1984).
     """
 
@@ -615,9 +697,9 @@ def lm_robust_reparameterized(score, params_deriv, score_deriv, cov_score):
     score : ndarray, 1-D
         derivative of objective function at estimated parameters
         of constrained model
-    params_deriv: ndarray
+    params_deriv : ndarray
         Jacobian G of the parameter trasnformation
-    score_deriv: ndarray, symmetric, square
+    score_deriv : ndarray, symmetric, square
         second derivative of objective function
         TODO: could be OPG or any other estimator if information matrix
         equality holds
@@ -653,161 +735,6 @@ def lm_robust_reparameterized(score, params_deriv, score_deriv, cov_score):
     lm_stat = score.dot(np.linalg.pinv(cov).dot(score))
     pval = stats.chi2.sf(lm_stat, k_constraints)
     return lm_stat, pval
-
-
-def dispersion_poisson(results):
-    """Score/LM type tests for Poisson variance assumptions
-
-    Null Hypothesis is
-
-    H0: var(y) = E(y) and assuming E(y) is correctly specified
-    H1: var(y) ~= E(y)
-
-    The tests are based on the constrained model, i.e. the Poisson model.
-    The tests differ in their assumed alternatives, and in their maintained
-    assumptions.
-
-    Parameters
-    ----------
-    results : Poisson results instance
-        This can be a results instance for either a discrete Poisson or a GLM
-        with family Poisson.
-
-    Returns
-    -------
-    res : ndarray, shape (7, 2)
-       each row contains the test statistic and p-value for one of the 7 tests
-       computed here.
-    description : 2-D list of strings
-       Each test has two strings a descriptive name and a string for the
-       alternative hypothesis.
-
-    """
-
-    if hasattr(results, '_results'):
-        results = results._results
-
-    endog = results.model.endog
-    nobs = endog.shape[0]   #TODO: use attribute, may need to be added
-    fitted = results.predict()
-    #fitted = results.fittedvalues  # discrete has linear prediction
-    #this assumes Poisson
-    resid2 = results.resid_response**2
-    var_resid_endog = (resid2 - endog)
-    var_resid_fitted = (resid2 - fitted)
-    std1 = np.sqrt(2 * (fitted**2).sum())
-
-    var_resid_endog_sum = var_resid_endog.sum()
-    dean_a = var_resid_fitted.sum() / std1
-    dean_b = var_resid_endog_sum / std1
-    dean_c = (var_resid_endog / fitted).sum() / np.sqrt(2 * nobs)
-
-    pval_dean_a = stats.norm.sf(np.abs(dean_a))
-    pval_dean_b = stats.norm.sf(np.abs(dean_b))
-    pval_dean_c = stats.norm.sf(np.abs(dean_c))
-
-    results_all = [[dean_a, pval_dean_a],
-                   [dean_b, pval_dean_b],
-                   [dean_c, pval_dean_c]]
-    description = [['Dean A', 'mu (1 + a mu)'],
-                   ['Dean B', 'mu (1 + a mu)'],
-                   ['Dean C', 'mu (1 + a)']]
-
-    # Cameron Trived auxiliary regression page 78 count book 1989
-    endog_v = var_resid_endog / fitted
-    res_ols_nb2 = OLS(endog_v, fitted).fit(use_t=False)
-    stat_ols_nb2 = res_ols_nb2.tvalues[0]
-    pval_ols_nb2 = res_ols_nb2.pvalues[0]
-    results_all.append([stat_ols_nb2, pval_ols_nb2])
-    description.append(['CT nb2', 'mu (1 + a mu)'])
-
-    res_ols_nb1 = OLS(endog_v, fitted).fit(use_t=False)
-    stat_ols_nb1 = res_ols_nb1.tvalues[0]
-    pval_ols_nb1 = res_ols_nb1.pvalues[0]
-    results_all.append([stat_ols_nb1, pval_ols_nb1])
-    description.append(['CT nb1', 'mu (1 + a)'])
-
-    endog_v = var_resid_endog / fitted
-    res_ols_nb2 = OLS(endog_v, fitted).fit(cov_type='HC1', use_t=False)
-    stat_ols_hc1_nb2 = res_ols_nb2.tvalues[0]
-    pval_ols_hc1_nb2 = res_ols_nb2.pvalues[0]
-    results_all.append([stat_ols_hc1_nb2, pval_ols_hc1_nb2])
-    description.append(['CT nb2 HC1', 'mu (1 + a mu)'])
-
-    res_ols_nb1 = OLS(endog_v, np.ones(len(endog_v))).fit(cov_type='HC1',
-                                                          use_t=False)
-    stat_ols_hc1_nb1 = res_ols_nb1.tvalues[0]
-    pval_ols_hc1_nb1 = res_ols_nb1.pvalues[0]
-    results_all.append([stat_ols_hc1_nb1, pval_ols_hc1_nb1])
-    description.append(['CT nb1 HC1', 'mu (1 + a)'])
-
-    return np.array(results_all), description
-
-
-def dispersion_poisson_generic(results, exog_new_test, exog_new_control=None,
-                               include_score=False, use_endog=True,
-                               cov_type='HC1', cov_kwds=None, use_t=False):
-    """A variable addition test for the variance function
-
-    This uses an artificial regression to calculate a variant of an LM or
-    generalized score test for the specification of the variance assumption
-    in a Poisson model. The performed test is a Wald test on the coefficients
-    of the `exog_new_test`.
-
-    Warning: insufficiently tested, especially for options
-
-    """
-
-    if hasattr(results, '_results'):
-        results = results._results
-
-    endog = results.model.endog
-    nobs = endog.shape[0]   #TODO: use attribute, may need to be added
-    # fitted = results.fittedvalues  # generic has linpred as fittedvalues
-    fitted = results.predict()
-    resid2 = results.resid_response**2
-    #the following assumes Poisson
-    if use_endog:
-        var_resid = (resid2 - endog)
-    else:
-        var_resid = (resid2 - fitted)
-
-    endog_v = var_resid / fitted
-
-    k_constraints = exog_new_test.shape[1]
-    ex_list = [exog_new_test]
-    if include_score:
-        score_obs = results.model.score_obs(results.params)
-        ex_list.append(score_obs)
-
-    if exog_new_control is not None:
-        ex_list.append(score_obs)
-
-    if len(ex_list) > 1:
-        ex = np.column_stack(ex_list)
-        use_wald = True
-    else:
-        ex = ex_list[0]  # no control variables in exog
-        use_wald = False
-
-    res_ols = OLS(endog_v, ex).fit(cov_type=cov_type, cov_kwds=cov_kwds,
-                  use_t=use_t)
-
-    if use_wald:
-        # we have controls and need to test coefficients
-        k_vars = ex.shape[1]
-        constraints = np.eye(k_constraints, k_vars)
-        ht = res_ols.wald_test(constraints)
-        stat_ols = ht.statistic
-        pval_ols = ht.pvalue
-    else:
-        # we don't have controls and can use overall fit
-        nobs = endog_v.shape[0]
-        rsquared_noncentered = 1 - res_ols.ssr/res_ols.uncentered_tss
-        stat_ols = nobs * rsquared_noncentered
-        pval_ols = stats.chi2.sf(stat_ols, k_constraints)
-
-    return stat_ols, pval_ols
 
 
 def conditional_moment_test_generic(mom_test, mom_test_deriv,
@@ -858,7 +785,6 @@ def conditional_moment_test_generic(mom_test, mom_test_deriv,
     Cameron and Trivedi 1998 count book
     Wooldridge ???
     Pagan and Vella 1989
-
     """
     if cov_type != 'OPG':
         raise NotImplementedError
@@ -920,7 +846,6 @@ def conditional_moment_test_regression(mom_test, mom_test_deriv=None,
     in GMM where the test statistic is the value of the GMM objective function
     and it is assumed that parameters were estimated with optimial GMM, i.e.
     the weight matrix equal to the expectation of the score variance.
-
     """
     # so far coded from memory
     nobs, k_constraints = mom_test.shape
@@ -946,7 +871,7 @@ def conditional_moment_test_regression(mom_test, mom_test_deriv=None,
     return statistic, pval
 
 
-class CMTNewey(object):
+class CMTNewey:
     """generic moment test for GMM
 
     This is a class to calculate and hold the various results
@@ -963,7 +888,7 @@ class CMTNewey(object):
     Parameters
     ----------
     moments : ndarray, 1-D
-        moments that are tested to be zero. They don't need to be derived
+        moments that are tested to be zero. They do not need to be derived
         from a likelihood function.
     moments_deriv : ndarray
         derivative of the moment function with respect to the parameters that
@@ -1008,7 +933,6 @@ class CMTNewey(object):
       Journal of Econometrics
     - Newey 1985b, Maximum Likelihood Specification Testing and Conditional
       Moment Tests, Econometrica
-
     """
 
     def __init__(self, moments, cov_moments, moments_deriv,
@@ -1109,7 +1033,7 @@ class CMTNewey(object):
         return stat, pval, df
 
 
-class CMTTauchen(object):
+class CMTTauchen:
     """generic moment tests or conditional moment tests for Quasi-MLE
 
     This is a generic class based on Tauchen 1985
@@ -1127,7 +1051,7 @@ class CMTTauchen(object):
         derivative of score function with respect to the parameters that are
         estimated. This is the Hessian in quasi-maximum likelihood
     moments : ndarray, 1-D
-        moments that are tested to be zero. They don't need to be derived
+        moments that are tested to be zero. They do not need to be derived
         from a likelihood function.
     moments_deriv : ndarray
         derivative of the moment function with respect to the parameters that
@@ -1136,7 +1060,6 @@ class CMTTauchen(object):
         An estimate for the joint (expected) covariance of score and test
         moments. This can be a heteroscedasticity or correlation robust
         covariance estimate, i.e. the inner part of a sandwich covariance.
-
     """
 
     def __init__(self, score, score_deriv, moments, moments_deriv, cov_moments):

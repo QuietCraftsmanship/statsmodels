@@ -29,12 +29,12 @@ def acovf_fft(x, demean=True):
     ----------
     x : array_like
         timeseries, signal
-    demean : boolean
+    demean : bool
         If true, then demean time series
 
     Returns
     -------
-    acovf : array
+    acovf : ndarray
         autocovariance for data, same length as x
 
     might work for nd in parallel with time along axis 0

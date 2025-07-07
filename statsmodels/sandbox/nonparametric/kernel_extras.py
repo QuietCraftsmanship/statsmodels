@@ -29,8 +29,6 @@ References
 """
 
 # TODO: make default behavior efficient=True above a certain n_obs
-
-from statsmodels.compat.python import range, next
 import numpy as np
 from scipy import optimize
 from scipy.stats.mstats import mquantiles
@@ -43,30 +41,30 @@ from statsmodels.nonparametric._kernel_base import \
 __all__ = ['SingleIndexModel', 'SemiLinear', 'TestFForm']
 
 
-class TestFForm(object):
+class TestFForm:
     """
     Nonparametric test for functional form.
 
     Parameters
     ----------
-    endog: list
+    endog : list
         Dependent variable (training set)
-    exog: list of array_like objects
+    exog : list of array_like objects
         The independent (right-hand-side) variables
-    bw: array_like, str
+    bw : array_like, str
         Bandwidths for exog or specify method for bandwidth selection
-    fform: function
+    fform : function
         The functional form ``y = g(b, x)`` to be tested. Takes as inputs
         the RHS variables `exog` and the coefficients ``b`` (betas)
         and returns a fitted ``y_hat``.
-    var_type: str
+    var_type : str
         The type of the independent `exog` variables:
 
             - c: continuous
             - o: ordered
             - u: unordered
 
-    estimator: function
+    estimator : function
         Must return the estimated coefficients b (betas). Takes as inputs
         ``(endog, exog)``.  E.g. least square estimator::
 
@@ -160,11 +158,11 @@ class SingleIndexModel(KernelReg):
 
     Parameters
     ----------
-    endog: array_like
+    endog : array_like
         The dependent variable
-    exog: array_like
+    exog : array_like
         The independent variable(s)
-    var_type: str
+    var_type : str
         The type of variables in X:
 
             - c: continuous
@@ -173,9 +171,9 @@ class SingleIndexModel(KernelReg):
 
     Attributes
     ----------
-    b: array_like
+    b : array_like
         The linear coefficients b (betas)
-    bw: array_like
+    bw : array_like
         Bandwidths
 
     Methods
@@ -193,7 +191,6 @@ class SingleIndexModel(KernelReg):
     that X and b interact linearly, but ``g(X * b)`` is unknown.
     In the parametric binary choice models the user usually assumes
     some distribution of g() such as normal or logistic.
-
     """
     def __init__(self, endog, exog, var_type):
         self.var_type = var_type
@@ -203,6 +200,9 @@ class SingleIndexModel(KernelReg):
         self.exog = _adjust_shape(exog, self.K)
         self.nobs = np.shape(self.exog)[0]
         self.data_type = self.var_type
+        self.ckertype = 'gaussian'
+        self.okertype = 'wangryzin'
+        self.ukertype = 'aitchisonaitken'
         self.func = self._est_loc_linear
 
         self.b, self.bw = self._est_b_bw()
@@ -271,13 +271,13 @@ class SemiLinear(KernelReg):
 
     Parameters
     ----------
-    endog: array_like
+    endog : array_like
         The dependent variable
-    exog: array_like
+    exog : array_like
         The linear component in the regression
-    exog_nonparametric: array_like
+    exog_nonparametric : array_like
         The nonparametric component in the regression
-    var_type: str
+    var_type : str
         The type of the variables in the nonparametric component;
 
             - c: continuous
@@ -289,9 +289,9 @@ class SemiLinear(KernelReg):
 
     Attributes
     ----------
-    bw: array_like
+    bw : array_like
         Bandwidths for the nonparametric component exog_nonparametric
-    b: array_like
+    b : array_like
         Coefficients in the linear component
     nobs : int
         The number of observations.
@@ -300,7 +300,8 @@ class SemiLinear(KernelReg):
 
     Methods
     -------
-    fit(): Returns the fitted mean and marginal effects dy/dz
+    fit
+        Returns the fitted mean and marginal effects dy/dz
 
     Notes
     -----
@@ -320,6 +321,9 @@ class SemiLinear(KernelReg):
         self.nobs = np.shape(self.exog)[0]
         self.var_type = var_type
         self.data_type = self.var_type
+        self.ckertype = 'gaussian'
+        self.okertype = 'wangryzin'
+        self.ukertype = 'aitchisonaitken'
         self.func = self._est_loc_linear
 
         self.b, self.bw = self._est_b_bw()
@@ -345,13 +349,13 @@ class SemiLinear(KernelReg):
 
         Parameters
         ----------
-        params: array_like
+        params : array_like
             Vector consisting of the coefficients (b) and the bandwidths (bw).
             The first ``k_linear`` elements are the coefficients.
 
         Returns
         -------
-        L: float
+        L : float
             The value of the objective function
 
         References

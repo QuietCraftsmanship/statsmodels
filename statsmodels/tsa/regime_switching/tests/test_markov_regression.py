@@ -4,7 +4,6 @@ Tests for Markov Regression models
 Author: Chad Fulton
 License: BSD-3
 """
-from __future__ import division, absolute_import, print_function
 
 import os
 import warnings
@@ -408,7 +407,7 @@ mumpspc = [0.29791319, 0.41467956, 1.13061404, 1.23267496,
            0.05628902, 0.00924054]
 
 
-class MarkovRegression(object):
+class MarkovRegression:
     @classmethod
     def setup_class(cls, true, endog, atol=1e-5, rtol=1e-7, **kwargs):
         cls.model = markov_regression.MarkovRegression(endog, **kwargs)
@@ -771,7 +770,7 @@ class TestFedFundsConst(MarkovRegression):
             'predict_filtered': results['const_fyhat'],
             'predict_smoothed': results['const_syhat'],
         }
-        super(TestFedFundsConst, cls).setup_class(true, fedfunds, k_regimes=2)
+        super().setup_class(true, fedfunds, k_regimes=2)
 
     def test_filter_output(self, **kwargs):
         res = self.result
@@ -816,7 +815,7 @@ class TestFedFundsConst(MarkovRegression):
         assert_allclose(actual, self.true['predict_smoothed'], atol=1e-6)
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-7)
@@ -911,8 +910,7 @@ class TestFedFundsConstShort(MarkovRegression):
             'llf_fit': -7.8553370,
             'llf_fit_em': -7.8554974
         }
-        super(TestFedFundsConstShort, cls).setup_class(true, fedfunds[-10:],
-                                                       k_regimes=2)
+        super().setup_class(true, fedfunds[-10:], k_regimes=2)
 
     def test_filter_output(self, **kwargs):
         res = self.result
@@ -949,7 +947,7 @@ class TestFedFundsConstShort(MarkovRegression):
         nobs = 4
         initial_probabilities = np.ones(k_regimes) / k_regimes
 
-        # We don't actually transition between the 3 regimes.
+        # We do not actually transition between the 3 regimes.
         regime_transition = np.eye(k_regimes)[:, :, np.newaxis]
 
         # Regime i correponds to a sequence of iid draws from discrete
@@ -965,13 +963,11 @@ class TestFedFundsConstShort(MarkovRegression):
         expected_marginals[:, 2:] = [[0], [1], [0]]
 
         py_results = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=0)
+            initial_probabilities, regime_transition, conditional_likelihoods)
         assert_allclose(py_results[0], expected_marginals)
 
         cy_results = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=0)
+            initial_probabilities, regime_transition, conditional_likelihoods)
         assert_allclose(cy_results[0], expected_marginals)
 
     def test_hamilton_filter_order_zero_with_tvtp(self):
@@ -979,7 +975,7 @@ class TestFedFundsConstShort(MarkovRegression):
         nobs = 8
         initial_probabilities = np.ones(k_regimes) / k_regimes
 
-        # We don't actually transition between the 3 regimes except from
+        # We do not actually transition between the 3 regimes except from
         # t=3 to t=4 where we reset to regimes 1 and 2 being equally
         # likely.
         regime_transition = np.zeros((k_regimes, k_regimes, nobs))
@@ -1018,13 +1014,11 @@ class TestFedFundsConstShort(MarkovRegression):
         expected_marginals[:, 6:8] = [[0], [0], [1]]
 
         py_results = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=0)
+            initial_probabilities, regime_transition, conditional_likelihoods)
         assert_allclose(py_results[0], expected_marginals)
 
         cy_results = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=0)
+            initial_probabilities, regime_transition, conditional_likelihoods)
         assert_allclose(cy_results[0], expected_marginals)
 
     def test_hamilton_filter_shape_checks(self):
@@ -1034,14 +1028,14 @@ class TestFedFundsConstShort(MarkovRegression):
 
         initial_probabilities = np.ones(k_regimes) / k_regimes
         regime_transition = np.ones((k_regimes, k_regimes, nobs)) / k_regimes
-        conditional_likelihoods = np.ones(order * (k_regimes,) + (nobs,))
+        conditional_loglikelihoods = np.ones(order * (k_regimes,) + (nobs,))
 
         for func in [markov_switching.py_hamilton_filter,
                      markov_switching.cy_hamilton_filter]:
             with assert_raises(ValueError):
                 func(initial_probabilities,
                      regime_transition,
-                     conditional_likelihoods, model_order=3)
+                     conditional_likelihoods)
 
     def test_py_hamilton_filter(self):
         mod = self.model
@@ -1053,11 +1047,9 @@ class TestFedFundsConstShort(MarkovRegression):
         conditional_likelihoods = mod._conditional_likelihoods(params)
 
         actual = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=mod.order)
+            initial_probabilities, regime_transition, conditional_likelihoods)
         desired = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=mod.order)
+            initial_probabilities, regime_transition, conditional_likelihoods)
 
         for i in range(3):
             assert_allclose(actual[i], desired[i])
@@ -1073,8 +1065,7 @@ class TestFedFundsConstShort(MarkovRegression):
 
         # Hamilton filter
         filter_output = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods,
-            model_order=mod.order)
+            initial_probabilities, regime_transition, conditional_likelihoods)
 
         # Kim smoother
         actual = markov_switching.py_kim_smoother(
@@ -1099,11 +1090,11 @@ class TestFedFundsConstL1(MarkovRegression):
             'bse_oim': np.r_[.1202616, .0495924, .2886657, .1183838, .0337234,
                              .0185031, np.nan]
         }
-        super(TestFedFundsConstL1, cls).setup_class(
+        super().setup_class(
             true, fedfunds[1:], k_regimes=2, exog=fedfunds[:-1])
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-6)
@@ -1131,14 +1122,14 @@ class TestFedFundsConstL1Exog(MarkovRegression):
             'predict1': results.iloc[4:]['constL1exog_syhat2'],
             'predict_smoothed': results.iloc[4:]['constL1exog_syhat'],
         }
-        super(TestFedFundsConstL1Exog, cls).setup_class(
+        super().setup_class(
             true, fedfunds[4:], k_regimes=2,
             exog=np.c_[fedfunds[3:-1], ogap[4:], inf[4:]])
 
     def test_fit(self, **kwargs):
         kwargs.setdefault('em_iter', 10)
         kwargs.setdefault('maxiter', 100)
-        super(TestFedFundsConstL1Exog, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
     def test_predict(self):
         # Predictions conditional on regime (the same no matter which
@@ -1165,7 +1156,7 @@ class TestFedFundsConstL1Exog(MarkovRegression):
         assert_allclose(actual, self.true['predict_smoothed'], atol=1e-5)
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-7)
@@ -1187,14 +1178,14 @@ class TestFedFundsConstL1Exog3(MarkovRegression):
             'llf_fit': -182.27188,
             'llf_fit_em': -226.88581
         }
-        super(TestFedFundsConstL1Exog3, cls).setup_class(
+        super().setup_class(
             true, fedfunds[4:], k_regimes=3,
             exog=np.c_[fedfunds[3:-1], ogap[4:], inf[4:]])
 
     def test_fit(self, **kwargs):
         kwargs['search_reps'] = 20
         np.random.seed(1234)
-        super(TestFedFundsConstL1Exog3, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
 
 class TestAreturnsConstL1Variance(MarkovRegression):
@@ -1210,17 +1201,17 @@ class TestAreturnsConstL1Variance(MarkovRegression):
             'bse_oim': np.r_[.0634387, .0662574, .0782852, .2784204, .0301862,
                              .0857841, np.nan, np.nan]
         }
-        super(TestAreturnsConstL1Variance, cls).setup_class(
+        super().setup_class(
             true, areturns[1:], k_regimes=2, exog=areturns[:-1],
             switching_variance=True)
 
     def test_fit(self, **kwargs):
         kwargs.setdefault('em_iter', 10)
         kwargs.setdefault('maxiter', 100)
-        super(TestAreturnsConstL1Variance, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
     def test_bse(self):
-        # Can't compare last two element of bse because we estimate sigma^2
+        # Cannot compare last two element of bse because we estimate sigma^2
         # rather than sigma
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-2], self.true['bse_oim'][:-2], atol=1e-7)
@@ -1237,34 +1228,6 @@ class TestMumpspcNoconstL1Variance(MarkovRegression):
             'llf_fit': 131.7225,
             'llf_fit_em': 131.7175
         }
-        super(TestMumpspcNoconstL1Variance, cls).setup_class(
-            true, mumpspc[1:], k_regimes=2, trend='nc', exog=mumpspc[:-1],
+        super().setup_class(
+            true, mumpspc[1:], k_regimes=2, trend='n', exog=mumpspc[:-1],
             switching_variance=True, atol=1e-4)
-
-
-def test_exog_tvtp():
-    exog = np.ones_like(fedfunds)
-
-    mod1 = markov_regression.MarkovRegression(fedfunds, k_regimes=2)
-    mod2 = markov_regression.MarkovRegression(fedfunds, k_regimes=2,
-                                              exog_tvtp=exog)
-
-    params = np.r_[0.98209618, 0.05036498, 3.70877542, 9.55676298, 4.44181911]
-    params_tvtp = params.copy()
-    params_tvtp[0] = mod2._untransform_logistic(
-        np.r_[0.], np.r_[1 - params[0]])
-    params_tvtp[1] = mod2._untransform_logistic(
-        np.r_[0.], np.r_[1 - params[1]])
-
-    res1 = mod1.smooth(params)
-    res2 = mod2.smooth(params_tvtp)
-
-    assert_allclose(res2.llf_obs, res1.llf_obs)
-    assert_allclose(res2.regime_transition - res1.regime_transition, 0,
-                    atol=1e-15)
-    assert_allclose(res2.predicted_joint_probabilities,
-                    res1.predicted_joint_probabilities)
-    assert_allclose(res2.filtered_joint_probabilities,
-                    res1.filtered_joint_probabilities)
-    assert_allclose(res2.smoothed_joint_probabilities,
-                    res1.smoothed_joint_probabilities)

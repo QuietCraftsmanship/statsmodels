@@ -1,7 +1,6 @@
-from statsmodels.compat.python import range
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.lines as lines
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def tukeyplot(results, dim=None, yticklabels=None):

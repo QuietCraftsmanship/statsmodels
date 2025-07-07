@@ -1,20 +1,16 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import division
 import warnings
 
 import numpy as np
-from numpy.linalg import eigh, inv, norm, matrix_rank
+from numpy.linalg import eigh, inv, matrix_rank, norm
 import pandas as pd
 from scipy.optimize import minimize
 
-from statsmodels.tools.decorators import cache_readonly
 from statsmodels.base.model import Model
-from statsmodels.iolib import summary2
 from statsmodels.graphics.utils import _import_mpl
+from statsmodels.iolib import summary2
+from statsmodels.tools.decorators import cache_readonly
 
-from .factor_rotation import rotate_factors, promax
-
+from .factor_rotation import promax, rotate_factors
 
 _opt_defaults = {'gtol': 1e-7}
 
@@ -57,12 +53,12 @@ class Factor(Model):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         Variables in columns, observations in rows.  May be `None` if
         `corr` is not `None`.
     n_factor : int
         The number of factors to extract
-    corr : array-like
+    corr : array_like
         Directly specify the correlation matrix instead of estimating
         it from `endog`.  If provided, `endog` is not used for the
         factor analysis, it may be used in post-estimation.
@@ -72,8 +68,8 @@ class Factor(Model):
         likelihood estimation.
     smc : True or False
         Whether or not to apply squared multiple correlations (method='pa')
-    endog_names: str
-        Names of endogeous variables.  If specified, it will be used
+    endog_names : str
+        Names of endogenous variables.  If specified, it will be used
         instead of the column names in endog
     nobs : int
         The number of observations, not used if endog is present. Needs to
@@ -111,7 +107,7 @@ class Factor(Model):
         _check_args_1(endog, n_factor, corr, nobs)
 
         if endog is not None:
-            super(Factor, self).__init__(endog, exog=None, missing=missing)
+            super().__init__(endog, exog=None, missing=missing)
             endog = self.endog   # after preprocessing like missing, asarray
             k_endog = endog.shape[1]
             nobs = endog.shape[0]
@@ -181,11 +177,11 @@ class Factor(Model):
         maxiter : int
             Maximum number of iterations for iterative estimation algorithms
         tol : float
-            Stopping critera (error tolerance) for iterative estimation
+            Stopping criteria (error tolerance) for iterative estimation
             algorithms
-        start : array-like
+        start : array_like
             Starting values, currently only used for ML estimation
-        opt_method : string
+        opt_method : str
             Optimization method for ML estimation
         opt : dict-like
             Keyword arguments passed to optimizer, only used for ML estimation
@@ -195,8 +191,8 @@ class Factor(Model):
 
         Returns
         -------
-        results: FactorResults
-
+        FactorResults
+            Results class instance.
         """
         method = self.method.lower()
         if method == 'pa':
@@ -222,7 +218,6 @@ class Factor(Model):
         Returns
         -------
         results : FactorResults instance
-
         """
 
         R = self.corr.copy()  # inplace modification below
@@ -306,7 +301,8 @@ class Factor(Model):
 
         Returns
         -------
-        loglike : float
+        float
+            The value of the log-likelihood evaluated at par.
         """
 
         if type(par) is np.ndarray:
@@ -349,7 +345,8 @@ class Factor(Model):
 
         Returns
         -------
-        score : ndarray
+        ndarray
+            The score function evaluated at par.
         """
 
         if type(par) is np.ndarray:
@@ -383,7 +380,7 @@ class Factor(Model):
         dl += 2*luz
         dl -= 2*np.dot(lud, luz)
 
-        # Can't use _pack because we are working with the square root
+        # Cannot use _pack because we are working with the square root
         # uniquenesses directly.
         return -np.concatenate((du, dl.T.flat)) / (2*self.k_endog)
 
@@ -433,12 +430,13 @@ class Factor(Model):
 
         return FactorResults(self)
 
-    def _fit_ml_em(self, iter):
+    def _fit_ml_em(self, iter, random_state=None):
         """estimate Factor model using EM algorithm
         """
         # Starting values
-        np.random.seed(3427)
-        load = 0.1*np.random.normal(size=(self.k_endog, self.n_factor))
+        if random_state is None:
+            random_state = np.random.RandomState(3427)
+        load = 0.1 * random_state.standard_normal(size=(self.k_endog, self.n_factor))
         uniq = 0.5 * np.ones(self.k_endog)
 
         for k in range(iter):
@@ -488,7 +486,7 @@ class Factor(Model):
         return load
 
 
-class FactorResults(object):
+class FactorResults:
     """
     Factor results class
 
@@ -501,24 +499,24 @@ class FactorResults(object):
 
     Attributes
     ----------
-    uniqueness: ndarray
+    uniqueness : ndarray
         The uniqueness (variance of uncorrelated errors unique to
         each variable)
-    communality: ndarray
+    communality : ndarray
         1 - uniqueness
     loadings : ndarray
         Each column is the loading vector for one factor
     loadings_no_rot : ndarray
         Unrotated loadings, not available under maximum likelihood
-        analyis.
-    eigenvalues : ndarray
+        analysis.
+    eigenvals : ndarray
         The eigenvalues for a factor analysis obtained using
         principal components; not available under ML estimation.
     n_comp : int
         Number of components (factors)
     nbs : int
         Number of observations
-    fa_method : string
+    fa_method : str
         The method used to obtain the decomposition, either 'pa' for
         'principal axes' or 'ml' for maximum likelihood.
     df : int
@@ -535,7 +533,6 @@ class FactorResults(object):
 
     Status: experimental, Some refactoring will be necessary when new
         features are added.
-
     """
     def __init__(self, factor):
         self.model = factor
@@ -571,7 +568,7 @@ class FactorResults(object):
 
         Parameters
         ----------
-        method : string
+        method : str
             Rotation to be applied.  Allowed methods are varimax,
             quartimax, biquartimax, equamax, oblimin, parsimax,
             parsimony, biquartimin, promax.
@@ -657,12 +654,11 @@ class FactorResults(object):
         statsmodels.multivariate.factor.FactorResults.factor_scoring
         """
         L = self.loadings
-        T = self.rotation_matrix.T
         #TODO: check row versus column convention for T
         uni = 1 - self.communality #self.uniqueness
 
         if method == 'bartlett':
-            s_mat = np.linalg.inv(L.T.dot(L/(uni[:,None]))).dot((L.T / uni)).T
+            s_mat = np.linalg.inv(L.T.dot(L/(uni[:,None]))).dot(L.T / uni).T
         elif method.startswith('reg'):
             corr = self.model.corr
             corr_f = self._corr_factors()
@@ -792,16 +788,16 @@ class FactorResults(object):
                applied
             * 'display' add sorting and styling as defined by other keywords
             * 'strings' returns a DataFrame with string elements with optional sorting
-               and surpressing small loading coefficients.
+               and suppressing small loading coefficients.
 
-        sort_ : boolean
+        sort_ : bool
             If True, then the rows of the DataFrame is sorted by contribution of each
             factor. applies if style is either 'display' or 'strings'
         threshold : float
             If the threshold is larger than zero, then loading coefficients are
             either colored white (if style is 'display') or replace by empty
             string (if style is 'strings').
-        highlight_max : boolean
+        highlight_max : bool
             This add a background color to the largest coefficient in each row.
         color_max : html color
             default is 'yellow'. color for background of row maximum
@@ -873,8 +869,11 @@ class FactorResults(object):
                     """
                     color = 'white' if np.abs(val) < threshold else 'black'
                     return 'color: %s' % color
-
-                sty = loadings_df.style.applymap(color_white_small)
+                try:
+                    sty = loadings_df.style.map(color_white_small)
+                except AttributeError:
+                    # Deprecated in pandas 2.1
+                    sty = loadings_df.style.applymap(color_white_small)
 
             if highlight_max is True:
                 def highlight_max(s):
@@ -922,8 +921,8 @@ class FactorResults(object):
 
         Returns
         -------
-        fig : figure
-            Handle to the figure
+        Figure
+            Handle to the figure.
         """
         _import_mpl()
         from .plots import plot_scree
@@ -946,7 +945,6 @@ class FactorResults(object):
         Returns
         -------
         figs : a list of figure handles
-
         """
         _import_mpl()
         from .plots import plot_loadings
@@ -981,7 +979,7 @@ class FactorResults(object):
 
         Parameters
         ----------
-        kurt: float
+        kurt : float
             Excess kurtosis
 
         Notes

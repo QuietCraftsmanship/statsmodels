@@ -48,14 +48,13 @@ finance applications ? option pricing, interest rate models
 
 
 '''
-from __future__ import print_function
-import numpy as np
-from scipy import stats, signal
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import signal, stats
 
 #np.random.seed(987656789)
 
-class Diffusion(object):
+class Diffusion:
     '''Wiener Process, Brownian Motion with mu=0 and sigma=1
     '''
     def __init__(self):
@@ -102,7 +101,7 @@ class AffineDiffusion(Diffusion):
         pass
 
     def sim(self, nobs=100, T=1, dt=None, nrepl=1):
-        # this doesn't look correct if drift or sig depend on x
+        # this does not look correct if drift or sig depend on x
         # see arithmetic BM
         W, t = self.simulateW(nobs=nobs, T=T, dt=dt, nrepl=nrepl)
         dx =  self._drift() + self._sig() * W
@@ -127,12 +126,7 @@ class AffineDiffusion(Diffusion):
         # _drift, _sig independent of dt is wrong
         if xzero is None:
             xzero = self.xzero
-        if dt is None:
-            dt = T*1.0/nobs
-        W, t = self.simulateW(nobs=nobs, T=T, dt=dt, nrepl=nrepl)
         dW = self.dW
-        t = np.linspace(dt, 1, nobs)
-        Dt = Tratio*dt
         L = nobs/Tratio        # L EM steps of size Dt = R*dt
         Xem = np.zeros((nrepl,L))    # preallocate for efficiency
         Xtemp = xzero
@@ -175,12 +169,12 @@ class ExactDiffusion(AffineDiffusion):
         should be the same as an AR(1)
         not tested yet
         '''
-        t = np.linspace(ddt, nobs*ddt, nobs)
+        np.linspace(ddt, nobs*ddt, nobs)
         #expnt = np.exp(-self.lambd * t)
         expddt = np.exp(-self.lambd * ddt)
         normrvs = np.random.normal(size=(nrepl,nobs))
         #do I need lfilter here AR(1) ? if mean reverting lag-coeff<1
-        #lfilter doesn't handle 2d arrays, it does?
+        #lfilter does not handle 2d arrays, it does?
         inc = self._exactconst(expddt) + self._exactstd(expddt) * normrvs
         return signal.lfilter([1.], [1.,-expddt], inc)
 
@@ -212,14 +206,14 @@ class ArithmeticBrownian(AffineDiffusion):
         '''
         if xzero is None:
             xzero = self.xzero
-        t = np.linspace(ddt, nobs*ddt, nobs)
+        np.linspace(ddt, nobs*ddt, nobs)
         normrvs = np.random.normal(size=(nrepl,nobs))
         inc = self._drift + self._sigma * np.sqrt(ddt) * normrvs
         #return signal.lfilter([1.], [1.,-1], inc)
         return xzero + np.cumsum(inc,1)
 
     def exactdist(self, xzero, t):
-        expnt = np.exp(-self.lambd * t)
+        np.exp(-self.lambd * t)
         meant = self._drift * t
         stdt = self._sigma * np.sqrt(t)
         return stats.norm(loc=meant, scale=stdt)
@@ -291,11 +285,12 @@ class OUprocess(AffineDiffusion):
         # after writing this I saw the same use of lfilter in sitmo
         '''
         t = np.linspace(ddt, nobs*ddt, nobs)
-        expnt = np.exp(-self.lambd * t)
+        np.exp(-self.lambd * t)
         expddt = np.exp(-self.lambd * ddt)
         normrvs = np.random.normal(size=(nrepl,nobs))
-        #do I need lfilter here AR(1) ? lfilter doesn't handle 2d arrays, it does?
+        #do I need lfilter here AR(1) ? lfilter does not handle 2d arrays, it does?
         from scipy import signal
+
         #xzero * expnt
         inc = ( self.mu * (1-expddt) +
                 self.sigma * np.sqrt((1-expddt*expddt)/2./self.lambd) * normrvs )
@@ -355,7 +350,7 @@ class SchwartzOne(ExactDiffusion):
     def exactprocess(self, xzero, nobs, ddt=1., nrepl=2):
         '''uses exact solution for log of process
         '''
-        lnxzero = np.log(xzero)
+        np.log(xzero)
         lnx = super(self.__class__, self).exactprocess(xzero, nobs, ddt=ddt, nrepl=nrepl)
         return np.exp(lnx)
 
@@ -379,25 +374,23 @@ class SchwartzOne(ExactDiffusion):
         kappa = -np.log(slope)/dt
         sigma = np.sqrt(errvar * kappa / (1-np.exp(-2*kappa*dt)))
         mu = const / (1-np.exp(-kappa*dt)) + sigma**2/2./kappa
-        if np.shape(mu)== (1,): mu = mu[0]   # how to remove scalar array ?
-        if np.shape(sigma)== (1,): sigma = sigma[0]
+        if np.shape(mu)== (1,):
+            mu = mu[0]   # TODO: how to remove scalar array ?
+        if np.shape(sigma)== (1,):
+            sigma = sigma[0]
         #mu, kappa are good, sigma too small
         return mu, kappa, sigma
 
 
 
-class BrownianBridge(object):
+class BrownianBridge:
     def __init__(self):
         pass
 
     def simulate(self, x0, x1, nobs, nrepl=1, ddt=1., sigma=1.):
         nobs=nobs+1
         dt = ddt*1./nobs
-        t = np.linspace(dt, ddt-dt, nobs)
         t = np.linspace(dt, ddt, nobs)
-        wm = [t/ddt, 1-t/ddt]
-        #wmi = wm[1]
-        #wm1 = x1*wm[0]
         wmi = 1-dt/(ddt-t)
         wm1 = x1*(dt/(ddt-t))
         su = sigma* np.sqrt(t*(1-t)/ddt)
@@ -410,7 +403,7 @@ class BrownianBridge(object):
         return x, t, su
 
 
-class CompoundPoisson(object):
+class CompoundPoisson:
     '''nobs iid compound poisson distributions, not a process in time
     '''
     def __init__(self, lambd, randfn=np.random.normal):
@@ -483,7 +476,9 @@ if __name__ == '__main__':
             tmp = plt.plot(ws[0].mean(0), linewidth=2)
             plt.title('Standard Brownian Motion (Wiener Process)')
 
-        func = lambda t, W: np.exp(t + 0.5*W)
+        def func(t, W):
+            return np.exp(t + 0.5*W)
+
         us = w.expectedsim(func, nobs=500, nrepl=nrepl)
         if doplot:
             plt.figure()

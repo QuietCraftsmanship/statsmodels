@@ -1,4 +1,4 @@
-'''run all examples to make sure we don't get an exception
+'''run all examples to make sure we do not get an exception
 
 Note:
 If an example contaings plt.show(), then all plot windows have to be closed
@@ -7,9 +7,9 @@ manually, at least in my setup.
 uncomment plt.show() to show all plot windows
 
 '''
-from __future__ import print_function
-from statsmodels.compat.python import lzip, input
-import matplotlib.pyplot as plt #matplotlib is required for many examples
+from statsmodels.compat.python import input, lzip
+
+import matplotlib.pyplot as plt  # matplotlib is required for many examples
 
 stop_on_error = True
 
@@ -50,8 +50,9 @@ if 'y' in cont.lower():
         try:
             print("\n\nExecuting example file", run_all_f)
             print("-----------------------" + "-"*len(run_all_f))
-            exec(open(run_all_f).read())
-        except:
+            with open(run_all_f, encoding="utf-8") as f:
+                exec(f.read())
+        except Exception:
             #f might be overwritten in the executed file
             print("**********************" + "*"*len(run_all_f))
             print("ERROR in example file", run_all_f)

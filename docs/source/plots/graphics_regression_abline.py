@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 '''
-Using the state crime dataset seperately plot the effect of the each
+Using the state crime dataset separately plot the effect of the each
 variable on the on the outcome, murder rate while accounting for the effect
 of all other variables in the model.
 
 '''
 
-import numpy as np
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import numpy as np
+
+import statsmodels.api as sm
 
 np.random.seed(12345)
 X = sm.add_constant(np.random.normal(0, 20, size=30))

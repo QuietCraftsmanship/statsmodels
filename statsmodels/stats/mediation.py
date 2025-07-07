@@ -15,14 +15,12 @@ In the case of linear models with no interactions involving the
 mediator, the results should be similar or identical to the earlier
 Barron-Kenny approach.
 """
-from statsmodels.compat.python import string_types
-
 import numpy as np
 import pandas as pd
 from statsmodels.graphics.utils import maybe_name_or_idx
 
 
-class Mediation(object):
+class Mediation:
     """
     Conduct a mediation analysis.
 
@@ -36,14 +34,14 @@ class Mediation(object):
         Regression model for the mediator variable.  Predictor
         variables include the treatment/exposure and any other
         variables of interest.
-    exposure : string or (int, int) tuple
+    exposure : str or (int, int) tuple
         The name or column position of the treatment/exposure
         variable.  If positions are given, the first integer is the
         column position of the exposure variable in the outcome model
         and the second integer is the position of the exposure variable
         in the mediator model.  If a string is given, it must be the name
         of the exposure variable in both regression models.
-    mediator : string or int
+    mediator : {str, int}
         The name or column position of the mediator variable in the
         outcome regression model.  If None, infer the name from the
         mediator model formula (if present).
@@ -58,6 +56,9 @@ class Mediation(object):
         Keyword arguments to use when fitting the outcome model.
     mediator_fit_kwargs : dict-like
         Keyword arguments to use when fitting the mediator model.
+    outcome_predict_kwargs : dict-like
+        Keyword arguments to use when calling predict on the outcome
+        model.
 
     Returns a ``MediationResults`` object.
 
@@ -71,9 +72,11 @@ class Mediation(object):
 
     >>> import statsmodels.api as sm
     >>> import statsmodels.genmod.families.links as links
-    >>> probit = links.probit
+    >>> from statsmodels.stats.mediation import Mediation
+    >>> data = sm.datasets.get_rdataset("framing", "mediation")
+    >>> probit = links.probit()
     >>> outcome_model = sm.GLM.from_formula("cong_mesg ~ emo + treat + age + educ + gender + income",
-    ...                                     data, family=sm.families.Binomial(link=probit()))
+    ...                                     data, family=sm.families.Binomial(link=probit))
     >>> mediator_model = sm.OLS.from_formula("emo ~ treat + age + educ + gender + income", data)
     >>> med = Mediation(outcome_model, mediator_model, "treat", "emo").fit()
     >>> med.summary()
@@ -88,7 +91,7 @@ class Mediation(object):
     >>> outcome_exog = patsy.dmatrix("emo + treat + age + educ + gender + income", data,
     ...                              return_type='dataframe')
     >>> probit = sm.families.links.probit
-    >>> outcome_model = sm.GLM(outcome, outcome_exog, family=sm.families.Binomial(link=probit()))
+    >>> outcome_model = sm.GLM(outcome, outcome_exog, family=sm.families.Binomial(link=Probit()))
     >>> mediator = np.asarray(data["emo"])
     >>> mediator_exog = patsy.dmatrix("treat + age + educ + gender + income", data,
     ...                               return_type='dataframe')
@@ -122,7 +125,8 @@ class Mediation(object):
     """
 
     def __init__(self, outcome_model, mediator_model, exposure, mediator=None,
-                 moderators=None, outcome_fit_kwargs=None, mediator_fit_kwargs=None):
+                 moderators=None, outcome_fit_kwargs=None, mediator_fit_kwargs=None,
+                 outcome_predict_kwargs=None):
 
         self.outcome_model = outcome_model
         self.mediator_model = mediator_model
@@ -135,9 +139,11 @@ class Mediation(object):
             self.mediator = mediator
 
         self._outcome_fit_kwargs = (outcome_fit_kwargs if outcome_fit_kwargs
-                                    is not None else {})
+                is not None else {})
         self._mediator_fit_kwargs = (mediator_fit_kwargs if mediator_fit_kwargs
-                                     is not None else {})
+                is not None else {})
+        self._outcome_predict_kwargs = (outcome_predict_kwargs if
+                outcome_predict_kwargs is not None else {})
 
         # We will be changing these so need to copy.
         self._outcome_exog = outcome_model.exog.copy()
@@ -163,7 +169,7 @@ class Mediation(object):
             return maybe_name_or_idx(self.mediator, mod)[1]
 
         exp = self.exposure
-        exp_is_2 = ((len(exp) == 2) and not isinstance(exp, string_types))
+        exp_is_2 = ((len(exp) == 2) and not isinstance(exp, str))
 
         if exp_is_2:
             if model == 'outcome':
@@ -204,7 +210,7 @@ class Mediation(object):
         else:
             # Need to regenerate the model exog
             df = self.mediator_model.data.frame.copy()
-            df.loc[:, self.exposure] = exposure
+            df[self.exposure] = exposure
             for vname in self.moderators:
                 v = self.moderators[vname]
                 df.loc[:, vname] = v
@@ -232,11 +238,11 @@ class Mediation(object):
         else:
             # Need to regenerate the model exog
             df = self.outcome_model.data.frame.copy()
-            df.loc[:, self.exposure] = exposure
-            df.loc[:, self.mediator] = mediator
+            df[self.exposure] = exposure
+            df[self.mediator] = mediator
             for vname in self.moderators:
                 v = self.moderators[vname]
-                df.loc[:, vname] = v
+                df[vname] = v
             klass = self.outcome_model.__class__
             init_kwargs = self.outcome_model._get_init_kwds()
             model = klass.from_formula(data=df, **init_kwargs)
@@ -264,9 +270,9 @@ class Mediation(object):
 
         Parameters
         ----------
-        method : string
+        method : str
             Either 'parametric' or 'bootstrap'.
-        n_rep : integer
+        n_rep : int
             The number of simulation replications.
 
         Returns a MediationResults object.
@@ -277,7 +283,9 @@ class Mediation(object):
             outcome_result = self._fit_model(self.outcome_model, self._outcome_fit_kwargs)
             mediator_result = self._fit_model(self.mediator_model, self._mediator_fit_kwargs)
         elif not method.startswith("boot"):
-            raise("method must be either 'parametric' or 'bootstrap'")
+            raise ValueError(
+                "method must be either 'parametric' or 'bootstrap'"
+            )
 
         indirect_effects = [[], []]
         direct_effects = [[], []]
@@ -304,14 +312,17 @@ class Mediation(object):
             predicted_outcomes = [[None, None], [None, None]]
             for tm in 0, 1:
                 mex = self._get_mediator_exog(tm)
+                kwargs = {"exog": mex}
+                if hasattr(mediator_result, "scale"):
+                    kwargs["scale"] = mediator_result.scale
                 gen = self.mediator_model.get_distribution(mediation_params,
-                                                           mediator_result.scale,
-                                                           exog=mex)
+                                                           **kwargs)
                 potential_mediator = gen.rvs(mex.shape[0])
 
                 for te in 0, 1:
                     oex = self._get_outcome_exog(te, potential_mediator)
-                    po = self.outcome_model.predict(outcome_params, oex)
+                    po = self.outcome_model.predict(outcome_params, oex,
+                            **self._outcome_predict_kwargs)
                     predicted_outcomes[tm][te] = po
 
             for t in 0, 1:
@@ -334,7 +345,7 @@ def _pvalue(vec):
     return 2 * min(sum(vec > 0), sum(vec < 0)) / float(len(vec))
 
 
-class MediationResults(object):
+class MediationResults:
     """
     A class for holding the results of a mediation analysis.
 

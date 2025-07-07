@@ -17,15 +17,13 @@ The standard l1 solver is fmin_slsqp and is included with scipy.  It
 The l1_cvxopt_cp solver is part of CVXOPT and this package needs to be
     installed separately.  It works well even for larger data sizes.
 """
-from __future__ import print_function
-from statsmodels.compat.python import range
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import numpy as np
 
+import statsmodels.api as sm
 
 ## Load the data from Spector and Mazzeo (1980)
-spector_data = sm.datasets.spector.load(as_pandas=False)
+spector_data = sm.datasets.spector.load()
 spector_data.exog = sm.add_constant(spector_data.exog)
 N = len(spector_data.endog)
 K = spector_data.exog.shape[1]
@@ -56,7 +54,7 @@ print(logit_l1_res.summary())
 print(logit_l1_cvxopt_res.summary())
 
 ### Multinomial Logit Example using American National Election Studies Data
-anes_data = sm.datasets.anes96.load(as_pandas=False)
+anes_data = sm.datasets.anes96.load()
 anes_exog = anes_data.exog
 anes_exog = sm.add_constant(anes_exog, prepend=False)
 mlogit_mod = sm.MNLogit(anes_data.endog, anes_exog)
@@ -65,7 +63,7 @@ mlogit_res = mlogit_mod.fit()
 ## Set the regularization parameter.
 alpha = 10 * np.ones((mlogit_mod.J - 1, mlogit_mod.K))
 
-# Don't regularize the constant
+# Do not regularize the constant
 alpha[-1,:] = 0
 mlogit_l1_res = mlogit_mod.fit_regularized(method='l1', alpha=alpha)
 print(mlogit_l1_res.params)
@@ -83,7 +81,7 @@ print(mlogit_l1_res.summary())
 #
 #
 #### Logit example with many params, sweeping alpha
-spector_data = sm.datasets.spector.load(as_pandas=False)
+spector_data = sm.datasets.spector.load()
 X = spector_data.exog
 Y = spector_data.endog
 
@@ -95,9 +93,9 @@ coeff = np.zeros((N, K))  # Holds the coefficients
 alphas = 1 / np.logspace(-0.5, 2, N)
 
 ## Sweep alpha and store the coefficients
-# QC check doesn't always pass with the default options.
+# QC check does not always pass with the default options.
 # Use the options QC_verbose=True and disp=True
-# to to see what is happening.  It just barely doesn't pass, so I decreased
+# to to see what is happening.  It just barely does not pass, so I decreased
 # acc and increased QC_tol to make it pass
 for n, alpha in enumerate(alphas):
     logit_res = logit_mod.fit_regularized(

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Vector Autoregression (VAR) processes
 
@@ -7,21 +6,16 @@ References
 Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
 """
 from __future__ import print_function, division
+from statsmodels.compat.python import range
 
 import numpy as np
 import numpy.linalg as npl
 from numpy.linalg import slogdet
 
-from statsmodels.compat.python import range
-from statsmodels.compat.pandas import deprecate_kwarg
-
-from statsmodels.tools.decorators import deprecated_alias
 from statsmodels.tools.numdiff import approx_hess, approx_fprime
 from statsmodels.tsa.vector_ar.irf import IRAnalysis
-from statsmodels.tsa.vector_ar.var_model import VARProcess, VARResults
-
 import statsmodels.tsa.vector_ar.util as util
-import statsmodels.tsa.base.tsa_model as tsbase
+from statsmodels.tsa.vector_ar.var_model import VARProcess, VARResults
 
 
 def svar_ckerr(svar_type, A, B):
@@ -36,21 +30,21 @@ class SVAR(tsbase.TimeSeriesModel):
     r"""
     Fit VAR and then estimate structural components of A and B, defined:
 
-    .. math:: Ay_t = A_1 y_{t-1} + \ldots + A_p y_{t-p} + B\var(\epsilon_t)
+    .. math:: Ay_t = A_1 y_{t-1} + \ldots + A_p y_{t-p} + B \varepsilon_t
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         1-d endogenous response variable. The independent variable.
-    dates : array-like
+    dates : array_like
         must match number of rows of endog
     svar_type : str
         "A" - estimate structural parameters of A matrix, B assumed = I
         "B" - estimate structural parameters of B matrix, A assumed = I
         "AB" - estimate structural parameters indicated in both A and B matrix
-    A : array-like
+    A : array_like
         neqs x neqs with unknown parameters marked with 'E' for estimate
-    B : array-like
+    B : array_like
         neqs x neqs with unknown parameters marked with 'E' for estimate
 
     References
@@ -62,7 +56,7 @@ class SVAR(tsbase.TimeSeriesModel):
 
     def __init__(self, endog, svar_type, dates=None,
                  freq=None, A=None, B=None, missing='none'):
-        super(SVAR, self).__init__(endog, None, dates, freq, missing=missing)
+        super().__init__(endog, None, dates, freq, missing=missing)
         #(self.endog, self.names,
         # self.dates) = data_util.interpret_data(endog, names, dates)
 
@@ -85,12 +79,14 @@ class SVAR(tsbase.TimeSeriesModel):
             A = np.identity(self.neqs)
             self.A_mask = A_mask = np.zeros(A.shape, dtype=bool)
         else:
+            A = A.astype("U")
             A_mask = np.logical_or(A == 'E', A == 'e')
             self.A_mask = A_mask
         if B is None:
             B = np.identity(self.neqs)
             self.B_mask = B_mask = np.zeros(B.shape, dtype=bool)
         else:
+            B = B.astype("U")
             B_mask = np.logical_or(B == 'E', B == 'e')
             self.B_mask = B_mask
 
@@ -109,7 +105,7 @@ class SVAR(tsbase.TimeSeriesModel):
 
         #LikelihoodModel.__init__(self, endog)
 
-        #super(SVAR, self).__init__(endog)
+        #super().__init__(endog)
 
     def fit(self, A_guess=None, B_guess=None, maxlags=None, method='ols',
             ic=None, trend='c', verbose=False, s_method='mle',
@@ -119,10 +115,10 @@ class SVAR(tsbase.TimeSeriesModel):
 
         Parameters
         ----------
-        A_guess : array-like, optional
+        A_guess : array_like, optional
             A vector of starting values for all parameters to be estimated
             in A.
-        B_guess : array-like, optional
+        B_guess : array_like, optional
             A vector of starting values for all parameters to be estimated
             in B.
         maxlags : int
@@ -138,11 +134,11 @@ class SVAR(tsbase.TimeSeriesModel):
             bic : Bayesian a.k.a. Schwarz
         verbose : bool, default False
             Print order selection output to the screen
-        trend, str {"c", "ct", "ctt", "nc"}
+        trend, str {"c", "ct", "ctt", "n"}
             "c" - add constant
             "ct" - constant and trend
             "ctt" - constant, linear and quadratic trend
-            "nc" - co constant, no trend
+            "n" - co constant, no trend
             Note that these are prepended to the columns of the dataset.
         s_method : {'mle'}
             Estimation method for structural parameters
@@ -167,7 +163,6 @@ class SVAR(tsbase.TimeSeriesModel):
         est : SVARResults
         """
         lags = maxlags
-
         if ic is not None:
             selections = self.select_order(maxlags=maxlags, verbose=verbose)
             if ic not in selections:
@@ -224,7 +219,7 @@ class SVAR(tsbase.TimeSeriesModel):
                        trend='c', solver="nm", override=False):
         """
         lags : int
-        trend : string or None
+        trend : {str, None}
             As per above
         """
         k_trend = util.get_trendorder(trend)
@@ -255,8 +250,7 @@ class SVAR(tsbase.TimeSeriesModel):
 
         A, B = self._solve_AB(start_params, override=override,
                               solver=solver,
-                              maxiter=maxiter,
-                              maxfun=maxfun)
+                              maxiter=maxiter)
         A_mask = self.A_mask
         B_mask = self.B_mask
 
@@ -276,7 +270,7 @@ class SVAR(tsbase.TimeSeriesModel):
         is estimated
         """
 
-        #TODO: this doesn't look robust if A or B is None
+        #TODO: this does not look robust if A or B is None
         A = self.A
         B = self.B
         A_mask = self.A_mask
@@ -317,17 +311,25 @@ class SVAR(tsbase.TimeSeriesModel):
         Return numerical gradient
         """
         loglike = self.loglike
-        return approx_fprime(AB_mask, loglike, epsilon=1e-8)
+        if AB_mask.ndim > 1:
+            AB_mask = AB_mask.ravel()
+        grad = approx_fprime(AB_mask, loglike, epsilon=1e-8)
+
+        # workaround shape of grad if only one parameter #9302
+        if AB_mask.size == 1 and grad.ndim == 2:
+            grad = grad.ravel()
+        return grad
 
     def hessian(self, AB_mask):
         """
         Returns numerical hessian.
         """
         loglike = self.loglike
+        if AB_mask.ndim > 1:
+            AB_mask = AB_mask.ravel()
         return approx_hess(AB_mask, loglike)
 
-    def _solve_AB(self, start_params, maxiter, maxfun, override=False,
-                  solver='bfgs'):
+    def _solve_AB(self, start_params, maxiter, override=False, solver='bfgs'):
         """
         Solves for MLE estimate of structural parameters
 
@@ -343,13 +345,10 @@ class SVAR(tsbase.TimeSeriesModel):
             conjugate, 'ncg' (non-conjugate gradient), and 'powell'.
         maxiter : int, optional
             The maximum number of iterations. Default is 500.
-        maxfun : int, optional
-            The maximum number of function evalutions.
 
         Returns
         -------
         A_solve, B_solve: ML solutions for A, B matrices
-
         """
         #TODO: this could stand a refactor
         A_mask = self.A_mask
@@ -368,11 +367,16 @@ class SVAR(tsbase.TimeSeriesModel):
         else: #TODO: change to a warning?
             print("Order/rank conditions have not been checked")
 
-        retvals = super(SVAR, self).fit(start_params=start_params,
-                                        method=solver, maxiter=maxiter,
-                                        maxfun=maxfun, ftol=1e-20,
-                                        disp=0).params
+        if solver == "bfgs":
+            kwargs = {"gtol": 1e-5}
+        else:
+            kwargs = {}
+        retvals = super().fit(start_params=start_params,
+                              method=solver, maxiter=maxiter,
+                              disp=False, **kwargs).params
 
+        if retvals.ndim > 1:
+            retvals = retvals.ravel()
         A[A_mask] = retvals[:A_len]
         B[B_mask] = retvals[A_len:]
 
@@ -480,7 +484,6 @@ class SVARProcess(VARProcess):
         """
 
         Unavailable for SVAR
-
         """
         raise NotImplementedError
 
@@ -489,7 +492,6 @@ class SVARProcess(VARProcess):
 
         Compute Structural MA coefficient matrices using MLE
         of A, B
-
         """
         if P is None:
             A_solve = self.A_solve
@@ -506,14 +508,14 @@ class SVARResults(SVARProcess, VARResults):
 
     Parameters
     ----------
-    endog : array
-    endog_lagged : array
-    params : array
-    sigma_u : array
+    endog : ndarray
+    endog_lagged : ndarray
+    params : ndarray
+    sigma_u : ndarray
     lag_order : int
     model : VAR model instance
-    trend : str {'nc', 'c', 'ct'}
-    names : array-like
+    trend : str {'n', 'c', 'ct'}
+    names : array_like
         List of names of the endogenous variables in order of appearance in `endog`.
     dates
 
@@ -559,8 +561,6 @@ class SVARResults(SVARProcess, VARResults):
     stderr
     trenorder
     tvalues
-    y :
-    ys_lagged
     """
 
     _model_type = 'SVAR'
@@ -602,14 +602,14 @@ class SVARResults(SVARProcess, VARResults):
         coefs = reshaped.swapaxes(1, 2).copy()
 
         #SVAR components
-        #TODO: if you define these here, you don't also have to define
+        #TODO: if you define these here, you do not also have to define
         #them in SVAR process, but I left them for now -ss
         self.A = A
         self.B = B
         self.A_mask = A_mask
         self.B_mask = B_mask
 
-        super(SVARResults, self).__init__(coefs, intercept, sigma_u, A, B,
+        super().__init__(coefs, intercept, sigma_u, A, B,
                                           names=names)
 
     def irf(self, periods=10, var_order=None):
@@ -630,8 +630,7 @@ class SVARResults(SVARProcess, VARResults):
 
         return IRAnalysis(self, P=P, periods=periods, svar=True)
 
-    @deprecate_kwarg('T', 'steps')
-    def sirf_errband_mc(self, orth=False, repl=1000, steps=10,
+    def sirf_errband_mc(self, orth=False, repl=1000, T=10,
                         signif=0.05, seed=None, burn=100, cum=False):
         """
         Compute Monte Carlo integrated error bands assuming normally
@@ -640,18 +639,18 @@ class SVARResults(SVARProcess, VARResults):
         Parameters
         ----------
         orth: bool, default False
-            Compute orthogonalized impulse response error bands
+            Compute orthoganalized impulse response error bands
         repl: int
             number of Monte Carlo replications to perform
-        steps: int, default 10
+        T: int, default 10
             number of impulse response periods
-        signif: float (0 < signif <1)
+        signif : float (0 < signif <1)
             Significance level for error bars, defaults to 95% CI
-        seed: int
+        seed : int
             np.random.seed for replications
-        burn: int
+        burn : int
             number of initial observations to discard for simulation
-        cum: bool, default False
+        cum : bool, default False
             produce cumulative irf error bands
 
         Notes
@@ -661,15 +660,12 @@ class SVARResults(SVARProcess, VARResults):
         Returns
         -------
         Tuple of lower and upper arrays of ma_rep monte carlo standard errors
-
         """
         neqs = self.neqs
-        mean = self.mean()
         k_ar = self.k_ar
         coefs = self.coefs
         sigma_u = self.sigma_u
         intercept = self.intercept
-        df_model = self.df_model
         nobs = self.nobs
 
         ma_coll = np.zeros((repl, steps + 1, neqs, neqs))

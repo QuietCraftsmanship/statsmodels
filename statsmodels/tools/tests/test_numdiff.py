@@ -1,18 +1,23 @@
 '''Testing numerical differentiation
 
 Still some problems, with API (args tuple versus *args)
-finite difference Hessian has some problems that I didn't look at yet
+finite difference Hessian has some problems that I did not look at yet
 
 Should Hessian also work per observation, if fun returns 2d
 
 '''
-from __future__ import print_function
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_allclose
+from numpy.testing import assert_allclose, assert_almost_equal
+
 import statsmodels.api as sm
 from statsmodels.tools import numdiff
-from statsmodels.tools.numdiff import (approx_fprime, approx_fprime_cs,
-                                       approx_hess_cs)
+from statsmodels.tools.numdiff import (
+    approx_fprime,
+    approx_fprime_cs,
+    approx_hess_cs,
+    _approx_fprime_scalar,
+    _approx_fprime_cs_scalar
+)
 
 DEC3 = 3
 DEC4 = 4
@@ -39,7 +44,7 @@ def fun2(beta, y, x):
 
 
 #ravel() added because of MNLogit 2d params
-class CheckGradLoglikeMixin(object):
+class CheckGradLoglikeMixin:
     def test_score(self):
         for test_params in self.params:
             sc = self.mod.score(test_params)
@@ -93,7 +98,9 @@ class TestGradMNLogit(CheckGradLoglikeMixin):
     @classmethod
     def setup_class(cls):
         #from .results.results_discrete import Anes
-        data = sm.datasets.anes96.load(as_pandas=False)
+        data = sm.datasets.anes96.load()
+        data.exog = np.asarray(data.exog)
+        data.endog = np.asarray(data.endog)
         exog = data.exog
         exog = sm.add_constant(exog, prepend=False)
         cls.mod = sm.MNLogit(data.endog, exog)
@@ -114,7 +121,7 @@ class TestGradMNLogit(CheckGradLoglikeMixin):
             assert_almost_equal(he, hefd, decimal=DEC8)
 
             #NOTE: notice the accuracy below and the epsilon changes
-            # this doesn't work well for score -> hessian with non-cs step
+            # this does not work well for score -> hessian with non-cs step
             # it's a little better around the optimum
             assert_almost_equal(he, hefd, decimal=7)
             hefd = numdiff.approx_fprime(test_params, self.mod.score,
@@ -129,7 +136,7 @@ class TestGradMNLogit(CheckGradLoglikeMixin):
 
             hecs = numdiff.approx_hess_cs(test_params, self.mod.loglike)
             assert_almost_equal(he, hecs, decimal=5)
-            #NOTE: these just don't work well
+            #NOTE: these just do not work well
             #hecs = numdiff.approx_hess1(test_params, self.mod.loglike, 1e-3)
             #assert_almost_equal(he, hecs, decimal=1)
             #hecs = numdiff.approx_hess2(test_params, self.mod.loglike, 1e-4)
@@ -140,7 +147,7 @@ class TestGradMNLogit(CheckGradLoglikeMixin):
 class TestGradLogit(CheckGradLoglikeMixin):
     @classmethod
     def setup_class(cls):
-        data = sm.datasets.spector.load(as_pandas=False)
+        data = sm.datasets.spector.load()
         data.exog = sm.add_constant(data.exog, prepend=False)
         #mod = sm.Probit(data.endog, data.exog)
         cls.mod = sm.Logit(data.endog, data.exog)
@@ -151,7 +158,7 @@ class TestGradLogit(CheckGradLoglikeMixin):
         ##hess = mod.hessian
 
 
-class CheckDerivativeMixin(object):
+class CheckDerivativeMixin:
     @classmethod
     def setup_class(cls):
         nobs = 200
@@ -212,7 +219,7 @@ class CheckDerivativeMixin(object):
         for test_params in self.params:
             #hetrue = 0
             hetrue = self.hesstrue(test_params)
-            if hetrue is not None: #Hessian doesn't work for 2d return of fun
+            if hetrue is not None: #Hessian does not work for 2d return of fun
                 fun = self.fun()
                 #default works, epsilon 1e-6 or 1e-8 is not precise enough
                 hefd = numdiff.approx_hess1(test_params, fun, #epsilon=1e-8,
@@ -234,7 +241,7 @@ class CheckDerivativeMixin(object):
         for test_params in self.params:
             #hetrue = 0
             hetrue = self.hesstrue(test_params)
-            if hetrue is not None: #Hessian doesn't work for 2d return of fun
+            if hetrue is not None: #Hessian does not work for 2d return of fun
                 fun = self.fun()
                 hecs = numdiff.approx_hess_cs(test_params, fun, args=self.args)
                 assert_almost_equal(hetrue, hecs, decimal=DEC6)
@@ -243,7 +250,7 @@ class CheckDerivativeMixin(object):
 class TestDerivativeFun(CheckDerivativeMixin):
     @classmethod
     def setup_class(cls):
-        super(TestDerivativeFun,cls).setup_class()
+        super().setup_class()
         xkols = np.dot(np.linalg.pinv(cls.x), cls.y)
         cls.params = [np.array([1.,1.,1.]), xkols]
         cls.args = (cls.x,)
@@ -259,7 +266,7 @@ class TestDerivativeFun(CheckDerivativeMixin):
 class TestDerivativeFun2(CheckDerivativeMixin):
     @classmethod
     def setup_class(cls):
-        super(TestDerivativeFun2,cls).setup_class()
+        super().setup_class()
         xkols = np.dot(np.linalg.pinv(cls.x), cls.y)
         cls.params = [np.array([1.,1.,1.]), xkols]
         cls.args = (cls.y, cls.x)
@@ -279,7 +286,7 @@ class TestDerivativeFun2(CheckDerivativeMixin):
 class TestDerivativeFun1(CheckDerivativeMixin):
     @classmethod
     def setup_class(cls):
-        super(TestDerivativeFun1, cls).setup_class()
+        super().setup_class()
         xkols = np.dot(np.linalg.pinv(cls.x), cls.y)
         cls.params = [np.array([1.,1.,1.]), xkols]
         cls.args = (cls.y, cls.x)
@@ -306,7 +313,29 @@ def test_dtypes():
     assert_allclose(approx_fprime(np.array([1.+0j, 2.+0j]), f), desired)
 
 
-if __name__ == '__main__':
+def test_vectorized():
+    def f(x):
+        return 2*x
+
+    desired = np.array([2, 2])
+    # vectorized parameter, column vector
+    p = np.array([[1, 2]]).T
+    assert_allclose(_approx_fprime_scalar(p, f), desired[:, None], rtol=1e-8)
+    assert_allclose(_approx_fprime_scalar(p.squeeze(), f),
+                    desired, rtol=1e-8)
+    assert_allclose(_approx_fprime_cs_scalar(p, f), desired[:, None],
+                    rtol=1e-8)
+    assert_allclose(_approx_fprime_cs_scalar(p.squeeze(), f),
+                    desired, rtol=1e-8)
+
+    # check 2-d row, see #7680
+    # not allowed/implemented for approx_fprime, raises broadcast ValueError
+    # assert_allclose(approx_fprime(p.T, f), desired, rtol=1e-8)
+    # similar as used in MarkovSwitching unit test
+    assert_allclose(approx_fprime_cs(p.T, f).squeeze(), desired, rtol=1e-8)
+
+
+if __name__ == '__main__':  # FIXME: turn into tests or move/remove
 
     epsilon = 1e-6
     nobs = 200
@@ -331,12 +360,12 @@ if __name__ == '__main__':
     print(numdiff.approx_hess(xk,fun2,1e-3, (y,x))[0] - 2*np.dot(x.T, x))
 
     gt = (-x*2*(y-np.dot(x, [1,2,3]))[:,None])
-    g = approx_fprime_cs((1,2,3), fun1, (y,x), h=1.0e-20)#.T   #this shouldn't be transposed
+    g = approx_fprime_cs((1,2,3), fun1, (y,x), h=1.0e-20)#.T   #this should not be transposed
     gd = numdiff.approx_fprime((1,2,3),fun1,epsilon,(y,x))
     print(maxabs(g, gt))
     print(maxabs(gd, gt))
 
-    data = sm.datasets.spector.load(as_pandas=False)
+    data = sm.datasets.spector.load()
     data.exog = sm.add_constant(data.exog, prepend=False)
     #mod = sm.Probit(data.endog, data.exog)
     mod = sm.Logit(data.endog, data.exog)
@@ -346,7 +375,7 @@ if __name__ == '__main__':
     score = mod.score
     hess = mod.hessian
 
-    #cs doesn't work for Probit because special.ndtr doesn't support complex
+    #cs does not work for Probit because special.ndtr does not support complex
     #maybe calculating ndtr for real and imag parts separately, if we need it
     #and if it still works in this case
     print('sm', score(test_params))
@@ -360,12 +389,12 @@ if __name__ == '__main__':
     print('cs', hesscs)
     print(maxabs(hess(test_params), hesscs))
 
-    data = sm.datasets.anes96.load(as_pandas=False)
+    data = sm.datasets.anes96.load()
     exog = data.exog
     exog = sm.add_constant(exog, prepend=False)
     res1 = sm.MNLogit(data.endog, exog).fit(method="newton", disp=0)
 
-    datap = sm.datasets.randhie.load(as_pandas=False)
+    datap = sm.datasets.randhie.load()
     nobs = len(datap.endog)
     exogp = sm.add_constant(datap.exog.view(float).reshape(nobs,-1),
                             prepend=False)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 TODO: broken because of changes to arguments and import paths
 fixing this needs a closer look
@@ -7,7 +6,6 @@ Created on Thu Feb 11 23:41:53 2010
 Author: josef-pktd
 copyright: Simplified BSD see license.txt
 """
-from __future__ import print_function
 import numpy as np
 
 import numdifftools as ndt

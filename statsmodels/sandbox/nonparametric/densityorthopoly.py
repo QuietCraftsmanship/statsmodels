@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # some cut and paste characters are not ASCII
 '''density estimation based on orthogonal polynomials
 
@@ -15,7 +14,7 @@ other versions need normalization
 TODO:
 
 * check fourier case again:  base is orthonormal,
-  but needs offsetfact = 0 and doesn't integrate to 1, rescaled looks good
+  but needs offsetfact = 0 and does not integrate to 1, rescaled looks good
 * hermite: works but DensityOrthoPoly requires currently finite bounds
   I use it with offsettfactor 0.5 in example
 * not implemented methods:
@@ -37,19 +36,15 @@ enhancements:
 
 
 '''
-from __future__ import print_function
-from statsmodels.compat.python import zip
-from scipy import stats, integrate, special
-
 import numpy as np
-
+from scipy import integrate, special, stats
 
 sqr2 = np.sqrt(2.)
 
-class FPoly(object):
+class FPoly:
     '''Orthonormal (for weight=1) Fourier Polynomial on [0,1]
 
-    orthonormal polynomial but density needs corfactor that I don't see what
+    orthonormal polynomial but density needs corfactor that I do not see what
     it is analytically
 
     parameterization on [0,1] from
@@ -71,10 +66,10 @@ class FPoly(object):
         else:
             return sqr2 * np.cos(np.pi * self.order * x)
 
-class F2Poly(object):
+class F2Poly:
     '''Orthogonal (for weight=1) Fourier Polynomial on [0,pi]
 
-    is orthogonal but first component doesn't square-integrate to 1
+    is orthogonal but first component does not square-integrate to 1
     final result seems to need a correction factor of sqrt(pi)
     _corfactor = sqrt(pi) from integrating the density
 
@@ -97,7 +92,7 @@ class F2Poly(object):
         else:
             return sqr2 * np.cos(self.order * x) / np.sqrt(np.pi)
 
-class ChebyTPoly(object):
+class ChebyTPoly:
     '''Orthonormal (for weight=1) Chebychev Polynomial on (-1,1)
 
 
@@ -131,7 +126,7 @@ class ChebyTPoly(object):
 
 logpi2 = np.log(np.pi)/2
 
-class HPoly(object):
+class HPoly:
     '''Orthonormal (for weight=1) Hermite Polynomial, uses finite bounds
 
     for current use with DensityOrthoPoly domain is defined as [-6,6]
@@ -271,7 +266,7 @@ def is_orthonormal_cont(polys, lower, upper, rtol=0, atol=1e-08):
 #new versions
 
 
-class DensityOrthoPoly(object):
+class DensityOrthoPoly:
     '''Univariate density estimation by orthonormal series expansion
 
 
@@ -285,7 +280,7 @@ class DensityOrthoPoly(object):
     def __init__(self, polybase=None, order=5):
         if polybase is not None:
             self.polybase = polybase
-            self.polys = polys = [polybase(i) for i in range(order)]
+            self.polys = [polybase(i) for i in range(order)]
         #try:
         #self.offsetfac = 0.05
         #self.offsetfac = polys[0].offsetfactor #polys maybe not defined yet
@@ -383,7 +378,7 @@ class DensityOrthoPoly(object):
         '''
 
         #use domain from first instance
-        #class doesn't have domain  self.polybase.domain[0] AttributeError
+        #class does not have domain  self.polybase.domain[0] AttributeError
         domain = self.polys[0].domain
 
         ilen = (domain[1] - domain[0])
@@ -424,8 +419,11 @@ if __name__ == '__main__':
     nobs = 10000
 
     import matplotlib.pyplot as plt
+
     from statsmodels.distributions.mixture_rvs import (
-                                                mixture_rvs, MixtureDistribution)
+        MixtureDistribution,
+        mixture_rvs,
+    )
 
     #np.random.seed(12345)
 ##    obs_dist = mixture_rvs([1/3.,2/3.], size=nobs, dist=[stats.norm, stats.norm],
@@ -553,7 +551,7 @@ if __name__ == '__main__':
     print(np.max(np.abs(inn - np.eye(5))))
     print((inn*100000).astype(int))
 
-    from scipy.special import hermite, chebyt
+    from scipy.special import chebyt, hermite
     htpolys = [hermite(i) for i in range(5)]
     innt = inner_cont(htpolys, -10, 10)[0]
     print((innt*100000).astype(int))

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed May 16 22:21:26 2018
 
@@ -9,15 +8,11 @@ License: BSD-3
 import numpy as np
 from numpy.testing import assert_allclose, assert_equal
 
-import pytest
-
 import statsmodels.base._penalties as smpen
 from statsmodels.tools.numdiff import approx_fprime, approx_hess
 
 
-
-
-class CheckPenalty(object):
+class CheckPenalty:
 
     def test_symmetry(self):
         pen = self.pen
@@ -51,7 +46,7 @@ class TestL2Constraints0(CheckPenalty):
     def setup_class(cls):
         x0 = np.linspace(-0.2, 0.2, 11)
         cls.params = np.column_stack((x0, x0))
-        cls.pen = smpen.L2ContraintsPenalty()
+        cls.pen = smpen.L2ConstraintsPenalty()
 
     def test_equivalence(self):
         # compare plain penalty with included weights or restriction
@@ -59,8 +54,8 @@ class TestL2Constraints0(CheckPenalty):
         x = self.params
         k = x.shape[1]
 
-        pen2 = smpen.L2ContraintsPenalty(weights=np.ones(k))
-        pen3 = smpen.L2ContraintsPenalty(restriction=np.eye(k))
+        pen2 = smpen.L2ConstraintsPenalty(weights=np.ones(k))
+        pen3 = smpen.L2ConstraintsPenalty(restriction=np.eye(k))
         f = pen.func(x.T)
         d = pen.deriv(x.T)
         d2 =  np.array([pen.deriv2(np.atleast_1d(xi)) for xi in x])
@@ -77,7 +72,7 @@ class TestL2Constraints1(CheckPenalty):
     def setup_class(cls):
         x0 = np.linspace(-0.2, 0.2, 11)
         cls.params = np.column_stack((x0, x0))
-        cls.pen = smpen.L2ContraintsPenalty(restriction=[[1,0], [1, 1]])
+        cls.pen = smpen.L2ConstraintsPenalty(restriction=[[1,0], [1, 1]])
 
     def test_values(self):
         pen = self.pen
@@ -106,15 +101,13 @@ class TestPseudoHuber(CheckPenalty):
 
     def test_backward_compatibility(self):
         wts = [0.5]
-        with pytest.deprecated_call():
-            pen = smpen.PseudoHuber(0.1, wts=wts)
+        pen = smpen.PseudoHuber(0.1, weights=wts)
         assert_equal(pen.weights, wts)
 
     def test_deprecated_priority(self):
         weights = [1.0]
-        wts = [0.5]
-        with pytest.deprecated_call():
-            pen = smpen.PseudoHuber(0.1, weights=weights, wts=wts)
+        pen = smpen.PseudoHuber(0.1, weights=weights)
+
         assert_equal(pen.weights, weights)
 
     def test_weights_assignment(self):
@@ -133,15 +126,12 @@ class TestL2(CheckPenalty):
 
     def test_backward_compatibility(self):
         wts = [0.5]
-        with pytest.deprecated_call():
-            pen = smpen.L2(wts=wts)
+        pen = smpen.L2(weights=wts)
         assert_equal(pen.weights, wts)
 
     def test_deprecated_priority(self):
         weights = [1.0]
-        wts = [0.5]
-        with pytest.deprecated_call():
-            pen = smpen.L2(weights=weights, wts=wts)
+        pen = smpen.L2(weights=weights)
         assert_equal(pen.weights, weights)
 
     def test_weights_assignment(self):

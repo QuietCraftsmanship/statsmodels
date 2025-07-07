@@ -1,6 +1,6 @@
 '''given a 1D sample of observation, find a matching distribution
 
-* estimate maximum likelihood paramater for each distribution
+* estimate maximum likelihood parameter for each distribution
 * rank estimated distribution by Kolmogorov-Smirnov and Anderson-Darling
   test statistics
 
@@ -15,10 +15,9 @@ TODO:
 *
 
 '''
-from __future__ import print_function
-from scipy import stats
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
 
 #stats.distributions.beta_gen._fitstart = lambda self, data : (5,5,0,1)
 
@@ -39,13 +38,13 @@ def plothist(x,distfn, args, loc, scale, right=1):
     #yt = stats.norm.pdf( bins, loc=loc, scale=scale)
     yt = distfn.pdf( bins, loc=loc, scale=scale, *args)
     yt[yt>maxheight]=maxheight
-    lt = plt.plot(bins, yt, 'r--', linewidth=1)
+    plt.plot(bins, yt, 'r--', linewidth=1)
     ys = stats.t.pdf( bins, 10,scale=10,)*right
-    ls = plt.plot(bins, ys, 'b-', linewidth=1)
+    plt.plot(bins, ys, 'b-', linewidth=1)
 
     plt.xlabel('Smarts')
     plt.ylabel('Probability')
-    plt.title(r'$\mathrm{Testing: %s :}\ \mu=%f,\ \sigma=%f$' % (distfn.name,loc,scale))
+    plt.title(fr'$\mathrm{{Testing: {distfn.name} :}}\ \mu={loc:f},\ \sigma={scale:f}$')
 
     #plt.axis([bins[0], bins[-1], 0, 0.134+0.05])
 
@@ -192,7 +191,7 @@ if __name__ == '__main__':
                 par_est = tuple(distfn.fit(rvs,-5,loc=sm,scale=sstd))
             elif distname == 'wrapcauchy':
                 par_est = tuple(distfn.fit(rvs,0.5,loc=0,scale=sstd))
-            elif distname == 'f':\
+            elif distname == 'f':
                 par_est = tuple(distfn.fit(rvs,10,15,loc=0,scale=1))
 
             elif distname in right:

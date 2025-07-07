@@ -6,11 +6,16 @@ from statsmodels.tools.numdiff import _get_epsilon, approx_fprime_cs
 from scipy.linalg.blas import find_best_blas_type
 from . import _arma_innovations
 
+NON_STATIONARY_ERROR = """\
+The model's autoregressive parameters (ar_params) indicate that the process
+ is non-stationary. The innovations algorithm cannot be used.
+"""
+
 
 def arma_innovations(endog, ar_params=None, ma_params=None, sigma2=1,
                      normalize=False, prefix=None):
     """
-    Compute innovations using a given ARMA process
+    Compute innovations using a given ARMA process.
 
     Parameters
     ----------
@@ -22,7 +27,7 @@ def arma_innovations(endog, ar_params=None, ma_params=None, sigma2=1,
         Moving average parameters.
     sigma2 : ndarray, optional
         The ARMA innovation variance. Default is 1.
-    normalize : boolean, optional
+    normalize : bool, optional
         Whether or not to normalize the returned innovations. Default is False.
     prefix : str, optional
         The BLAS prefix associated with the datatype. Default is to find the
@@ -38,10 +43,9 @@ def arma_innovations(endog, ar_params=None, ma_params=None, sigma2=1,
         dividing through by the square root of the mean square error.
     innovations_mse : ndarray
         Mean square error for the innovations.
-
     """
     # Parameters
-    endog = np.array(endog)
+    endog = np.require(endog,  requirements="W")
     squeezed = endog.ndim == 1
     if squeezed:
         endog = endog[:, None]
@@ -80,16 +84,21 @@ def arma_innovations(endog, ar_params=None, ma_params=None, sigma2=1,
     theta, v = arma_innovations_algo_fast(nobs, ar_params, ma_params,
                                           acovf, acovf2)
     v = np.array(v)
-    if normalize:
-        v05 = v**0.5
+    if (np.any(v < 0) or
+            not np.isfinite(theta).all() or
+            not np.isfinite(v).all()):
+        # This is defensive code that is hard to hit
+        raise ValueError(NON_STATIONARY_ERROR)
 
     # Run the innovations filter across each series
     u = []
     for i in range(k_endog):
         u_i = np.array(arma_innovations_filter(endog[:, i], ar_params,
                                                ma_params, theta))
-        u.append(u_i / v05 if normalize else u_i)
+        u.append(u_i)
     u = np.vstack(u).T
+    if normalize:
+        u /= v[:, None]**0.5
 
     # Post-processing
     if squeezed:
@@ -100,7 +109,7 @@ def arma_innovations(endog, ar_params=None, ma_params=None, sigma2=1,
 
 def arma_loglike(endog, ar_params=None, ma_params=None, sigma2=1, prefix=None):
     """
-    Compute loglikelihood of the given data assuming an ARMA process
+    Compute the log-likelihood of the given data assuming an ARMA process.
 
     Parameters
     ----------
@@ -119,9 +128,8 @@ def arma_loglike(endog, ar_params=None, ma_params=None, sigma2=1, prefix=None):
 
     Returns
     -------
-    loglike : numeric
+    float
         The joint loglikelihood.
-
     """
     llf_obs = arma_loglikeobs(endog, ar_params=ar_params, ma_params=ma_params,
                               sigma2=sigma2, prefix=prefix)
@@ -131,7 +139,7 @@ def arma_loglike(endog, ar_params=None, ma_params=None, sigma2=1, prefix=None):
 def arma_loglikeobs(endog, ar_params=None, ma_params=None, sigma2=1,
                     prefix=None):
     """
-    Compute loglikelihood for each observation assuming an ARMA process
+    Compute the log-likelihood for each observation assuming an ARMA process.
 
     Parameters
     ----------
@@ -150,9 +158,8 @@ def arma_loglikeobs(endog, ar_params=None, ma_params=None, sigma2=1,
 
     Returns
     -------
-    loglikeobs : array of numeric
+    ndarray
         Array of loglikelihood values for each observation.
-
     """
     endog = np.array(endog)
     ar_params = np.atleast_1d([] if ar_params is None else ar_params)
@@ -175,7 +182,7 @@ def arma_loglikeobs(endog, ar_params=None, ma_params=None, sigma2=1,
 def arma_score(endog, ar_params=None, ma_params=None, sigma2=1,
                prefix=None):
     """
-    Compute the score (gradient of the loglikelihood function)
+    Compute the score (gradient of the log-likelihood function).
 
     Parameters
     ----------
@@ -197,8 +204,8 @@ def arma_score(endog, ar_params=None, ma_params=None, sigma2=1,
         used internally.
 
     Returns
-    ---------
-    score : array
+    -------
+    ndarray
         Score, evaluated at the given parameters.
 
     Notes
@@ -223,7 +230,7 @@ def arma_score(endog, ar_params=None, ma_params=None, sigma2=1,
 def arma_scoreobs(endog, ar_params=None, ma_params=None, sigma2=1,
                   prefix=None):
     """
-    Compute the score per observation (gradient of the loglikelihood function)
+    Compute the score (gradient) per observation.
 
     Parameters
     ----------
@@ -245,8 +252,8 @@ def arma_scoreobs(endog, ar_params=None, ma_params=None, sigma2=1,
         used internally.
 
     Returns
-    ---------
-    scoreobs : array
+    -------
+    ndarray
         Score per observation, evaluated at the given parameters.
 
     Notes

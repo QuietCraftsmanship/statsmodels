@@ -1,4 +1,3 @@
-
 '''
 using lfilter to get fractional integration polynomial (1-L)^d, d<1
 `ri` is (1-L)^(-d), d<1
@@ -8,7 +7,6 @@ second part in here is ar2arma
 only examples left
 
 '''
-from __future__ import print_function
 import numpy as np
 from scipy.special import gamma
 from scipy import signal

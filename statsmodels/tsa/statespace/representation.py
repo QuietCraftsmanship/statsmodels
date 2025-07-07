@@ -4,8 +4,8 @@ State Space Representation
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
+import warnings
 import numpy as np
 from .tools import (
     find_best_blas_type, validate_matrix_shape, validate_vector_shape
@@ -14,7 +14,7 @@ from .initialization import Initialization
 from . import tools
 
 
-class OptionWrapper(object):
+class OptionWrapper:
     def __init__(self, mask_attribute, mask_value):
         # Name of the class-level bitmask attribute
         self.mask_attribute = mask_attribute
@@ -34,7 +34,7 @@ class OptionWrapper(object):
         setattr(obj, self.mask_attribute, value)
 
 
-class MatrixWrapper(object):
+class MatrixWrapper:
     def __init__(self, name, attribute):
         self.name = name
         self.attribute = attribute
@@ -89,13 +89,13 @@ class MatrixWrapper(object):
         return value
 
 
-class Representation(object):
+class Representation:
     r"""
     State space representation of a time series process
 
     Parameters
     ----------
-    k_endog : array_like or integer
+    k_endog : {array_like, int}
         The observed time-series process :math:`y` if array like or the
         number of variables in the process if an integer.
     k_states : int
@@ -107,7 +107,7 @@ class Representation(object):
     initial_variance : float, optional
         Initial variance used when approximate diffuse initialization is
         specified. Default is 1e6.
-    initialization : Initialization object or string, optional
+    initialization : Initialization object or str, optional
         Initialization method for the initial state. If a string, must be one
         of {'diffuse', 'approximate_diffuse', 'stationary', 'known'}.
     initial_state : array_like, optional
@@ -116,7 +116,7 @@ class Representation(object):
     initial_state_cov : array_like, optional
         If `initialization='known'` is used, the covariance matrix of the
         initial state's distribution.
-    nobs : integer, optional
+    nobs : int, optional
         If an endogenous vector is not given (i.e. `k_endog` is an integer),
         the number of observations can optionally be specified. If not
         specified, they will be set to zero until data is bound to the model.
@@ -335,25 +335,25 @@ class Representation(object):
                                       else tools.prefix_statespace_map.copy())
 
         # State-space initialization data
-        self.initialization = kwargs.get('initialization', None)
+        self.initialization = kwargs.pop('initialization', None)
         basic_inits = ['diffuse', 'approximate_diffuse', 'stationary']
 
         if self.initialization in basic_inits:
             self.initialize(self.initialization)
         elif self.initialization == 'known':
             if 'constant' in kwargs:
-                constant = kwargs['constant']
+                constant = kwargs.pop('constant')
             elif 'initial_state' in kwargs:
                 # TODO deprecation warning
-                constant = kwargs['initial_state']
+                constant = kwargs.pop('initial_state')
             else:
                 raise ValueError('Initial state must be provided when "known"'
                                  ' is the specified initialization method.')
             if 'stationary_cov' in kwargs:
-                stationary_cov = kwargs['stationary_cov']
+                stationary_cov = kwargs.pop('stationary_cov')
             elif 'initial_state_cov' in kwargs:
                 # TODO deprecation warning
-                stationary_cov = kwargs['initial_state_cov']
+                stationary_cov = kwargs.pop('initial_state_cov')
             else:
                 raise ValueError('Initial state covariance matrix must be'
                                  ' provided when "known" is the specified'
@@ -363,6 +363,15 @@ class Representation(object):
         elif (not isinstance(self.initialization, Initialization) and
                 self.initialization is not None):
             raise ValueError("Invalid state space initialization method.")
+
+        # Check for unused kwargs
+        if len(kwargs):
+            # raise TypeError(f'{__class__} constructor got unexpected keyword'
+            #                 f' argument(s): {kwargs}.')
+            msg = (f'Unknown keyword arguments: {kwargs.keys()}.'
+                   'Passing unknown keyword arguments will raise a TypeError'
+                   ' beginning in version 0.15.')
+            warnings.warn(msg, FutureWarning)
 
         # Matrix representations storage
         self._representations = {}
@@ -452,6 +461,232 @@ class Representation(object):
             raise IndexError('First index must the name of a valid state space'
                              ' matrix.')
 
+    def _clone_kwargs(self, endog, **kwargs):
+        """
+        Construct keyword arguments for cloning a state space model
+
+        Parameters
+        ----------
+        endog : array_like
+            An observed time-series process :math:`y`.
+        **kwargs
+            Keyword arguments to pass to the new state space representation
+            model constructor. Those that are not specified are copied from
+            the specification of the current state space model.
+        """
+
+        # We always need the base dimensions, but they cannot change from
+        # the base model when cloning (the idea is: if these need to change,
+        # need to make a new instance manually, since it's not really cloning).
+        kwargs['nobs'] = len(endog)
+        kwargs['k_endog'] = self.k_endog
+        for key in ['k_states', 'k_posdef']:
+            val = getattr(self, key)
+            if key not in kwargs or kwargs[key] is None:
+                kwargs[key] = val
+            if kwargs[key] != val:
+                raise ValueError('Cannot change the dimension of %s when'
+                                 ' cloning.' % key)
+
+        # Get defaults for time-invariant system matrices, if not otherwise
+        # provided
+        # Time-varying matrices must be replaced.
+        for name in self.shapes.keys():
+            if name == 'obs':
+                continue
+
+            if name not in kwargs:
+                mat = getattr(self, name)
+                if mat.shape[-1] != 1:
+                    raise ValueError('The `%s` matrix is time-varying. Cloning'
+                                     ' this model requires specifying an'
+                                     ' updated matrix.' % name)
+                kwargs[name] = mat
+
+        # Default is to use the same initialization
+        kwargs.setdefault('initialization', self.initialization)
+
+        return kwargs
+
+    def clone(self, endog, **kwargs):
+        """
+        Clone a state space representation while overriding some elements
+
+        Parameters
+        ----------
+        endog : array_like
+            An observed time-series process :math:`y`.
+        **kwargs
+            Keyword arguments to pass to the new state space representation
+            model constructor. Those that are not specified are copied from
+            the specification of the current state space model.
+
+        Returns
+        -------
+        Representation
+
+        Notes
+        -----
+        If some system matrices are time-varying, then new time-varying
+        matrices *must* be provided.
+        """
+        kwargs = self._clone_kwargs(endog, **kwargs)
+        mod = self.__class__(**kwargs)
+        mod.bind(endog)
+        return mod
+
+    def extend(self, endog, start=None, end=None, **kwargs):
+        """
+        Extend the current state space model, or a specific (time) subset
+
+        Parameters
+        ----------
+        endog : array_like
+            An observed time-series process :math:`y`.
+        start : int, optional
+            The first period of a time-varying state space model to include in
+            the new model. Has no effect if the state space model is
+            time-invariant. Default is the initial period.
+        end : int, optional
+            The last period of a time-varying state space model to include in
+            the new model. Has no effect if the state space model is
+            time-invariant. Default is the final period.
+        **kwargs
+            Keyword arguments to pass to the new state space representation
+            model constructor. Those that are not specified are copied from
+            the specification of the current state space model.
+
+        Returns
+        -------
+        Representation
+
+        Notes
+        -----
+        This method does not allow replacing a time-varying system matrix with
+        a time-invariant one (or vice-versa). If that is required, use `clone`.
+        """
+        endog = np.atleast_1d(endog)
+        if endog.ndim == 1:
+            endog = endog[:, np.newaxis]
+        nobs = len(endog)
+
+        if start is None:
+            start = 0
+        if end is None:
+            end = self.nobs
+
+        if start < 0:
+            start = self.nobs + start
+        if end < 0:
+            end = self.nobs + end
+        if start > self.nobs:
+            raise ValueError('The `start` argument of the extension within the'
+                             ' base model cannot be after the end of the'
+                             ' base model.')
+        if end > self.nobs:
+            raise ValueError('The `end` argument of the extension within the'
+                             ' base model cannot be after the end of the'
+                             ' base model.')
+        if start > end:
+            raise ValueError('The `start` argument of the extension within the'
+                             ' base model cannot be after the `end` argument.')
+
+        # Note: if start == end or if end < self.nobs, then we're just cloning
+        # (no extension)
+        endog = tools.concat([self.endog[:, start:end].T, endog])
+
+        # Extend any time-varying arrays
+        error_ti = ('Model has time-invariant %s matrix, so cannot provide'
+                    ' an extended matrix.')
+        error_tv = ('Model has time-varying %s matrix, so an updated'
+                    ' time-varying matrix for the extension period'
+                    ' is required.')
+        for name, shape in self.shapes.items():
+            if name == 'obs':
+                continue
+
+            mat = getattr(self, name)
+
+            # If we were *not* given an extended value for this matrix...
+            if name not in kwargs:
+                # If this is a time-varying matrix in the existing model
+                if mat.shape[-1] > 1:
+                    # If we have an extension period, then raise an error
+                    # because we should have been given an extended value
+                    if end + nobs > self.nobs:
+                        raise ValueError(error_tv % name)
+                    # If we do not have an extension period, then set the new
+                    # time-varying matrix to be the portion of the existing
+                    # time-varying matrix that corresponds to the period of
+                    # interest
+                    else:
+                        kwargs[name] = mat[..., start:end + nobs]
+            elif nobs == 0:
+                raise ValueError('Extension is being performed within-sample'
+                                 ' so cannot provide an extended matrix')
+            # If we were given an extended value for this matrix
+            else:
+                # TODO: Need to add a check for ndim, and if the matrix has
+                # one fewer dimensions than the existing matrix, add a new axis
+
+                # If this is a time-invariant matrix in the existing model,
+                # raise an error
+                if mat.shape[-1] == 1 and self.nobs > 1:
+                    raise ValueError(error_ti % name)
+
+                # Otherwise, validate the shape of the given extended value
+                # Note: we do not validate the number of observations here
+                # (so we pass in updated_mat.shape[-1] as the nobs argument
+                # in the validate_* calls); instead, we check below that we
+                # at least `nobs` values were passed in and then only take the
+                # first of them as required. This can be useful when e.g. the
+                # end user knows the extension values up to some maximum
+                # endpoint, but does not know what the calling methods may
+                # specifically require.
+                updated_mat = np.asarray(kwargs[name])
+                if len(shape) == 2:
+                    validate_vector_shape(name, updated_mat.shape, shape[0],
+                                          updated_mat.shape[-1])
+                else:
+                    validate_matrix_shape(name, updated_mat.shape, shape[0],
+                                          shape[1], updated_mat.shape[-1])
+
+                if updated_mat.shape[-1] < nobs:
+                    raise ValueError(error_tv % name)
+                else:
+                    updated_mat = updated_mat[..., :nobs]
+
+                # Concatenate to get the new time-varying matrix
+                kwargs[name] = np.c_[mat[..., start:end], updated_mat]
+
+        return self.clone(endog, **kwargs)
+
+    def diff_endog(self, new_endog, tolerance=1e-10):
+        # TODO: move this function to tools?
+        endog = self.endog.T
+        if len(new_endog) < len(endog):
+            raise ValueError('Given data (length %d) is too short to diff'
+                             ' against model data (length %d).'
+                             % (len(new_endog), len(endog)))
+        if len(new_endog) > len(endog):
+            nobs_append = len(new_endog) - len(endog)
+            endog = np.c_[endog.T, new_endog[-nobs_append:].T * np.nan].T
+
+        new_nan = np.isnan(new_endog)
+        existing_nan = np.isnan(endog)
+        diff = np.abs(new_endog - endog)
+        diff[new_nan ^ existing_nan] = np.inf
+        diff[new_nan & existing_nan] = 0.
+
+        is_revision = (diff > tolerance)
+        is_new = existing_nan & ~new_nan
+        is_revision[is_new] = False
+
+        revision_ix = list(zip(*np.where(is_revision)))
+        new_ix = list(zip(*np.where(is_new)))
+
+        return revision_ix, new_ix
+
     @property
     def prefix(self):
         """
@@ -509,7 +744,7 @@ class Representation(object):
 
         Parameters
         ----------
-        endog : array
+        endog : ndarray
             Endogenous data to bind to the model. Must be column-ordered
             ndarray with shape (`k_endog`, `nobs`) or row-ordered ndarray with
             shape (`nobs`, `k_endog`).
@@ -569,9 +804,7 @@ class Representation(object):
             raise ValueError('Invalid endogenous array; must be ordered in'
                              ' contiguous memory.')
 
-        # In some corner cases (e.g. np.array(1., ndmin=2) with numpy < 1.8)
-        # we may still have a non-fortran contiguous array, so double-check
-        # that now
+        # We may still have a non-fortran contiguous array, so double-check
         if not endog.flags['F_CONTIGUOUS']:
             endog = np.asfortranarray(endog)
 
@@ -587,12 +820,16 @@ class Representation(object):
             self.shapes['obs'] = self.endog.shape
 
     def initialize(self, initialization, approximate_diffuse_variance=None,
-                   constant=None, stationary_cov=None):
+                   constant=None, stationary_cov=None, a=None, Pstar=None,
+                   Pinf=None, A=None, R0=None, Q0=None):
         """Create an Initialization object if necessary"""
         if initialization == 'known':
             initialization = Initialization(self.k_states, 'known',
                                             constant=constant,
                                             stationary_cov=stationary_cov)
+        elif initialization == 'components':
+            initialization = Initialization.from_components(
+                a=a, Pstar=Pstar, Pinf=Pinf, A=A, R0=R0, Q0=Q0)
         elif initialization == 'approximate_diffuse':
             if approximate_diffuse_variance is None:
                 approximate_diffuse_variance = self.initial_variance
@@ -662,6 +899,67 @@ class Representation(object):
         self.initialize('approximate_diffuse',
                         approximate_diffuse_variance=variance)
 
+    def initialize_components(self, a=None, Pstar=None, Pinf=None, A=None,
+                              R0=None, Q0=None):
+        """
+        Initialize the statespace model with component matrices
+
+        Parameters
+        ----------
+        a : array_like, optional
+            Vector of constant values describing the mean of the stationary
+            component of the initial state.
+        Pstar : array_like, optional
+            Stationary component of the initial state covariance matrix. If
+            given, should be a matrix shaped `k_states x k_states`. The
+            submatrix associated with the diffuse states should contain zeros.
+            Note that by definition, `Pstar = R0 @ Q0 @ R0.T`, so either
+            `R0,Q0` or `Pstar` may be given, but not both.
+        Pinf : array_like, optional
+            Diffuse component of the initial state covariance matrix. If given,
+            should be a matrix shaped `k_states x k_states` with ones in the
+            diagonal positions corresponding to states with diffuse
+            initialization and zeros otherwise. Note that by definition,
+            `Pinf = A @ A.T`, so either `A` or `Pinf` may be given, but not
+            both.
+        A : array_like, optional
+            Diffuse selection matrix, used in the definition of the diffuse
+            initial state covariance matrix. If given, should be a
+            `k_states x k_diffuse_states` matrix that contains the subset of
+            the columns of the identity matrix that correspond to states with
+            diffuse initialization. Note that by definition, `Pinf = A @ A.T`,
+            so either `A` or `Pinf` may be given, but not both.
+        R0 : array_like, optional
+            Stationary selection matrix, used in the definition of the
+            stationary initial state covariance matrix. If given, should be a
+            `k_states x k_nondiffuse_states` matrix that contains the subset of
+            the columns of the identity matrix that correspond to states with a
+            non-diffuse initialization. Note that by definition,
+            `Pstar = R0 @ Q0 @ R0.T`, so either `R0,Q0` or `Pstar` may be
+            given, but not both.
+        Q0 : array_like, optional
+            Covariance matrix associated with stationary initial states. If
+            given, should be a matrix shaped
+            `k_nondiffuse_states x k_nondiffuse_states`.
+            Note that by definition, `Pstar = R0 @ Q0 @ R0.T`, so either
+            `R0,Q0` or `Pstar` may be given, but not both.
+
+        Notes
+        -----
+        The matrices `a, Pstar, Pinf, A, R0, Q0` and the process for
+        initializing the state space model is as given in Chapter 5 of [1]_.
+        For the definitions of these matrices, see equation (5.2) and the
+        subsequent discussion there.
+
+        References
+        ----------
+        .. [1] Durbin, James, and Siem Jan Koopman. 2012.
+           Time Series Analysis by State Space Methods: Second Edition.
+           Oxford University Press.
+        """
+        self.initialize('components', a=a, Pstar=Pstar, Pinf=Pinf, A=A, R0=R0,
+                        Q0=Q0)
+
     def initialize_stationary(self):
         """
         Initialize the statespace model as stationary.
@@ -670,7 +968,7 @@ class Representation(object):
 
     def initialize_diffuse(self):
         """
-        Initialize the statespace model as stationary.
+        Initialize the statespace model as diffuse.
         """
         self.initialize('diffuse')
 
@@ -763,7 +1061,7 @@ class Representation(object):
             raise RuntimeError('Statespace model not initialized.')
 
 
-class FrozenRepresentation(object):
+class FrozenRepresentation:
     """
     Frozen Statespace Model
 
@@ -793,21 +1091,21 @@ class FrozenRepresentation(object):
     shapes : dictionary of name:tuple
         A dictionary recording the shapes of each of
         the representation matrices as tuples.
-    endog : array
+    endog : ndarray
         The observation vector.
-    design : array
+    design : ndarray
         The design matrix, :math:`Z`.
-    obs_intercept : array
+    obs_intercept : ndarray
         The intercept for the observation equation, :math:`d`.
-    obs_cov : array
+    obs_cov : ndarray
         The covariance matrix for the observation equation :math:`H`.
-    transition : array
+    transition : ndarray
         The transition matrix, :math:`T`.
-    state_intercept : array
+    state_intercept : ndarray
         The intercept for the transition equation, :math:`c`.
-    selection : array
+    selection : ndarray
         The selection matrix, :math:`R`.
-    state_cov : array
+    state_cov : ndarray
         The covariance matrix for the state equation :math:`Q`.
     missing : array of bool
         An array of the same size as `endog`, filled

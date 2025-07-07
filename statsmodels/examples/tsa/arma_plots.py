@@ -3,7 +3,6 @@
 '''
 
 
-from __future__ import print_function
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -40,7 +39,7 @@ for arcoef in arcoefs[:-1]:
         plotacf(acf, ax=ax)
 ##        ax.set_title('Autocorrelation \nar=%s, ma=%rs' % (ar, ma),
 ##                     size='xx-small')
-        ax.text(0.7, 0.6, 'ar =%s \nma=%s' % (ar, ma),
+        ax.text(0.7, 0.6, f'ar ={ar} \nma={ma}',
                 transform=ax.transAxes,
                 horizontalalignment='left', #'right',
                 size='xx-small')
@@ -50,7 +49,7 @@ for arcoef in arcoefs[:-1]:
         plotacf(pacf, ax=ax)
 ##        ax.set_title('Partial Autocorrelation \nar=%s, ma=%rs' % (ar, ma),
 ##                     size='xx-small')
-        ax.text(0.7, 0.6, 'ar =%s \nma=%s' % (ar, ma),
+        ax.text(0.7, 0.6, f'ar ={ar} \nma={ma}',
                 transform=ax.transAxes,
                 horizontalalignment='left', #'right',
                 size='xx-small')
@@ -63,8 +62,9 @@ axs = fig.axes
 ##   for label in ax.get_yticklabels(): label.set_visible(False)
 
 # turn off all but the bottom xtick labels
-for ax in axs[:-2]:#[:-1,:].flat:
-    for label in ax.get_xticklabels(): label.set_visible(False)
+for ax in axs[:-2]:
+    for label in ax.get_xticklabels():
+        label.set_visible(False)
 
 
 # use a MaxNLocator on the first column y axis if you have a bunch of

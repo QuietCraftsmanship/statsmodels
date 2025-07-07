@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Penalty classes for Generalized Additive Models
 
@@ -30,7 +29,6 @@ class UnivariateGamPenalty(Penalty):
     Parameters are stored, additionally
     nob s: The number of samples used during the estimation
     n_columns : number of columns in smoother basis
-
     """
 
     def __init__(self, univariate_smoother, alpha=1, weights=1):
@@ -138,7 +136,7 @@ class MultivariateGamPenalty(Penalty):
     alpha : list of float
         default penalty weight, list with length equal to the number of smooth
         terms. ``alpha`` can also be provided to each method.
-    weights: array-like
+    weights : array_like
         currently not used
         is a list of doubles of the same length as alpha or a list
         of ndarrays where each component has the length equal to the number
@@ -157,7 +155,6 @@ class MultivariateGamPenalty(Penalty):
         in all smoothers.
     k_variables : number of smooth terms
     k_params : total number of parameters in the regression model
-
     """
 
     def __init__(self, multivariate_smoother, alpha, weights=None,
@@ -187,7 +184,7 @@ class MultivariateGamPenalty(Penalty):
             warnings.warn('weights is currently ignored')
             self.weights = weights
 
-        self.mask = [np.zeros(self.k_params, dtype=np.bool_)
+        self.mask = [np.zeros(self.k_params, dtype=bool)
                      for _ in range(self.k_variables)]
         param_count = start_idx
         for i, smoother in enumerate(self.multivariate_smoother.smoothers):

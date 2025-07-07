@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Correlation and Covariance Structures
 
 Created on Sat Dec 17 20:46:05 2011
@@ -116,9 +115,9 @@ def whiten_ar(x, ar_coefs, order):
 
     Parameters
     ----------
-    x : array-like, (nobs,) or (nobs, k_vars)
+    x : array_like, (nobs,) or (nobs, k_vars)
         The data to be whitened along axis 0
-    ar_coefs : array
+    ar_coefs : ndarray
         coefficients of AR lag- polynomial,   TODO: ar or ar_coefs?
     order : int
 
@@ -126,7 +125,6 @@ def whiten_ar(x, ar_coefs, order):
     -------
     x_new : ndarray
         transformed array
-
     """
 
     rho = ar_coefs
@@ -150,9 +148,9 @@ def yule_walker_acov(acov, order=1, method="unbiased", df=None, inv=False):
 
     Parameters
     ----------
-    acov : array-like, 1d
+    acov : array_like, 1d
         auto-covariance
-    order : integer, optional
+    order : int, optional
         The order of the autoregressive process.  Default is 1.
     inv : bool
         If inv is True the inverse of R is also returned.  Default is False.
@@ -165,13 +163,12 @@ def yule_walker_acov(acov, order=1, method="unbiased", df=None, inv=False):
         TODO
     Rinv : ndarray
         inverse of the Toepliz matrix
-
     """
     return yule_walker(acov, order=order, method=method, df=df, inv=inv,
                        demean=False)
 
 
-class ARCovariance(object):
+class ARCovariance:
     '''
     experimental class for Covariance of AR process
     classmethod? staticmethods?

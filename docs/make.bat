@@ -7,16 +7,12 @@ REM Command file for Sphinx documentation
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
-
 set SOURCEDIR=source
 set BUILDDIR=build
-set SPHINXPROJ=statsmodels
-set SPHINXOPTS=-j auto
 
 set TOOLSPATH=../tools
 set DATASETBUILD=dataset_rst.py
 set NOTEBOOKBUILD=nbgenerate.py
-set FOLDTOC=fold_toc.py
 
 if "%1" == "" goto help
 
@@ -37,31 +33,26 @@ if "%1" == "html" (
     echo mkdir %BUILDDIR%\html\_static
     mkdir %BUILDDIR%\html\_static
 	echo python %TOOLSPATH%/%NOTEBOOKBUILD% --parallel --report-errors --skip-existing
-    python %TOOLSPATH%/%NOTEBOOKBUILD% --parallel --report-errors --skip-existing
+	rem Black list notebooks from doc build here
+    python %TOOLSPATH%/%NOTEBOOKBUILD% --parallel --report-errors --skip-existing --execution-blacklist statespace_custom_models
     echo python %TOOLSPATH%/%DATASETBUILD%
     python %TOOLSPATH%/%DATASETBUILD%
 )
 
-echo %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
-%SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
-if errorlevel 1 exit /b 1
+echo %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+%SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
 
 if "%1" == "html" (
     echo xcopy /s /y source\examples\notebooks\generated\*.html %BUILDDIR%\html\examples\notebooks\generated\*.html
     xcopy /s /y source\examples\notebooks\generated\*.html %BUILDDIR%\html\examples\notebooks\generated\*.html
-	echo python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/index.html
-	python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/index.html
-	echo python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/examples/index.html ../_static
-	python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/examples/index.html ../_static
-	echo python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/dev/index.html ../_static
-	python %TOOLSPATH%/%FOLDTOC% %BUILDDIR%/html/dev/index.html ../_static
     if NOT EXIST %BUILDDIR%/html/examples/notebooks/generated mkdir %BUILDDIR%\html\examples\notebooks\generated
 )
 
 goto end
 
 :help
-%SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
+%SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 
 :end
 popd

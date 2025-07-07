@@ -10,7 +10,6 @@ CSS approach is the conditional loglikelihood.
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 import os
 
 import numpy as np
@@ -61,19 +60,19 @@ def check_irf(test, mod, results, params=None):
         impulse_to = endog.columns[i]
 
         # Non-orthogonalized
-        columns = ['%s.irf.%s.%s' % (test, impulse_to, name)
+        columns = [f'{test}.irf.{impulse_to}.{name}'
                    for name in endog.columns]
         assert_allclose(res.impulse_responses(10, i),
                         results_var_R_output[columns])
 
         # Orthogonalized
-        columns = ['%s.irf.ortho.%s.%s' % (test, impulse_to, name)
+        columns = [f'{test}.irf.ortho.{impulse_to}.{name}'
                    for name in endog.columns]
         assert_allclose(res.impulse_responses(10, i, orthogonalized=True),
                         results_var_R_output[columns])
 
         # Orthogonalized, cumulated
-        columns = ['%s.irf.cumu.%s.%s' % (test, impulse_to, name)
+        columns = [f'{test}.irf.cumu.{impulse_to}.{name}'
                    for name in endog.columns]
         result = res.impulse_responses(10, i,
                                        orthogonalized=True, cumulative=True)
@@ -92,7 +91,7 @@ def test_var_basic():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10), results_var_R_output[columns].iloc[:10])
 
     # IRF
@@ -112,7 +111,7 @@ def test_var_c():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10), results_var_R_output[columns].iloc[:10])
 
     # IRF
@@ -132,7 +131,7 @@ def test_var_ct():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10), results_var_R_output[columns].iloc[:10])
 
     # IRF
@@ -154,7 +153,7 @@ def test_var_ct_as_exog0():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10, exog=exog0_fcast[:, :2]),
                     results_var_R_output[columns].iloc[:10])
 
@@ -182,7 +181,7 @@ def test_var_ct_as_exog1():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10, exog=exog1_fcast[:, :2]),
                     results_var_R_output[columns].iloc[:10])
 
@@ -197,7 +196,7 @@ def test_var_ctt():
 
     # VAR(2), constant, trend, and trend**2, no exog
     # Note that this is comparing against trend as exog in the R package,
-    # since it doesn't have a built-in option for trend**2
+    # since it does not have a built-in option for trend**2
     results = results_var_R.res_ctt_as_exog1
     mod = varmax.VARMAX(endog, order=(2, 0), trend='ctt',
                         loglikelihood_burn=2)
@@ -208,7 +207,7 @@ def test_var_ctt():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10), results_var_R_output[columns].iloc[:10])
 
     # IRF
@@ -231,7 +230,7 @@ def test_var_ct_exog():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10, exog=exog_fcast),
                     results_var_R_output[columns].iloc[:10])
 
@@ -255,7 +254,7 @@ def test_var_c_2exog():
     assert_allclose(res.llf, results['llf'])
 
     # Forecast
-    columns = ['%s.fcast.%s.fcst' % (test, name) for name in endog.columns]
+    columns = [f'{test}.fcast.{name}.fcst' for name in endog.columns]
     assert_allclose(res.forecast(10, exog=exog_fcast),
                     results_var_R_output[columns].iloc[:10])
 

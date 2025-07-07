@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tools for working with groups
 
 This provides several functions to work with groups and a Group class that
@@ -27,8 +26,7 @@ Not all methods and options have been tried out yet after refactoring
 
 need more efficient loop if groups are sorted -> see GroupSorted.group_iter
 """
-from __future__ import print_function
-from statsmodels.compat.python import lrange, lzip, range
+from statsmodels.compat.python import lrange, lzip
 import numpy as np
 import pandas as pd
 
@@ -38,7 +36,6 @@ from pandas import Index, MultiIndex
 
 def combine_indices(groups, prefix='', sep='.', return_labels=False):
     """use np.unique to get integer group indices for product, intersection
-
     """
     if isinstance(groups, tuple):
         groups = np.column_stack(groups)
@@ -83,7 +80,7 @@ def combine_indices(groups, prefix='', sep='.', return_labels=False):
 def group_sums(x, group, use_bincount=True):
     """simple bincount version, again
 
-    group : array, integer
+    group : ndarray, integer
         assumed to be consecutive integers
 
     no dtype checking because I want to raise in that case
@@ -93,6 +90,7 @@ def group_sums(x, group, use_bincount=True):
     for comparison, simple python loop
     """
     x = np.asarray(x)
+    group = np.asarray(group).squeeze()
     if x.ndim == 1:
         x = x[:, None]
     elif x.ndim > 2 and use_bincount:
@@ -104,8 +102,12 @@ def group_sums(x, group, use_bincount=True):
         if np.max(group) > 2 * x.shape[0]:
             group = pd.factorize(group)[0]
 
-        return np.array([np.bincount(group, weights=x[:, col])
-                         for col in range(x.shape[1])])
+        return np.array(
+            [
+                np.bincount(group, weights=x[:, col])
+                for col in range(x.shape[1])
+            ]
+        )
     else:
         uniques = np.unique(group)
         result = np.zeros([len(uniques)] + list(x.shape[1:]))
@@ -132,7 +134,7 @@ def dummy_sparse(groups):
 
     Parameters
     ----------
-    groups: ndarray, int, 1d (nobs,)
+    groups : ndarray, int, 1d (nobs,)
         an array of group indicators for each observation. Group levels are
         assumed to be defined as consecutive integers, i.e. range(n_groups)
         where n_groups is the number of group levels. A group level with no
@@ -172,7 +174,6 @@ def dummy_sparse(groups):
             [1, 0, 0],
             [0, 0, 1],
             [1, 0, 0]], dtype=int8)
-
     """
     from scipy import sparse
 
@@ -183,7 +184,7 @@ def dummy_sparse(groups):
     return indi
 
 
-class Group(object):
+class Group:
 
     def __init__(self, group, name=''):
 
@@ -273,14 +274,13 @@ class GroupSorted(Group):
         individual, then no values for that individual are returned.
 
         TODO: for the unbalanced case, I should get the same truncation for
-        the array with lag=0. From the return of lag_idx we wouldn't know
+        the array with lag=0. From the return of lag_idx we would not know
         which individual is missing.
 
         TODO: do I want the full equivalent of lagmat in tsa?
         maxlag or lag or lags.
 
         not tested yet
-
         """
         lag_idx = np.asarray(self.groupidx)[:, 1] - lag  # asarray or already?
         mask_ok = (lag <= lag_idx)
@@ -312,7 +312,7 @@ def _make_generic_names(index):
     return [("group{0:0"+pad+"}").format(i) for i in range(n_names)]
 
 
-class Grouping(object):
+class Grouping:
     def __init__(self, index, names=None):
         """
         index : index-like
@@ -335,7 +335,7 @@ class Grouping(object):
                 else:
                     index.names = names
             self.index = index
-        else:  # array-like
+        else:  # array_like
             if _is_hierarchical(index):
                 self.index = _make_hierarchical_index(index, names)
             else:
@@ -384,7 +384,7 @@ class Grouping(object):
         """
         Resets the index in-place.
         """
-        # NOTE: this isn't of much use if the rest of the data doesn't change
+        # NOTE: this is not of much use if the rest of the data does not change
         # This needs to reset cache
         if names is None:
             names = self.group_names
@@ -398,8 +398,7 @@ class Grouping(object):
         """
         # TODO: refactor this
         groups = self.index.get_level_values(level).unique()
-        groups = np.array(groups)
-        groups.sort()
+        groups = np.sort(np.array(groups))
         if isinstance(self.index, MultiIndex):
             self.slices = [self.index.get_loc_level(x, level=level)[0]
                            for x in groups]
@@ -493,7 +492,7 @@ class Grouping(object):
         processed = np.array(processed)
         return processed.reshape(-1, processed.shape[-1])
 
-    # TODO: this isn't general needs to be a PanelGrouping object
+    # TODO: this is not general needs to be a PanelGrouping object
     def dummies_time(self):
         self.dummy_sparse(level=1)
         return self._dummies
@@ -507,11 +506,12 @@ class Grouping(object):
 
         Parameters
         ----------
-        groups: ndarray, int, 1d (nobs,) an array of group indicators for each
-            observation. Group levels are assumed to be defined as consecutive
-            integers, i.e. range(n_groups) where n_groups is the number of
-            group levels. A group level with no observations for it will still
-            produce a column of zeros.
+        groups : ndarray, int, 1d (nobs,)
+            An array of group indicators for each observation. Group levels
+            are assumed to be defined as consecutive integers, i.e.
+            range(n_groups) where n_groups is the number of group levels.
+            A group level with no observations for it will still produce a
+            column of zeros.
 
         Returns
         -------

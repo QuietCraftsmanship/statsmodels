@@ -1,27 +1,30 @@
 # https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#passing-parameters
 
 trigger:
-- maintenance/0.10.x
+- master
 
 variables:
   MKL_NUM_THREADS: 1
   NUMEXPR_NUM_THREADS: 1
   OMP_NUM_THREADS: 1
+  VML_NUM_THREADS: 1
   OPENBLAS_NUM_THREADS: 1
   PYTHONHASHSEED: 0 # Ensure tests are correctly gathered by xdist
+  USE_MATPLOTLIB: true
 
 jobs:
-- template: tools/ci/azure_template.yml
+
+- template: tools/ci/azure/azure_template_posix.yml
   parameters:
     name: Linux
-    vmImage: 'ubuntu-16.04'
+    vmImage: ubuntu-latest
 
-- template: tools/ci/azure_template.yml
+- template: tools/ci/azure/azure_template_posix.yml
   parameters:
     name: macOS
-    vmImage: 'macOS-10.13'
+    vmImage: macOS-latest
 
-- template: tools/ci/azure_template.yml
+- template: tools/ci/azure/azure_template_windows.yml
   parameters:
     name: Windows
-    vmImage: 'vs2017-win2016'
+    vmImage: windows-latest

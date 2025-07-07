@@ -1,14 +1,23 @@
 import numpy as np
+from numpy.testing import assert_array_less, assert_equal, assert_raises
+from pandas import DataFrame, Series
 import pytest
+
 import statsmodels.api as sm
-from numpy.testing import assert_equal, assert_raises
-from statsmodels.graphics.regressionplots import (plot_fit, plot_ccpr,
-                  plot_regress_exog, abline_plot,
-                  plot_partregress_grid, plot_ccpr_grid, add_lowess,
-                  plot_added_variable, plot_partial_residuals,
-                  plot_ceres_residuals, influence_plot, plot_leverage_resid2)
-from pandas import Series, DataFrame
-from numpy.testing.utils import assert_array_less
+from statsmodels.graphics.regressionplots import (
+    abline_plot,
+    add_lowess,
+    influence_plot,
+    plot_added_variable,
+    plot_ccpr,
+    plot_ccpr_grid,
+    plot_ceres_residuals,
+    plot_fit,
+    plot_leverage_resid2,
+    plot_partial_residuals,
+    plot_partregress_grid,
+    plot_regress_exog,
+)
 
 try:
     import matplotlib.pyplot as plt
@@ -29,7 +38,7 @@ def close_or_save(pdf, fig):
         pdf.savefig(fig)
 
 
-class TestPlot(object):
+class TestPlot:
 
     @classmethod
     def setup_class(cls):
@@ -117,7 +126,7 @@ class TestPlot(object):
 
 
 class TestPlotPandas(TestPlot):
-    def setup(self):
+    def setup_method(self):
         nsample = 100
         sig = 0.5
         x1 = np.linspace(0, 20, nsample)
@@ -141,12 +150,12 @@ class TestPlotFormula(TestPlotPandas):
     def test_one_column_exog(self, close_figures):
         from statsmodels.formula.api import ols
         res = ols("y~var1-1", data=self.data).fit()
-        fig = plot_regress_exog(res, "var1")
+        plot_regress_exog(res, "var1")
         res = ols("y~var1", data=self.data).fit()
-        fig = plot_regress_exog(res, "var1")
+        plot_regress_exog(res, "var1")
 
 
-class TestABLine(object):
+class TestABLine:
 
     @classmethod
     def setup_class(cls):
@@ -218,7 +227,24 @@ class TestABLinePandas(TestABLine):
         cls.mod = mod
 
 
-class TestAddedVariablePlot(object):
+class TestAddedVariablePlot:
+
+    @pytest.mark.matplotlib
+    def test_added_variable_ols(self, close_figures):
+        np.random.seed(3446)
+        n = 100
+        p = 3
+        exog = np.random.normal(size=(n, p))
+        lin_pred = 4 + exog[:, 0] + 0.2 * exog[:, 1]**2
+        endog = lin_pred + np.random.normal(size=n)
+
+        model = sm.OLS(endog, exog)
+        results = model.fit()
+        fig = plot_added_variable(results, 0)
+        ax = fig.get_axes()[0]
+        ax.set_title("Added variable plot (OLS)")
+        close_or_save(pdf, fig)
+        close_figures()
 
     @pytest.mark.matplotlib
     def test_added_variable_poisson(self, close_figures):
@@ -268,7 +294,7 @@ class TestAddedVariablePlot(object):
                         close_figures()
 
 
-class TestPartialResidualPlot(object):
+class TestPartialResidualPlot:
 
     @pytest.mark.matplotlib
     def test_partial_residual_poisson(self, close_figures):
@@ -304,7 +330,7 @@ class TestPartialResidualPlot(object):
                              effect_str)
                 close_or_save(pdf, fig)
 
-class TestCERESPlot(object):
+class TestCERESPlot:
 
     @pytest.mark.matplotlib
     def test_ceres_poisson(self, close_figures):
@@ -339,3 +365,25 @@ class TestCERESPlot(object):
                 ax.set_title(ti + "\nPoisson regression\n" +
                              effect_str)
                 close_or_save(pdf, fig)
+
+
+@pytest.mark.matplotlib
+def test_partregress_formula_env():
+    # test that user function in formulas work, see #7672
+
+    @np.vectorize
+    def lg(x):
+        return np.log10(x) if x > 0 else 0
+
+    df = DataFrame(
+        dict(
+            a=np.random.random(size=10),
+            b=np.random.random(size=10),
+            c=np.random.random(size=10),
+            )
+        )
+    sm.graphics.plot_partregress(
+        "a", "lg(b)", ["c"], obs_labels=False, data=df, eval_env=1)
+
+    sm.graphics.plot_partregress(
+        "a", "lg(b)", ["c"], obs_labels=False, data=df)

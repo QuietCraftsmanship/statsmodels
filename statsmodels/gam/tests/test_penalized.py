@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 unit test for GAM
 
@@ -9,25 +8,26 @@ Author: Josef Perktold
 import os
 
 import numpy as np
-from numpy.testing import assert_allclose, assert_equal, assert_
+from numpy.testing import assert_, assert_allclose, assert_equal
 import pandas as pd
+import pytest
 
-import patsy
-
-from statsmodels.discrete.discrete_model import Poisson, Logit, Probit
-from statsmodels.genmod.generalized_linear_model import GLM
-from statsmodels.genmod.families import family
-from statsmodels.sandbox.regression.penalized import TheilGLS
 from statsmodels.base._penalized import PenalizedMixin
 import statsmodels.base._penalties as smpen
-
-from statsmodels.gam.smooth_basis import (BSplines, CyclicCubicSplines)
+from statsmodels.discrete.discrete_model import Logit, Poisson, Probit
+from statsmodels.formula._manager import FormulaManager
 from statsmodels.gam.generalized_additive_model import (
-    GLMGam, GLMGamResults, GLMGamResultsWrapper)
-
+    GLMGam,
+    GLMGamResults,
+    GLMGamResultsWrapper,
+)
+from statsmodels.gam.smooth_basis import BSplines, CyclicCubicSplines
+from statsmodels.genmod.families import family
+from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.sandbox.regression.penalized import TheilGLS
 from statsmodels.tools.linalg import matrix_sqrt, transf_constraints
 
-from .results import results_pls, results_mpg_bs, results_mpg_bs_poisson
+from .results import results_mpg_bs, results_mpg_bs_poisson, results_pls
 
 
 class PoissonPenalized(PenalizedMixin, Poisson):
@@ -56,7 +56,7 @@ df_autos_ = pd.read_csv(file_path)
 df_autos = df_autos_[['city_mpg', 'fuel', 'drive', 'weight', 'hp']].dropna()
 
 
-class CheckGAMMixin(object):
+class CheckGAMMixin:
 
     @classmethod
     def _init(cls):
@@ -91,6 +91,10 @@ class CheckGAMMixin(object):
         assert_allclose(res1.fittedvalues, res2.fitted_values,
                         rtol=self.rtol_fitted)
 
+    @pytest.mark.smoke
+    def test_null_smoke(self):
+        self.res1.llnull
+
 
 class TestTheilPLS5(CheckGAMMixin):
 
@@ -120,6 +124,9 @@ class TestTheilPLS5(CheckGAMMixin):
         assert_allclose(np.asarray(res1.cov_params()),
                         res2.Ve * self.covp_corrfact, rtol=1e-4)
 
+    def test_null_smoke(self):
+        pytest.skip("llnull not available")
+
 
 class TestGLMPenalizedPLS5(CheckGAMMixin):
 
@@ -129,7 +136,7 @@ class TestGLMPenalizedPLS5(CheckGAMMixin):
     def setup_class(cls):
         exog, penalty_matrix, restriction = cls._init()
         endog = data_mcycle['accel']
-        pen = smpen.L2ContraintsPenalty(restriction=restriction)
+        pen = smpen.L2ConstraintsPenalty(restriction=restriction)
         mod = GLMPenalized(endog, exog, family=family.Gaussian(),
                            penal=pen)
         # scaling of penweight in R mgcv
@@ -206,7 +213,7 @@ class TestGAM5Bfgs(CheckGAMMixin):
                         rtol=self.rtol_fitted)
 
 
-class TestGAM6Pirls(object):
+class TestGAM6Pirls:
 
     @classmethod
     def setup_class(cls):
@@ -237,7 +244,7 @@ class TestGAM6Pirls(object):
                         rtol=self.rtol_fitted)
 
 
-class TestGAM6Bfgs(object):
+class TestGAM6Bfgs:
 
     @classmethod
     def setup_class(cls):
@@ -264,7 +271,7 @@ class TestGAM6Bfgs(object):
                         rtol=self.rtol_fitted)
 
 
-class TestGAM6Bfgs0(object):
+class TestGAM6Bfgs0:
 
     @classmethod
     def setup_class(cls):
@@ -319,7 +326,7 @@ pls6_exog = np.array([
     ]).reshape(10, 6, order='F')
 
 
-class TestGAM6ExogBfgs(object):
+class TestGAM6ExogBfgs:
 
     @classmethod
     def setup_class(cls):
@@ -327,7 +334,7 @@ class TestGAM6ExogBfgs(object):
         nobs = data_mcycle['times'].shape[0]
         cc = CyclicCubicSplines(data_mcycle['times'].values, df=[6],
                                 constraints='center')
-        gam_cc = GLMGam(data_mcycle['accel'], np.ones((nobs, 1)),
+        gam_cc = GLMGam(data_mcycle['accel'], np.ones(nobs),
                         smoother=cc, alpha=1 / s_scale / 2)
         cls.res1 = gam_cc.fit(method='bfgs')
 
@@ -347,7 +354,7 @@ class TestGAM6ExogBfgs(object):
                         rtol=1e-13)
 
 
-class TestGAM6ExogPirls(object):
+class TestGAM6ExogPirls:
 
     @classmethod
     def setup_class(cls):
@@ -375,7 +382,7 @@ class TestGAM6ExogPirls(object):
                         rtol=1e-13)
 
 
-class TestGAMMPG(object):
+class TestGAMMPG:
 
     @classmethod
     def setup_class(cls):
@@ -384,7 +391,10 @@ class TestGAMMPG(object):
         s_scale = np.array([2.95973613706629e-07, 0.000126203730141359])
 
         x_spline = df_autos[['weight', 'hp']].values
-        exog = patsy.dmatrix('fuel + drive', data=df_autos)
+        mgr = FormulaManager()
+        exog = mgr.get_matrices(
+            'fuel + drive', data=df_autos, pandas=mgr.engine == "formulaic"
+        )
         cc = CyclicCubicSplines(x_spline, df=[6, 5], constraints='center')
         # TODO alpha needs to be list
         gam_cc = GLMGam(df_autos['city_mpg'], exog=exog, smoother=cc,
@@ -436,10 +446,11 @@ class TestGAMMPGBS(CheckGAMMixin):
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
         x_spline = df_autos[['weight', 'hp']].values
-        # We need asarray to remove the design_info
-        # If design_info is attached,
+        # We need asarray to remove the formula's custom class
+        # If model_spec is attached,
         #     then exog_linear will also be transformed in predict.
-        cls.exog = np.asarray(patsy.dmatrix('fuel + drive', data=df_autos))
+        mgr = FormulaManager()
+        cls.exog = np.asarray(mgr.get_matrices('fuel + drive', data=df_autos))
         bs = BSplines(x_spline, df=[12, 10], degree=[3, 3],
                       variable_names=['weight', 'hp'],
                       constraints='center',
@@ -527,7 +538,11 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
         x_spline = df_autos[['weight', 'hp']].values
-        cls.exog = patsy.dmatrix('fuel + drive', data=df_autos)
+        mgr = FormulaManager()
+        cls.exog = mgr.get_matrices(
+            'fuel + drive',
+            data=df_autos,
+            pandas=mgr.engine == "formulaic")
         bs = BSplines(x_spline, df=[12, 10], degree=[3, 3],
                       variable_names=['weight', 'hp'],
                       constraints='center',
@@ -537,7 +552,7 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
         gam_bs = GLMGam(df_autos['city_mpg'], exog=cls.exog, smoother=bs,
                         family=family.Poisson(), alpha=alpha0)
 
-        xnames = cls.exog.design_info.column_names + gam_bs.smoother.col_names
+        xnames = mgr.get_column_names(cls.exog) + gam_bs.smoother.col_names
         gam_bs.exog_names[:] = xnames
         cls.res1a = gam_bs.fit(use_t=False)
 
@@ -585,8 +600,9 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
 
         # linpred = res1.predict(self.exog[2:4], res1.model.smoother.x[2:4],
         #                        linear=True)
-        linpred = res1.predict(df_autos.iloc[2:4], res1.model.smoother.x[2:4],
-                               linear=True)
+        xp = pd.DataFrame(res1.model.smoother.x[2:4])
+        linpred = res1.predict(df_autos.iloc[2:4], xp,
+                               which="linear")
         assert_allclose(linpred, res2.linear_predictors[2:4],
                         rtol=self.rtol_fitted)
 
@@ -598,7 +614,8 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
         res2 = self.res2
         wtt = res1.wald_test_terms(skip_single=True,
                                    combine_terms=['fuel', 'drive',
-                                                  'weight', 'hp'])
+                                                  'weight', 'hp'],
+                                   scalar=True)
         # mgcv has term test for linear part
         assert_allclose(wtt.statistic[:2], res2.pTerms_chi_sq, rtol=1e-7)
         assert_allclose(wtt.pvalues[:2], res2.pTerms_pv, rtol=1e-6)
@@ -621,7 +638,10 @@ class TestGAMMPGBSPoissonFormula(TestGAMMPGBSPoisson):
         # s_scale is same as before
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
-        cls.exog = patsy.dmatrix('fuel + drive', data=df_autos)
+        mgr = FormulaManager()
+        cls.exog = mgr.get_matrices(
+            'fuel + drive', data=df_autos, pandas=mgr.engine == "formulaic"
+        )
 
         x_spline = df_autos[['weight', 'hp']].values
         bs = BSplines(x_spline, df=[12, 10], degree=[3, 3],
@@ -653,10 +673,10 @@ class TestGAMMPGBSPoissonFormula(TestGAMMPGBSPoisson):
                   'hp_s6', 'hp_s7', 'hp_s8']
 
         assert_equal(res1a.model.exog_names, xnames)
-        assert_equal(res1a.model.design_info_linear.column_names,
+        assert_equal(res1a.model.model_spec_linear.column_names,
                      xnames[:4])
 
-        assert_equal(res1a.fittedvalues[2:4].index.values, [2, 3])
+        assert_equal(res1a.fittedvalues.iloc[2:4].index.values, [2, 3])
         assert_equal(res1a.params.index.values, xnames)
         assert_(isinstance(res1a.params, pd.Series))
 

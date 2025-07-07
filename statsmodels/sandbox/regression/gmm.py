@@ -18,7 +18,7 @@ Issues
      but not tested yet.
   DONE `fitonce` in DistQuantilesGMM, params are the same as in direct call to fitgmm
       move it to GMM class (once it's clearer for which cases I need this.)
-* GMM doesn't know anything about the underlying model, e.g. y = X beta + u or panel
+* GMM does not know anything about the underlying model, e.g. y = X beta + u or panel
   data model. It would be good if we can reuse methods from regressions, e.g.
   predict, fitted values, calculating the error term, and some result statistics.
   What's the best way to do this, multiple inheritance, outsourcing the functions,
@@ -37,7 +37,7 @@ Unclear
     jval in jtest looks to large in example, but I have no idea about the size
 * bse for fitonce look too large (no time for checking now)
     formula for calc_cov_params for the case without optimal weighting matrix
-    is wrong. I don't have an estimate for omega in that case. And I'm confusing
+    is wrong. I do not have an estimate for omega in that case. And I'm confusing
     between weights and omega, which are *not* the same in this case.
 
 
@@ -48,19 +48,24 @@ License: BSD (3-clause)
 '''
 
 
-from __future__ import print_function
 from statsmodels.compat.python import lrange
 
 import numpy as np
 from scipy import optimize, stats
 
-from statsmodels.tools.numdiff import approx_fprime
-from statsmodels.base.model import (Model,
-                                    LikelihoodModel, LikelihoodModelResults)
-from statsmodels.regression.linear_model import (OLS, RegressionResults,
-                                                 RegressionResultsWrapper)
+from statsmodels.base.model import (
+    LikelihoodModel,
+    LikelihoodModelResults,
+    Model,
+)
+from statsmodels.regression.linear_model import (
+    OLS,
+    RegressionResults,
+    RegressionResultsWrapper,
+)
 import statsmodels.stats.sandwich_covariance as smcov
 from statsmodels.tools.decorators import cache_readonly
+from statsmodels.tools.numdiff import approx_fprime
 from statsmodels.tools.tools import _ensure_2d
 
 DEBUG = 0
@@ -79,11 +84,11 @@ class IV2SLS(LikelihoodModel):
 
     Parameters
     ----------
-    endog: array
+    endog : ndarray
        Endogenous variable, 1-dimensional or 2-dimensional array nobs by 1
-    exog : array
+    exog : ndarray
        Explanatory variables, 1-dimensional or 2-dimensional array nobs by k
-    instrument : array
+    instrument : ndarray
        Instruments for explanatory variables. Must contain both exog
        variables that are not being instrumented and instruments
 
@@ -100,7 +105,7 @@ class IV2SLS(LikelihoodModel):
 
     def __init__(self, endog, exog, instrument=None):
         self.instrument, self.instrument_names = _ensure_2d(instrument, True)
-        super(IV2SLS, self).__init__(endog, exog)
+        super().__init__(endog, exog)
         # where is this supposed to be handled
         # Note: Greene p.77/78 dof correction is not necessary (because only
         #       asy results), but most packages do it anyway
@@ -130,7 +135,7 @@ class IV2SLS(LikelihoodModel):
         linear models.
 
         Parameter estimates and covariance are correct, but other results
-        haven't been tested yet, to seee whether they apply without changes.
+        have not been tested yet, to see whether they apply without changes.
 
         '''
         #Greene 5th edt., p.78 section 5.4
@@ -166,9 +171,9 @@ class IV2SLS(LikelihoodModel):
 
         Parameters
         ----------
-        exog : array-like
+        exog : array_like
             Design / exogenous data
-        params : array-like, optional after fit has been called
+        params : array_like, optional after fit has been called
             Parameters of a linear model
 
         Returns
@@ -200,7 +205,6 @@ class IVRegressionResults(RegressionResults):
     See Also
     --------
     RegressionResults
-
     """
 
     @cache_readonly
@@ -231,7 +235,7 @@ class IVRegressionResults(RegressionResults):
         endog, exog = self.model.endog, self.model.exog
         resols = OLS(endog, exog).fit()
         normalized_cov_params_ols = resols.model.normalized_cov_params
-        # Stata `ivendog` doesn't use df correction for se
+        # Stata `ivendog` does not use df correction for se
         #se2 = resols.mse_resid #* resols.df_resid * 1. / len(endog)
         se2 = resols.ssr / len(endog)
 
@@ -256,11 +260,11 @@ class IVRegressionResults(RegressionResults):
 
         Parameters
         ----------
-        yname : string, optional
+        yname : str, optional
             Default is `y`
-        xname : list of strings, optional
+        xname : list[str], optional
             Default is `var_##` for ## in p the number of regressors
-        title : string, optional
+        title : str, optional
             Title for the top table. If not None, then this replaces the
             default title
         alpha : float
@@ -276,19 +280,21 @@ class IVRegressionResults(RegressionResults):
         --------
         statsmodels.iolib.summary.Summary : class to hold summary
             results
-
         """
 
         #TODO: import where we need it (for now), add as cached attributes
-        from statsmodels.stats.stattools import (jarque_bera,
-                omni_normtest, durbin_watson)
+        from statsmodels.stats.stattools import (
+            durbin_watson,
+            jarque_bera,
+            omni_normtest,
+        )
         jb, jbpv, skew, kurtosis = jarque_bera(self.wresid)
         omni, omnipv = omni_normtest(self.wresid)
 
         #TODO: reuse condno from somewhere else ?
         #condno = np.linalg.cond(np.dot(self.wexog.T, self.wexog))
         wexog = self.model.wexog
-        eigvals = np.linalg.linalg.eigvalsh(np.dot(wexog.T, wexog))
+        eigvals = np.linalg.eigvalsh(np.dot(wexog.T, wexog))
         eigvals = np.sort(eigvals) #in increasing order
         condno = np.sqrt(eigvals[-1]/eigvals[0])
 
@@ -305,7 +311,7 @@ class IVRegressionResults(RegressionResults):
 
         #TODO: requiring list/iterable is a bit annoying
         #need more control over formatting
-        #TODO: default don't work if it's not identically spelled
+        #TODO: default do not work if it's not identically spelled
 
         top_left = [('Dep. Variable:', None),
                     ('Model:', None),
@@ -379,7 +385,7 @@ Type of GMM
 weight matrix
 ~~~~~~~~~~~~~
 
- - `weights_method` : string, defines method for robust
+ - `weights_method` : str, defines method for robust
    Options here are similar to :mod:`statsmodels.stats.robust_covariance`
    default is heteroscedasticity consistent, HC0
 
@@ -429,15 +435,15 @@ class GMM(Model):
 
     Parameters
     ----------
-    endog : array
+    endog : ndarray
         endogenous variable, see notes
-    exog : array
+    exog : ndarray
         array of exogenous variables, see notes
-    instrument : array
+    instrument : ndarray
         array of instruments, see notes
     nmoms : None or int
         number of moment conditions, if None then it is set equal to the
-        number of columns of instruments. Mainly needed to determin the shape
+        number of columns of instruments. Mainly needed to determine the shape
         or size of start parameters and starting weighting matrix.
     kwds : anything
         this is mainly if additional variables need to be stored for the
@@ -480,10 +486,10 @@ class GMM(Model):
         '''
         maybe drop and use mixin instead
 
-        TODO: GMM doesn't really care about the data, just the moment conditions
+        TODO: GMM does not really care about the data, just the moment conditions
         '''
         instrument = self._check_inputs(instrument, endog) # attaches if needed
-        super(GMM, self).__init__(endog, exog, missing=missing,
+        super().__init__(endog, exog, missing=missing,
                 instrument=instrument)
 #         self.endog = endog
 #         self.exog = exog
@@ -536,7 +542,7 @@ class GMM(Model):
 
         Parameters
         ----------
-        param_names : list of strings
+        param_names : list[str]
             param_names should have the same length as the number of params
         k_params : None or int
             If k_params is None, then the k_params attribute is used, unless
@@ -585,7 +591,7 @@ class GMM(Model):
             given then the method `start_weights` is used which depends on
             the subclass, for IV subclasses `inv_weights = z'z` where `z` are
             the instruments, otherwise an identity matrix is used.
-        weights_method : string, defines method for robust
+        weights_method : str, defines method for robust
             Options here are similar to :mod:`statsmodels.stats.robust_covariance`
             default is heteroscedasticity consistent, HC0
 
@@ -614,7 +620,7 @@ class GMM(Model):
               matrix assumes that we have optimal GMM with :math:`W = S^{-1}`.
               Default is True.
               TODO: do we want to have a different default after `onestep`?
-        optim_method : string, default is 'bfgs'
+        optim_method : str, default is 'bfgs'
             numerical optimization method. Currently not all optimizers that
             are available in LikelihoodModels are connected.
         optim_args : dict
@@ -668,7 +674,6 @@ class GMM(Model):
 
             params = self.fitgmm(start, weights=weights,
                                  optim_method=optim_method, optim_args=optim_args)
-            weights_ = weights  # temporary alias used in jval
         else:
             params, weights = self.fititer(start,
                                            maxiter=maxiter,
@@ -679,7 +684,7 @@ class GMM(Model):
                                            optim_args=optim_args)
             # TODO weights returned by fititer is inv_weights - not true anymore
             # weights_ currently not necessary and used anymore
-            weights_ = np.linalg.pinv(weights)
+            np.linalg.pinv(weights)
 
         if maxiter == 'cue':
             #we have params from maxiter= 0 as starting value
@@ -715,14 +720,14 @@ class GMM(Model):
         ----------
         start : array_like
             starting values for minimization
-        weights : array
+        weights : ndarray
             weighting matrix for moment conditions. If weights is None, then
             the identity matrix is used
 
 
         Returns
         -------
-        paramest : array
+        paramest : ndarray
             estimated parameters
 
         Notes
@@ -782,7 +787,7 @@ class GMM(Model):
 
         Returns
         -------
-        paramest : array
+        paramest : ndarray
             estimated parameters
 
         Notes
@@ -821,9 +826,9 @@ class GMM(Model):
 
         Parameters
         ----------
-        params : array
+        params : ndarray
             parameter values at which objective is evaluated
-        weights : array
+        weights : ndarray
             weighting matrix
 
         Returns
@@ -845,7 +850,7 @@ class GMM(Model):
 
         Parameters
         ----------
-        params : array
+        params : ndarray
             parameter values at which objective is evaluated
 
         Returns
@@ -872,7 +877,7 @@ class GMM(Model):
 
         Parameters
         ----------
-        start : array
+        start : ndarray
             starting value for parameters
         maxiter : int
             maximum number of iterations
@@ -885,9 +890,9 @@ class GMM(Model):
 
         Returns
         -------
-        params : array
+        params : ndarray
             estimated parameters
-        weights : array
+        weights : ndarray
             optimal weighting matrix calculated with final parameter
             estimates
 
@@ -941,10 +946,10 @@ class GMM(Model):
 
         Parameters
         ----------
-        moms : array
+        moms : ndarray
             moment conditions (nobs x nmoms) for all observations evaluated at
             a parameter value
-        weights_method : string 'cov'
+        weights_method : str 'cov'
             If method='cov' is cov then the matrix is calculated as simple
             covariance of the moment conditions.
             see fit method for available aoptions for the weight and covariance
@@ -983,7 +988,7 @@ class GMM(Model):
 
         centered = not ('centered' in wargs and not wargs['centered'])
         if not centered:
-            # caller doesn't want centered moment conditions
+            # caller does not want centered moment conditions
             moms_ = moms
         else:
             moms_ = moms - moms.mean()
@@ -991,7 +996,7 @@ class GMM(Model):
         # TODO: store this outside to avoid doing this inside optimization loop
         # TODO: subclasses need to be able to add weights_methods, and remove
         #       IVGMM can have homoscedastic (OLS),
-        #       some options won't make sense in some cases
+        #       some options will not make sense in some cases
         #       possible add all here and allow subclasses to define a list
         # TODO: should other weights_methods also have `ddof`
         if weights_method == 'cov':
@@ -1034,14 +1039,14 @@ class GMM(Model):
 
         elif weights_method == 'iid':
             # only when we have instruments and residual mom = Z * u
-            # TODO: problem we don't have params in argument
+            # TODO: problem we do not have params in argument
             #       I cannot keep everything in here w/o params as argument
             u = self.get_error(params)
 
             if centered:
                 # Note: I'm not centering instruments,
-                #    shouldn't we always center u? Ok, with centered as default
-                u -= u.mean(0)  #demean inplace, we don't need original u
+                #    should not we always center u? Ok, with centered as default
+                u -= u.mean(0)  #demean inplace, we do not need original u
 
             instrument = self.instrument
             w = np.dot(instrument.T, instrument).dot(np.dot(u.T, u)) / nobs
@@ -1149,14 +1154,14 @@ class GMMResults(LikelihoodModelResults):
         # this should use by default whatever options have been specified in
         # fit
 
-        # TODO: don't do this when we want to change options
+        # TODO: do not do this when we want to change options
 #         if hasattr(self, '_cov_params'):
 #             #replace with decorator later
 #             return self._cov_params
 
         # set defaults based on fit arguments
         if 'wargs' not in kwds:
-            # Note: we don't check the keys in wargs, use either all or nothing
+            # Note: we do not check the keys in wargs, use either all or nothing
             kwds['wargs'] = self.wargs
         if 'weights_method' not in kwds:
             kwds['weights_method'] = self.options_other['weights_method']
@@ -1290,11 +1295,11 @@ class GMMResults(LikelihoodModelResults):
 
         Parameters
         ----------
-        yname : string, optional
+        yname : str, optional
             Default is `y`
-        xname : list of strings, optional
+        xname : list[str], optional
             Default is `var_##` for ## in p the number of regressors
-        title : string, optional
+        title : str, optional
             Title for the top table. If not None, then this replaces the
             default title
         alpha : float
@@ -1310,7 +1315,6 @@ class GMMResults(LikelihoodModelResults):
         --------
         statsmodels.iolib.summary.Summary : class to hold summary
             results
-
         """
         #TODO: add a summary text for options that have been used
 
@@ -1428,8 +1432,6 @@ class LinearIVGMM(IVGMM):
         Instrumental variables, variables that are exogenous to the error
         in the linear model containing both included and excluded exogenous
         variables
-
-
     """
 
     def fitgmm(self, start, weights=None, optim_method=None, **kwds):
@@ -1442,7 +1444,7 @@ class LinearIVGMM(IVGMM):
         start : not used
             starting values for minimization, not used, only for consistency
             of method signature
-        weights : array
+        weights : ndarray
             weighting matrix for moment conditions. If weights is None, then
             the identity matrix is used
         optim_method : not used,
@@ -1454,7 +1456,7 @@ class LinearIVGMM(IVGMM):
 
         Returns
         -------
-        paramest : array
+        paramest : ndarray
             estimated parameters
 
         '''
@@ -1510,7 +1512,7 @@ class LinearIVGMM(IVGMM):
 
 class NonlinearIVGMM(IVGMM):
     """
-    Class for non-linear instrumental variables estimation wusing GMM
+    Class for non-linear instrumental variables estimation using GMM
 
     The model is assumed to have the following moment condition
 
@@ -1548,7 +1550,6 @@ class NonlinearIVGMM(IVGMM):
     a method `jac_func`.
 
     TODO: check required signature of jac_error and jac_func
-
     """
     # This should be reversed:
     # NonlinearIVGMM is IVGMM and need LinearIVGMM as special case (fit, predict)
@@ -1561,7 +1562,7 @@ class NonlinearIVGMM(IVGMM):
 
     def __init__(self, endog, exog, instrument, func, **kwds):
         self.func = func
-        super(NonlinearIVGMM, self).__init__(endog, exog, instrument, **kwds)
+        super().__init__(endog, exog, instrument, **kwds)
 
 
     def predict(self, params, exog=None):
@@ -1639,15 +1640,15 @@ def spec_hausman(params_e, params_i, cov_params_e, cov_params_i, dof=None):
 
     Parameters
     ----------
-    params_e : array
+    params_e : ndarray
         efficient and consistent under Null hypothesis,
         inconsistent under alternative hypothesis
-    params_i: array
+    params_i : ndarray
         consistent under Null hypothesis,
         consistent under alternative hypothesis
-    cov_params_e : array, 2d
+    cov_params_e : ndarray, 2d
         covariance matrix of parameter estimates for params_e
-    cov_params_i : array, 2d
+    cov_params_i : ndarray, 2d
         covariance matrix of parameter estimates for params_i
 
     example instrumental variables OLS estimator is `e`, IV estimator is `i`
@@ -1698,12 +1699,12 @@ class DistQuantilesGMM(GMM):
 
     def __init__(self, endog, exog, instrument, **kwds):
         #TODO: something wrong with super
-        super(DistQuantilesGMM, self).__init__(endog, exog, instrument)
+        super().__init__(endog, exog, instrument)
         #self.func = func
         self.epsilon_iter = 1e-5
 
         self.distfn = kwds['distfn']
-        #done by super doesn't work yet
+        #done by super does not work yet
         #TypeError: super does not take keyword arguments
         self.endog = endog
 
@@ -1728,7 +1729,7 @@ class DistQuantilesGMM(GMM):
 
     def fitstart(self):
         #todo: replace with or add call to distfn._fitstart
-        #      added but not used during testing, avoid Travis
+        #      added but not used during testing
         distfn = self.distfn
         if hasattr(distfn, '_fitstart'):
             start = distfn._fitstart(self.endog)
@@ -1744,7 +1745,7 @@ class DistQuantilesGMM(GMM):
 
         Returns
         -------
-        difference : array
+        difference : ndarray
             difference between theoretical and empirical quantiles
 
         Notes
@@ -1803,7 +1804,7 @@ class DistQuantilesGMM(GMM):
         self.results.params = params  #required before call to self.cov_params
         self.results.wargs = {} #required before call to self.cov_params
         self.results.options_other = {'weights_method':'cov'}
-        # TODO: which weights_method?  There shouldn't be any needed ?
+        # TODO: which weights_method?  There should not be any needed ?
         _cov_params = self.results.cov_params(weights=weights,
                                       has_optimal_weights=has_optimal_weights)
 

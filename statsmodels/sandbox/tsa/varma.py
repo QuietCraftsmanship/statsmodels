@@ -1,6 +1,6 @@
 '''VAR and VARMA process
 
-this doesn't actually do much, trying out a version for a time loop
+this does not actually do much, trying out a version for a time loop
 
 alternative representation:
 * textbook, different blocks in matrices
@@ -22,7 +22,6 @@ Author : josefpkt
 License : BSD
 '''
 
-from __future__ import print_function
 import numpy as np
 from scipy import signal
 
@@ -43,7 +42,7 @@ def VAR(x,B, const=0):
         B(:,:,k) is lag polynomial matrix for variable k
         B(p,:,k) is pth lag for variable k
         B[p,:,:].T corresponds to A_p in Wikipedia
-    const: float or array (not tested)
+    const : float or array (not tested)
         constant added to autoregression
 
     Returns
@@ -60,8 +59,8 @@ def VAR(x,B, const=0):
 
     References
     ----------
-    http://en.wikipedia.org/wiki/Vector_Autoregression
-    http://en.wikipedia.org/wiki/General_matrix_notation_of_a_VAR(p)
+    https://en.wikipedia.org/wiki/Vector_Autoregression
+    https://en.wikipedia.org/wiki/General_matrix_notation_of_a_VAR(p)
     '''
     p = B.shape[0]
     T = x.shape[0]

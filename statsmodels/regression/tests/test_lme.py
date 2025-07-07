@@ -22,19 +22,19 @@ from .results import lme_r_results
 # TODO: add tests with unequal group sizes
 
 
-class R_Results(object):
+class R_Results:
     """
     A class for holding various results obtained from fitting one data
     set using lmer in R.
 
     Parameters
     ----------
-    meth : string
+    meth : str
         Either "ml" or "reml".
-    irfs : string
+    irfs : str
         Either "irf", for independent random effects, or "drf" for
         dependent random effects.
-    ds_ix : integer
+    ds_ix : int
         The number of the data set
     """
 
@@ -58,7 +58,7 @@ class R_Results(object):
         cur_dir = os.path.dirname(os.path.abspath(__file__))
         rdir = os.path.join(cur_dir, 'results')
         fname = os.path.join(rdir, "lme%02d.csv" % ds_ix)
-        with open(fname) as fid:
+        with open(fname, encoding="utf-8") as fid:
             rdr = csv.reader(fid)
             header = next(rdr)
             data = [[float(x) for x in line] for line in rdr]
@@ -85,7 +85,7 @@ def loglike_function(model, profile_fe, has_fe):
     return f
 
 
-class TestMixedLM(object):
+class TestMixedLM:
 
     # Test analytic scores and Hessian using numeric differentiation
     @pytest.mark.slow
@@ -122,13 +122,14 @@ class TestMixedLM(object):
             vc["a"][i] = exog_vc[ix, 0:2]
             vc["b"][i] = exog_vc[ix, 2:3]
 
-        model = MixedLM(
-            endog,
-            exog_fe,
-            groups,
-            exog_re,
-            exog_vc=vc,
-            use_sqrt=use_sqrt)
+        with pytest.warns(UserWarning, match="Using deprecated variance"):
+            model = MixedLM(
+                endog,
+                exog_fe,
+                groups,
+                exog_re,
+                exog_vc=vc,
+                use_sqrt=use_sqrt)
         rslt = model.fit(reml=reml)
 
         loglike = loglike_function(
@@ -151,12 +152,15 @@ class TestMixedLM(object):
                 ngr = nd.approx_fprime(params_vec, loglike)
                 assert_allclose(gr, ngr, rtol=1e-3)
 
-            # Check Hessian matrices at the MLE (we don't have
-            # the profile Hessian matrix and we don't care
+            # Check Hessian matrices at the MLE (we do not have
+            # the profile Hessian matrix and we do not care
             # about the Hessian for the square root
             # transformed parameter).
             if (profile_fe is False) and (use_sqrt is False):
-                hess = -model.hessian(rslt.params_object)
+                hess, sing = model.hessian(rslt.params_object)
+                if sing:
+                    pytest.fail("hessian should not be singular")
+                hess *= -1
                 params_vec = rslt.params_object.get_packed(
                     use_sqrt=False, has_fe=True)
                 loglike_h = loglike_function(
@@ -221,17 +225,13 @@ class TestMixedLM(object):
             ii = np.flatnonzero(groups == k)
             vc["a"][k] = vca[ii][:, None]
             vc["b"][k] = vcb[ii][:, None]
-        rslt = MixedLM(
-            endog, exog, groups=groups, exog_re=exog_re, exog_vc=vc).fit()
-        rslt.profile_re(
-            0, vtype='re', dist_low=1, num_low=3, dist_high=1, num_high=3)
-        rslt.profile_re(
-            'b',
-            vtype='vc',
-            dist_low=0.5,
-            num_low=3,
-            dist_high=0.5,
-            num_high=3)
+        with pytest.warns(UserWarning, match="Using deprecated variance"):
+            rslt = MixedLM(endog, exog, groups=groups,
+                           exog_re=exog_re, exog_vc=vc).fit()
+        rslt.profile_re(0, vtype='re', dist_low=1, num_low=3,
+                        dist_high=1, num_high=3)
+        rslt.profile_re('b', vtype='vc', dist_low=0.5, num_low=3,
+                        dist_high=0.5, num_high=3)
 
     def test_vcomp_1(self):
         # Fit the same model using constrained random effects and
@@ -260,7 +260,8 @@ class TestMixedLM(object):
             ix = model1.row_indices[group]
             exog_vc["a"][group] = exog_re[ix, 0:1]
             exog_vc["b"][group] = exog_re[ix, 1:2]
-        model2 = MixedLM(endog, exog, groups, exog_vc=exog_vc)
+        with pytest.warns(UserWarning, match="Using deprecated variance"):
+            model2 = MixedLM(endog, exog, groups, exog_vc=exog_vc)
         result2 = model2.fit()
         result2.summary()
 
@@ -323,6 +324,21 @@ class TestMixedLM(object):
             vc_formula=vcf,
             data=df)
         result1 = model1.fit()
+
+        def times_two(x):
+            return 2 * x
+        model1_env = MixedLM.from_formula(
+            "y ~ times_two(x1) + x2",
+            groups=groups,
+            re_formula="0+z1+z2",
+            vc_formula=vcf,
+            data=df)
+        result1_env = model1_env.fit()
+        # Loose check that the evan env has worked
+        assert "times_two(x1)" in result1_env.model.exog_names
+        assert_allclose(
+            result1.params["x1"], 2*result1_env.params["times_two(x1)"], rtol=1e-3
+        )
 
         # Compare to R
         assert_allclose(
@@ -471,7 +487,7 @@ class TestMixedLM(object):
         data = pd.read_csv(fname)
         model = MixedLM.from_formula(
             "Weight ~ Time", groups="Pig", re_formula="1 + Time", data=data)
-        result = model.fit(method='powell')
+        result = model.fit(method="cg")
 
         # fixef(r)
         assert_allclose(
@@ -498,7 +514,7 @@ class TestMixedLM(object):
         data = pd.read_csv(fname)
         model = MixedLM.from_formula(
             "Weight ~ Time", groups="Pig", re_formula="1 + Time", data=data)
-        result = model.fit(method='powell', reml=False)
+        result = model.fit(method='cg', reml=False)
 
         # fixef(r)
         assert_allclose(result.fe_params, np.r_[15.73863, 6.93902], rtol=1e-5)
@@ -559,7 +575,7 @@ class TestMixedLM(object):
         # logLik(r)
         assert_allclose(result.llf, -123.49, rtol=1e-1)
 
-        # don't provide aic/bic with REML
+        # do not provide aic/bic with REML
         assert_equal(result.aic, np.nan)
         assert_equal(result.bic, np.nan)
 
@@ -629,7 +645,9 @@ class TestMixedLM(object):
             ix = np.flatnonzero(groups == group)
             exog_vc["a"][group] = ex_vc[ix, 0:2]
             exog_vc["b"][group] = ex_vc[ix, 2:]
-        model1 = MixedLM(endog, exog, groups, exog_re=exog_re, exog_vc=exog_vc)
+        with pytest.warns(UserWarning, match="Using deprecated variance"):
+            model1 = MixedLM(endog, exog, groups, exog_re=exog_re,
+                             exog_vc=exog_vc)
         result1 = model1.fit()
 
         df = pd.DataFrame(exog[:, 1:], columns=["x1"])
@@ -752,11 +770,50 @@ class TestMixedLM(object):
         mdf5 = md.fit_regularized(method=pen, alpha=1.)
         mdf5.summary()
 
+# ------------------------------------------------------------------
+
+class TestMixedLMSummary(object):
+    # Test various aspects of the MixedLM summary
+    @classmethod
+    def setup_class(cls):
+        # Setup the model and estimate it.
+        pid = np.repeat([0, 1], 5)
+        x0 = np.repeat([1], 10)
+        x1 = [1, 5, 7, 3, 5, 1, 2, 6, 9, 8]
+        x2 = [6, 2, 1, 0, 1, 4, 3, 8, 2, 1]
+        y = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        df = pd.DataFrame({"y": y, "pid": pid, "x0": x0, "x1": x1, "x2": x2})
+        endog = df["y"].values
+        exog = df[["x0", "x1", "x2"]].values
+        groups = df["pid"].values
+        cls.res = MixedLM(endog, exog, groups=groups).fit()
+
+    def test_summary(self):
+        # Test that the summary correctly includes all variables.
+        summ = self.res.summary()
+        desired = ["const", "x1", "x2", "Group Var"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
+
+    def test_summary_xname_fe(self):
+        # Test that the `xname_fe` argument is reflected in the summary table.
+        summ = self.res.summary(xname_fe=["Constant", "Age", "Weight"])
+        desired = ["Constant", "Age", "Weight", "Group Var"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
+
+    def test_summary_xname_re(self):
+        # Test that the `xname_re` argument is reflected in the summary table.
+        summ = self.res.summary(xname_re=["Random Effects"])
+        desired = ["const", "x1", "x2", "Random Effects"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
 
 # ------------------------------------------------------------------
 
 
-class TestMixedLMSummary(object):
+
+class TestMixedLMSummary:
     # Test various aspects of the MixedLM summary
     @classmethod
     def setup_class(cls):
@@ -798,6 +855,28 @@ class TestMixedLMSummary(object):
 
 
 # ------------------------------------------------------------------
+
+
+class TestMixedLMSummaryRegularized(TestMixedLMSummary):
+    # Test various aspects of the MixedLM summary
+    # after fitting model with fit_regularized function
+    @classmethod
+    def setup_class(cls):
+        # Setup the model and estimate it.
+        pid = np.repeat([0, 1], 5)
+        x0 = np.repeat([1], 10)
+        x1 = [1, 5, 7, 3, 5, 1, 2, 6, 9, 8]
+        x2 = [6, 2, 1, 0, 1, 4, 3, 8, 2, 1]
+        y = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        df = pd.DataFrame({"y": y, "pid": pid, "x0": x0, "x1": x1, "x2": x2})
+        endog = df["y"].values
+        exog = df[["x0", "x1", "x2"]].values
+        groups = df["pid"].values
+        cls.res = MixedLM(endog, exog, groups=groups).fit_regularized()
+
+
+# ------------------------------------------------------------------
+
 
 
 # TODO: better name
@@ -984,12 +1063,12 @@ def test_handle_missing():
     re = np.kron(re, np.ones((2, 1)))
     df["y"] = re[:, 0] + re[:, 1] * df.z1 + re[:, 2] * df.c1
     df["y"] += re[:, 3] * df.c2 + np.random.normal(size=100)
-    df.loc[1, "y"] = np.NaN
-    df.loc[2, "g"] = np.NaN
-    df.loc[3, "x1"] = np.NaN
-    df.loc[4, "z1"] = np.NaN
-    df.loc[5, "c1"] = np.NaN
-    df.loc[6, "c2"] = np.NaN
+    df.loc[1, "y"] = np.nan
+    df.loc[2, "g"] = np.nan
+    df.loc[3, "x1"] = np.nan
+    df.loc[4, "z1"] = np.nan
+    df.loc[5, "c1"] = np.nan
+    df.loc[6, "c2"] = np.nan
 
     fml = "y ~ x1"
     re_formula = "1 + z1"
@@ -1052,7 +1131,11 @@ def test_summary_col():
     mod2 = MixedLM.from_formula('X ~ Y', d, groups=d['IDS'])
     results2 = mod2.fit(start_params=sp2)
 
-    out = summary_col([results1, results2], stars=True)
+    out = summary_col(
+        [results1, results2],
+        stars=True,
+        regressor_order=["Group Var", "Intercept", "X", "Y"]
+    )
     s = ('\n=============================\n              Y         X    \n'
          '-----------------------------\nGroup Var 0.1955    1.3854   \n'
          '          (0.6032)  (2.7377) \nIntercept -1.2672   3.4842*  \n'
@@ -1089,14 +1172,14 @@ def test_random_effects_getters():
         b.append(bb)
 
         # First variance component
-        vv0 = np.kron(np.r_[0, 1], np.ones(m // 2)).astype(np.int)
+        vv0 = np.kron(np.r_[0, 1], np.ones(m // 2)).astype(int)
         cc0 = np.random.normal(size=2)
         yy += cc0[vv0]
         v0.append(vv0)
         c0.append(cc0)
 
         # Second variance component
-        vv1 = np.kron(np.ones(m // 2), np.r_[0, 1]).astype(np.int)
+        vv1 = np.kron(np.ones(m // 2), np.r_[0, 1]).astype(int)
         cc1 = np.random.normal(size=2)
         yy += cc1[vv1]
         v1.append(vv1)
@@ -1186,7 +1269,7 @@ def check_smw_solver(p, q, r, s):
     assert_allclose(y1, y2)
 
 
-class TestSMWSolver(object):
+class TestSMWSolver:
     @classmethod
     def setup_class(cls):
         np.random.seed(23)
@@ -1222,7 +1305,7 @@ def check_smw_logdet(p, q, r, s):
     assert_allclose(d1, d2, rtol=rtol)
 
 
-class TestSMWLogdet(object):
+class TestSMWLogdet:
     @classmethod
     def setup_class(cls):
         np.random.seed(23)
@@ -1233,6 +1316,24 @@ class TestSMWLogdet(object):
     @pytest.mark.parametrize("s", [0, 0.5])
     def test_smw_logdet(self, p, q, r, s):
         check_smw_logdet(p, q, r, s)
+
+
+def test_singular():
+    # Issue #7051
+
+    np.random.seed(3423)
+    n = 100
+
+    data = np.random.randn(n, 2)
+    df = pd.DataFrame(data, columns=['Y', 'X'])
+    df['class'] = pd.Series([i % 3 for i in df.index], index=df.index)
+
+    with pytest.warns(Warning) as wrn:
+        md = MixedLM.from_formula("Y ~ X", df, groups=df['class'])
+        mdf = md.fit()
+        mdf.summary()
+        if not wrn:
+            pytest.fail("warning expected")
 
 
 def test_get_distribution():
@@ -1251,7 +1352,7 @@ def test_get_distribution():
     exog_vca = np.random.normal(size=(n, 2))
     exog_vcb = np.random.normal(size=(n, 2))
 
-    groups = np.repeat(np.arange(n_groups, dtype=np.int),
+    groups = np.repeat(np.arange(n_groups, dtype=int),
                        n / n_groups)
 
     ey = np.dot(exog_fe, fe_params)

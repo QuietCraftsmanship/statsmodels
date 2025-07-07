@@ -26,7 +26,7 @@ License: BSD
 TODO
 ----
 * add starting values based on OLS
-* bugs: store_params doesn't seem to be defined, I think this was a module
+* bugs: store_params does not seem to be defined, I think this was a module
         global for debugging - commented out
 * parameter restriction: check whether version with some fixed parameters works
 
@@ -60,6 +60,7 @@ class TLinearModel(GenericLikelihoodModel):
     '''
 
     def initialize(self):
+        print("running Tmodel initialize")
         # TODO: here or in __init__
         self.k_vars = self.exog.shape[1]
         if not hasattr(self, 'fix_df'):
@@ -80,10 +81,14 @@ class TLinearModel(GenericLikelihoodModel):
             self.fixed_paramsmask = np.isnan(fixdf)
             extra_params_names = ['scale']
 
+        super().initialize()
+
+        # Note: this needs to be after super initialize
+        # super initialize sets default df_resid,
+        #_set_extra_params_names adjusts it
         self._set_extra_params_names(extra_params_names)
         self._set_start_params()
 
-        super(TLinearModel, self).initialize()
 
     def _set_start_params(self, start_params=None, use_kurtosis=False):
         if start_params is not None:
@@ -120,13 +125,13 @@ class TLinearModel(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array
+        params : ndarray
             The parameters of the model. The last 2 parameters are degrees of
             freedom and scale.
 
         Returns
         -------
-        loglike : array
+        loglike : ndarray
             The log likelihood of the model evaluated at `params` for each
             observation defined by self.endog and self.exog.
 
@@ -140,7 +145,6 @@ class TLinearModel(GenericLikelihoodModel):
 
         self.fixed_params and self.expandparams can be used to fix some
         parameters. (I doubt this has been tested in this model.)
-
         """
         #print len(params),
         #store_params.append(params)
@@ -219,7 +223,7 @@ class TArma(Arma):
             start_params = np.concatenate((0.05*np.ones(nar + nma), [5, 1]))
 
 
-        res = super(TArma, self).fit_mle(order=order,
+        res = super().fit_mle(order=order,
                                          start_params=start_params,
                                          method=method, maxiter=maxiter,
                                          tol=tol, **kwds)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """A quick look at volatility of stock returns for 2009
 
 Just an exercise to find my way around the pandas methods.
@@ -9,7 +8,7 @@ Assumes no missing values.
 colors of lines in graphs are not great
 
 uses DataFrame and WidePanel to hold data downloaded from yahoo using matplotlib.
-I haven't figured out storage, so the download happens at each run
+I have not figured out storage, so the download happens at each run
 of the script.
 
 Created on Sat Jan 30 16:30:18 2010

@@ -1,13 +1,13 @@
-
-import pytest
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 import statsmodels.api as sm
+
 nparam = sm.nonparametric
 
 
-class KernelRegressionTestBase(object):
+class KernelRegressionTestBase:
     @classmethod
     def setup_class(cls):
         nobs = 60
@@ -60,11 +60,11 @@ class KernelRegressionTestBase(object):
              0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0,
              0, 0, 0, 0]
 
-    def write2file(self, file_name, data):
+    def write2file(self, file_name, data):  # pragma: no cover
         """Write some data to a csv file.  Only use for debugging!"""
         import csv
 
-        data_file = csv.writer(open(file_name, "w"))
+        data_file = csv.writer(open(file_name, "w", encoding="utf-8"))
         data = np.column_stack(data)
         nobs = max(np.shape(data))
         K = min(np.shape(data))
@@ -175,7 +175,7 @@ class TestKernelReg(KernelRegressionTestBase):
         npt.assert_allclose(sm_mfx[0, :], [b1, b2, b3], rtol=2e-1)
 
     @pytest.mark.slow
-    @pytest.mark.xfail(reason="Test doesn't make much sense - always passes "
+    @pytest.mark.xfail(reason="Test does not make much sense - always passes "
                               "with very small bw.")
     def test_mfx_nonlinear_ll_cvls(self, file_name='RegData.csv'):
         nobs = 200
@@ -190,9 +190,11 @@ class TestKernelReg(KernelRegressionTestBase):
         Y = b0+ b1 * C1 * C2 + b3 * C3 + noise
         model = nparam.KernelReg(endog=[Y], exog=[C1, C2, C3],
                                  reg_type='ll', var_type='ccc', bw='cv_ls')
-        sm_bw = model.bw
+        # Smoke test
+        assert isinstance(model.bw, float)
         sm_mean, sm_mfx = model.fit()
         sm_R2 = model.r_squared()
+        assert isinstance(sm_R2, float)
         # Theoretical marginal effects
         mfx1 = b1 * C2
         mfx2 = b1 * C1
@@ -305,6 +307,46 @@ class TestKernelReg(KernelRegressionTestBase):
         sig_var2 = model.sig_test([1], nboot=nboot)  # H0: b2 = 0
         npt.assert_equal(sig_var2 == 'Not Significant', True)
 
+    def test_user_specified_kernel(self):
+        model = nparam.KernelReg(endog=[self.y], exog=[self.c1, self.c2],
+                                 reg_type='ll', var_type='cc', bw='cv_ls',
+                                 ckertype='tricube')
+        # Bandwidth
+        sm_bw = model.bw
+        R_bw = [0.581663, 0.5652]
+        # Conditional Mean
+        sm_mean, sm_mfx = model.fit()
+        sm_mean = sm_mean[0:5]
+        sm_mfx = sm_mfx[0:5]
+        R_mean = [30.926714, 36.994604, 44.438358, 40.680598, 35.961593]
+        # R-Squared
+        sm_R2 = model.r_squared()
+        R_R2 = 0.934825
+
+        npt.assert_allclose(sm_bw, R_bw, atol=1e-2)
+        npt.assert_allclose(sm_mean, R_mean, atol=1e-2)
+        npt.assert_allclose(sm_R2, R_R2, atol=1e-2)
+
+    def test_censored_user_specified_kernel(self):
+        model = nparam.KernelCensoredReg(endog=[self.y], exog=[self.c1, self.c2],
+                                 reg_type='ll', var_type='cc', bw='cv_ls',
+                                 censor_val=0, ckertype='tricube')
+        # Bandwidth
+        sm_bw = model.bw
+        R_bw = [0.581663, 0.5652]
+        # Conditional Mean
+        sm_mean, sm_mfx = model.fit()
+        sm_mean = sm_mean[0:5]
+        sm_mfx = sm_mfx[0:5]
+        R_mean = [29.205526, 29.538008, 31.667581, 31.978866, 30.926714]
+        # R-Squared
+        sm_R2 = model.r_squared()
+        R_R2 = 0.934825
+
+        npt.assert_allclose(sm_bw, R_bw, atol=1e-2)
+        npt.assert_allclose(sm_mean, R_mean, atol=1e-2)
+        npt.assert_allclose(sm_R2, R_R2, atol=1e-2)
+
     def test_efficient_user_specificed_bw(self):
 
         bw_user=[0.23, 434697.22]
@@ -338,3 +380,16 @@ def test_invalid_bw():
     y = x ** 2
     with pytest.raises(ValueError):
         nparam.KernelReg(x, y, 'c', bw=[12.5, 1.])
+
+
+def test_invalid_kernel():
+    x = np.arange(400)
+    y = x ** 2
+    # silverman kernel is not currently in statsmodels kernel library
+    with pytest.raises(ValueError):
+        nparam.KernelReg(x, y, reg_type='ll', var_type='cc', bw='cv_ls',
+                         ckertype='silverman')
+
+    with pytest.raises(ValueError):
+        nparam.KernelCensoredReg(x, y, reg_type='ll', var_type='cc', bw='cv_ls',
+                                 censor_val=0, ckertype='silverman')

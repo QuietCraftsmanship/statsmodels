@@ -2,20 +2,20 @@ import numpy as np
 from statsmodels.tools.tools import Bunch
 
 
-class _MinimalWLS(object):
+class _MinimalWLS:
     """
     Minimal implementation of WLS optimized for performance.
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         1-d endogenous response variable. The dependent variable.
-    exog : array-like
+    exog : array_like
         A nobs x k array where `nobs` is the number of observations and `k`
         is the number of regressors. An intercept is not included by default
         and should be added by the user. See
         :func:`statsmodels.tools.add_constant`.
-    weights : array-like, optional
+    weights : array_like, optional
         1d array of weights.  If you supply 1/W then the variables are pre-
         multiplied by 1/sqrt(W).  If no weights are supplied the default value
         is 1 and WLS reults are the same as OLS.
@@ -55,7 +55,7 @@ class _MinimalWLS(object):
         if np.isscalar(weights):
             self.wexog = w_half * exog
         else:
-            self.wexog = w_half[:, None] * exog
+            self.wexog = np.asarray(w_half)[:, None] * exog
 
     def fit(self, method='pinv'):
         """
@@ -100,7 +100,20 @@ class _MinimalWLS(object):
         else:
             params, _, _, _ = np.linalg.lstsq(self.wexog, self.wendog,
                                               rcond=-1)
+        return self.results(params)
 
+    def results(self, params):
+        """
+        Construct results
+
+        params : ndarray
+            Model parameters
+
+        Notes
+        -----
+        Allows results to be constructed from either existing parameters or
+        when estimated using using ``fit``
+        """
         fitted_values = self.exog.dot(params)
         resid = self.endog - fitted_values
         wresid = self.wendog - self.wexog.dot(params)

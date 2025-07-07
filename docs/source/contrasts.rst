@@ -3,11 +3,11 @@
 Patsy: Contrast Coding Systems for categorical variables
 ===========================================================
 
-.. note:: This document is based heavily on `this excellent resource from UCLA <http://www.ats.ucla.edu/stat/r/library/contrast_coding.htm>`__.
+.. note:: This document is based on `this excellent resource from UCLA <https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/>`__.
 
 A categorical variable of K categories, or levels, usually enters a regression as a sequence of K-1 dummy variables. This amounts to a linear hypothesis on the level means. That is, each test statistic for these variables amounts to testing whether the mean for that level is statistically significantly different from the mean of the base category. This dummy coding is called Treatment coding in R parlance, and we will follow this convention. There are, however, different coding methods that amount to different sets of linear hypotheses.
 
-In fact, the dummy coding is not technically a contrast coding. This is because the dummy variables add to one and are not functionally independent of the model's intercept. On the other hand, a set of *contrasts* for a categorical variable with `k` levels is a set of `k-1` functionally independent linear combinations of the factor level means that are also independent of the sum of the dummy variables. The dummy coding isn't wrong *per se*. It captures all of the coefficients, but it complicates matters when the model assumes independence of the coefficients such as in ANOVA. Linear regression models do not assume independence of the coefficients and thus dummy coding is often the only coding that is taught in this context.
+In fact, the dummy coding is not technically a contrast coding. This is because the dummy variables add to one and are not functionally independent of the model's intercept. On the other hand, a set of *contrasts* for a categorical variable with `k` levels is a set of `k-1` functionally independent linear combinations of the factor level means that are also independent of the sum of the dummy variables. The dummy coding is not wrong *per se*. It captures all of the coefficients, but it complicates matters when the model assumes independence of the coefficients such as in ANOVA. Linear regression models do not assume independence of the coefficients and thus dummy coding is often the only coding that is taught in this context.
 
 To have a look at the contrast matrices in Patsy, we will use data from UCLA ATS. First let's load the data.
 
@@ -72,7 +72,7 @@ Here we used `reference=0`, which implies that the first level, Hispanic, is the
 
    contrast.matrix[hsb2.race-1, :][:20]
 
-This is a bit of a trick, as the `race` category conveniently maps to zero-based indices. If it does not, this conversion happens under the hood, so this won't work in general but nonetheless is a useful exercise to fix ideas. The below illustrates the output using the three contrasts above
+This is a bit of a trick, as the `race` category conveniently maps to zero-based indices. If it does not, this conversion happens under the hood, so this will not work in general but nonetheless is a useful exercise to fix ideas. The below illustrates the output using the three contrasts above
 
 .. ipython:: python
 
@@ -113,7 +113,7 @@ Sum coding compares the mean of the dependent variable for a given level to the 
    res = mod.fit()
    print(res.summary())
 
-This correspons to a parameterization that forces all the coefficients to sum to zero. Notice that the intercept here is the grand mean where the grand mean is the mean of means of the dependent variable by each level.
+This corresponds to a parameterization that forces all the coefficients to sum to zero. Notice that the intercept here is the grand mean where the grand mean is the mean of means of the dependent variable by each level.
 
 .. ipython:: python
 
@@ -139,8 +139,8 @@ For example, here the coefficient on level 1 is the mean of `write` at level 2 c
 .. ipython:: python
 
    res.params["C(race, Diff)[D.1]"]
-   hsb2.groupby('race').mean()["write"][2] - \
-       hsb2.groupby('race').mean()["write"][1]
+   hsb2.groupby('race').mean()["write"].loc[2] - \
+       hsb2.groupby('race').mean()["write"].loc[1]
 
 Helmert Coding
 --------------
@@ -162,16 +162,16 @@ To illustrate, the comparison on level 4 is the mean of the dependent variable a
 .. ipython:: python
 
    grouped = hsb2.groupby('race')
-   grouped.mean()["write"][4] - grouped.mean()["write"][:3].mean()
+   grouped.mean()["write"].loc[4] - grouped.mean()["write"].loc[:3].mean()
 
 As you can see, these are only equal up to a constant. Other versions of the Helmert contrast give the actual difference in means. Regardless, the hypothesis tests are the same.
 
 .. ipython:: python
 
    k = 4
-   1./k * (grouped.mean()["write"][k] - grouped.mean()["write"][:k-1].mean())
+   1./k * (grouped.mean()["write"].loc[k] - grouped.mean()["write"].loc[:k-1].mean())
    k = 3
-   1./k * (grouped.mean()["write"][k] - grouped.mean()["write"][:k-1].mean())
+   1./k * (grouped.mean()["write"].loc[k] - grouped.mean()["write"].loc[:k-1].mean())
 
 
 Orthogonal Polynomial Coding
@@ -182,7 +182,7 @@ The coefficients taken on by polynomial coding for `k=4` levels are the linear, 
 .. ipython:: python
 
    _, bins = np.histogram(hsb2.read, 3)
-   try: # requires numpy master
+   try: # requires numpy main
        readcat = np.digitize(hsb2.read, bins, True)
    except:
        readcat = np.digitize(hsb2.read, bins)

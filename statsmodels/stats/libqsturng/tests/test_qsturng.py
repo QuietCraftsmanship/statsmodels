@@ -5,7 +5,7 @@
 @pytest.mark..slow are empirical (test within error limits) and intended to more
 extensively ensure the stability and accuracy of the functions"""
 
-from statsmodels.compat.python import iterkeys, lzip, lmap
+from statsmodels.compat.python import lzip, lmap
 
 from numpy.testing import (
     assert_equal,
@@ -19,13 +19,13 @@ from statsmodels.stats.libqsturng import qsturng, psturng
 
 
 def read_ch(fname):
-    with open(fname) as f:
+    with open(fname, encoding="utf-8") as f:
         lines = f.readlines()
     ps,rs,vs,qs = lzip(*[L.split(',') for L in lines])
     return lmap(float, ps), lmap(float, rs),lmap(float, vs), lmap(float, qs)
 
 
-class TestQsturng(object):
+class TestQsturng:
     def test_scalar(self):
         # scalar input -> scalar output
         assert_almost_equal(4.43645545899562, qsturng(.9,5,6), 5)
@@ -77,6 +77,7 @@ class TestQsturng(object):
         for p,r,v,q in cases:
             assert_almost_equal(q, qsturng(p,r,v), 5)
 
+    # TODO: do something with this?
     #remove from testsuite, used only for table generation and fails on
     #Debian S390, no idea why
     @pytest.mark.skip
@@ -85,7 +86,7 @@ class TestQsturng(object):
         ps, rs, vs, qs = [], [], [], []
         for p in T:
             for v in T[p]:
-                for r in iterkeys(R):
+                for r in R.keys():
                     ps.append(p)
                     vs.append(v)
                     rs.append(r)
@@ -132,7 +133,7 @@ class TestQsturng(object):
         errors = np.abs(qs-qsturng(ps,rs,vs))/qs
         assert_equal(np.array([]), np.where(errors > .03)[0])
 
-class TestPsturng(object):
+class TestPsturng:
     def test_scalar(self):
         "scalar input -> scalar output"
         assert_almost_equal(.1, psturng(4.43645545899562,5,6), 5)
@@ -196,6 +197,3 @@ class TestPsturng(object):
         errors = estimates - actuals
 
         assert_equal(np.array([]), np.where(errors > 1e-5)[0])
-
-##     def test_more_exotic_stuff(self, level=3):
-##         something_obscure_and_expensive()

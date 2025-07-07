@@ -1,9 +1,9 @@
 import numpy as np
-from numpy.testing import assert_raises, assert_equal
+from numpy.testing import assert_equal, assert_raises
 from pandas import Series
 import pytest
 
-from statsmodels.graphics.factorplots import interaction_plot, _recode
+from statsmodels.graphics.factorplots import _recode, interaction_plot
 
 try:
     import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 
-class TestInteractionPlot(object):
+class TestInteractionPlot:
 
     @classmethod
     def setup_class(cls):
@@ -22,12 +22,12 @@ class TestInteractionPlot(object):
 
     @pytest.mark.matplotlib
     def test_plot_both(self, close_figures):
-        fig = interaction_plot(self.weight, self.duration, self.days,
+        interaction_plot(self.weight, self.duration, self.days,
                  colors=['red','blue'], markers=['D','^'], ms=10)
 
     @pytest.mark.matplotlib
     def test_plot_rainbow(self, close_figures):
-        fig = interaction_plot(self.weight, self.duration, self.days,
+        interaction_plot(self.weight, self.duration, self.days,
                  markers=['D','^'], ms=10)
 
     @pytest.mark.matplotlib

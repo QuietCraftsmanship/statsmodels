@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Periodograms for ARMA and time series
 
 theoretical periodogram of ARMA process and different version
@@ -11,7 +10,6 @@ Created on Wed Oct 14 23:02:19 2009
 
 Author: josef-pktd
 """
-from __future__ import print_function
 import numpy as np
 from scipy import signal, ndimage
 import matplotlib.mlab as mlb

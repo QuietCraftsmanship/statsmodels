@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Cross-validation classes for GAM
 
@@ -6,7 +5,6 @@ Author: Luca Puggini
 
 """
 
-from __future__ import division
 from abc import ABCMeta, abstractmethod
 from statsmodels.compat.python import with_metaclass
 import itertools
@@ -53,7 +51,6 @@ def _split_train_test_smoothers(x, smoother, train_index, test_index):
     """split smoothers in test and train sets and create GenericSmoothers
 
     Note: this does not take exog_linear into account
-
     """
     train_smoothers = []
     test_smoothers = []
@@ -99,10 +96,10 @@ class MultivariateGAMCV(BaseCV):
         self.cv_iterator = cv_iterator
         # TODO: super does not do anything with endog, exog, except get nobs
         # refactor to clean up what where `exog` and `exog_linear` is attached
-        super(MultivariateGAMCV, self).__init__(cv_iterator,
-                                                endog,
-                                                # exog,  # not used in super
-                                                self.smoother.basis)
+        # exog is not used in super
+        super().__init__(
+            cv_iterator, endog, self.smoother.basis
+        )
 
     def _error(self, train_index, test_index, **kwargs):
         train_smoother, test_smoother = _split_train_test_smoothers(
@@ -162,7 +159,7 @@ class BasePenaltiesPathCV(with_metaclass(ABCMeta)):
         # TODO add return
 
 
-class MultivariateGAMCVPath(object):
+class MultivariateGAMCVPath:
     """k-fold cross-validation for GAM
 
     Warning: The API of this class is preliminary and will change.
@@ -177,10 +174,9 @@ class MultivariateGAMCVPath(object):
         model class for creating a model with k-fole training data
     cost : function
         cost function for the prediction error
-    endog : array
+    endog : ndarray
         dependent (response) variable of the model
     cv_iterator : instance of cross-validation iterator
-
     """
 
     def __init__(self, smoother, alphas, gam, cost, endog, exog, cv_iterator):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Author: Padarn Wilson
 
@@ -7,7 +6,6 @@ from a mixture of gaussians. Distribution has been chosen to be reasoanbly close
 to normal.
 """
 
-from __future__ import print_function
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
@@ -41,11 +39,7 @@ for ii, kn in enumerate(kernel_switch):
 
     ax = fig.add_subplot(2, 3, ii + 1)   # without uniform
 
-    # gh5792. Remove except after matplotlib>2.1 required
-    try:
-        ax.hist(x, bins=20, density=True, alpha=0.25)
-    except AttributeError:
-        ax.hist(x, bins=20, normed=True, alpha=0.25)
+    ax.hist(x, bins=20, density=True, alpha=0.25)
 
     kde.fit(kernel=kn, bw='silverman', fft=False)
     ax.plot(kde.support, kde.density)

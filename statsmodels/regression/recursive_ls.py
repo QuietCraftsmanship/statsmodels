@@ -4,20 +4,24 @@ Recursive least squares model
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
+
+from statsmodels.compat.pandas import Appender
 
 import numpy as np
 import pandas as pd
 
-from statsmodels.compat import unicode
-from statsmodels.tools.data import _is_using_pandas
-from statsmodels.tsa.statespace.mlemodel import (
-    MLEModel, MLEResults, MLEResultsWrapper, PredictionResults,
-    PredictionResultsWrapper)
-from statsmodels.tsa.statespace.tools import concat
-from statsmodels.tools.tools import Bunch
-from statsmodels.tools.decorators import cache_readonly
 import statsmodels.base.wrapper as wrap
+from statsmodels.tools.data import _is_using_pandas
+from statsmodels.tools.decorators import cache_readonly
+from statsmodels.tools.tools import Bunch
+from statsmodels.tsa.statespace.mlemodel import (
+    MLEModel,
+    MLEResults,
+    MLEResultsWrapper,
+    PredictionResults,
+    PredictionResultsWrapper,
+)
+from statsmodels.tsa.statespace.tools import concat
 
 # Columns are alpha = 0.1, 0.05, 0.025, 0.01, 0.005
 _cusum_squares_scalars = np.array([
@@ -37,7 +41,7 @@ class RecursiveLS(MLEModel):
         The observed time-series process :math:`y`
     exog : array_like
         Array of exogenous regressors, shaped nobs x k.
-    constraints : array-like, str, or tuple
+    constraints : array_like, str, or tuple
             - array : An r x k array where r is the number of restrictions to
               test and k is the number of regressors. It is assumed that the
               linear combination is equal to zero.
@@ -59,7 +63,6 @@ class RecursiveLS(MLEModel):
     .. [*] Durbin, James, and Siem Jan Koopman. 2012.
        Time Series Analysis by State Space Methods: Second Edition.
        Oxford University Press.
-
     """
     def __init__(self, endog, exog, constraints=None, **kwargs):
         # Standardize data
@@ -84,28 +87,37 @@ class RecursiveLS(MLEModel):
         self.k_constraints = 0
         self._r_matrix = self._q_matrix = None
         if constraints is not None:
-            from patsy import DesignInfo
             from statsmodels.base.data import handle_data
+            from statsmodels.formula._manager import FormulaManager
             data = handle_data(endog, exog, **kwargs)
             names = data.param_names
-            LC = DesignInfo(names).linear_constraint(constraints)
-            self._r_matrix, self._q_matrix = LC.coefs, LC.constants
+            lc = FormulaManager().get_linear_constraints(constraints, names)
+            self._r_matrix, self._q_matrix = lc.constraint_matrix, lc.constraint_values
             self.k_constraints = self._r_matrix.shape[0]
 
-            constraint_endog = np.zeros((len(endog), len(self._r_matrix)))
+            nobs = len(endog)
+            constraint_endog = np.zeros((nobs, len(self._r_matrix)))
             if endog_using_pandas:
                 constraint_endog = pd.DataFrame(constraint_endog,
                                                 index=endog.index)
                 endog = concat([endog, constraint_endog], axis=1)
-                endog.values[:, 1:] = self._q_matrix[:, 0]
+                # Complexity needed to handle multiple version of pandas
+                # Pandas >= 2 can use endog.iloc[:, 1:] = self._q_matrix.T
+                endog.iloc[:, 1:] = np.tile(self._q_matrix.T, (nobs, 1))
             else:
                 endog[:, 1:] = self._q_matrix[:, 0]
 
         # Handle coefficient initialization
         kwargs.setdefault('initialization', 'diffuse')
 
+        # Remove some formula-specific kwargs
+        formula_kwargs = ['missing', 'missing_idx', 'formula', 'model_spec']
+        for name in formula_kwargs:
+            if name in kwargs:
+                del kwargs[name]
+
         # Initialize the state space representation
-        super(RecursiveLS, self).__init__(
+        super().__init__(
             endog, k_states=self.k_exog, exog=exog, **kwargs)
 
         # Use univariate filtering by default
@@ -137,6 +149,12 @@ class RecursiveLS(MLEModel):
         return super(MLEModel, cls).from_formula(formula, data, subset,
                                                  constraints=constraints)
 
+    def _validate_can_fix_params(self, param_names):
+        raise ValueError('Linear constraints on coefficients should be given'
+                         ' using the `constraints` argument in constructing.'
+                         ' the model. Other parameter constraints are not'
+                         ' available in the resursive least squares model.')
+
     def fit(self):
         """
         Fits the model by application of the Kalman filter
@@ -154,9 +172,9 @@ class RecursiveLS(MLEModel):
 
     def filter(self, return_ssm=False, **kwargs):
         # Get the state space output
-        result = super(RecursiveLS, self).filter([], transformed=True,
-                                                 cov_type='none',
-                                                 return_ssm=True, **kwargs)
+        result = super().filter([], transformed=True,
+                                cov_type='none',
+                                return_ssm=True, **kwargs)
 
         # Wrap in a results object
         if not return_ssm:
@@ -177,9 +195,9 @@ class RecursiveLS(MLEModel):
 
     def smooth(self, return_ssm=False, **kwargs):
         # Get the state space output
-        result = super(RecursiveLS, self).smooth([], transformed=True,
-                                                 cov_type='none',
-                                                 return_ssm=True, **kwargs)
+        result = super().smooth([], transformed=True,
+                                cov_type='none',
+                                return_ssm=True, **kwargs)
 
         # Wrap in a results object
         if not return_ssm:
@@ -200,7 +218,7 @@ class RecursiveLS(MLEModel):
 
     @property
     def endog_names(self):
-        endog_names = super(RecursiveLS, self).endog_names
+        endog_names = super().endog_names
         return endog_names[0] if isinstance(endog_names, list) else endog_names
 
     @property
@@ -223,7 +241,7 @@ class RecursiveLS(MLEModel):
         ----------
         params : array_like
             Array of new parameters.
-        transformed : boolean, optional
+        transformed : bool, optional
             Whether or not `params` is already transformed. If set to False,
             `transform_params` is called. Default is True..
 
@@ -258,10 +276,10 @@ class RecursiveLSResults(MLEResults):
 
     def __init__(self, model, params, filter_results, cov_type='opg',
                  **kwargs):
-        super(RecursiveLSResults, self).__init__(
+        super().__init__(
             model, params, filter_results, cov_type, **kwargs)
 
-        # Since we are overriding params with things that aren't MLE params,
+        # Since we are overriding params with things that are not MLE params,
         # need to adjust df's
         q = max(self.loglikelihood_burn, self.k_diffuse_states)
         self.df_model = q - self.model.k_constraints
@@ -345,7 +363,6 @@ class RecursiveLSResults(MLEResults):
         variance is not necessarily equal to unity as the mean need not be
         equal to zero", and he defines an alternative version (which are
         not provided here).
-
         """
         return (self.filter_results.standardized_forecasts_error[0] *
                 self.scale**0.5)
@@ -388,7 +405,6 @@ class RecursiveLSResults(MLEResults):
            Regression Relationships over Time."
            Journal of the Royal Statistical Society.
            Series B (Methodological) 37 (2): 149-92.
-
         """
         d = max(self.nobs_diffuse, self.loglikelihood_burn)
         return (np.cumsum(self.resid_recursive[d:]) /
@@ -426,7 +442,6 @@ class RecursiveLSResults(MLEResults):
            Regression Relationships over Time."
            Journal of the Royal Statistical Society.
            Series B (Methodological) 37 (2): 149-92.
-
         """
         d = max(self.nobs_diffuse, self.loglikelihood_burn)
         numer = np.cumsum(self.resid_recursive[d:]**2)
@@ -468,7 +483,7 @@ class RecursiveLSResults(MLEResults):
 
     @cache_readonly
     def ess(self):
-        """esss"""
+        """ess"""
         if self.k_constant:
             return self.centered_tss - self.ssr
         else:
@@ -500,9 +515,11 @@ class RecursiveLSResults(MLEResults):
         else:
             return self.uncentered_tss / (self.df_resid + self.df_model)
 
+    @Appender(MLEResults.get_prediction.__doc__)
     def get_prediction(self, start=None, end=None, dynamic=False,
+                       information_set='predicted', signal_only=False,
                        index=None, **kwargs):
-        # Note: need to override this, because we currently don't support
+        # Note: need to override this, because we currently do not support
         # dynamic prediction or forecasts when there are constraints.
         if start is None:
             start = self.model._index[0]
@@ -512,7 +529,7 @@ class RecursiveLSResults(MLEResults):
             self.model._get_prediction_index(start, end, index))
 
         # Handle `dynamic`
-        if isinstance(dynamic, (bytes, unicode)):
+        if isinstance(dynamic, (bytes, str)):
             dynamic, _, _ = self.model._get_index_loc(dynamic)
 
         if self.model._r_matrix is not None and (out_of_sample or dynamic):
@@ -521,15 +538,17 @@ class RecursiveLSResults(MLEResults):
                                       ' constraints.')
 
         # Perform the prediction
-        # This is a (k_endog x npredictions) array; don't want to squeeze in
+        # This is a (k_endog x npredictions) array; do not want to squeeze in
         # case of npredictions = 1
         prediction_results = self.filter_results.predict(
             start, end + out_of_sample + 1, dynamic, **kwargs)
 
         # Return a new mlemodel.PredictionResults object
-        return PredictionResultsWrapper(PredictionResults(
-            self, prediction_results, row_labels=prediction_index))
-    get_prediction.__doc__ = MLEResults.get_prediction.__doc__
+        res_obj = PredictionResults(self, prediction_results,
+                                    information_set=information_set,
+                                    signal_only=signal_only,
+                                    row_labels=prediction_index)
+        return PredictionResultsWrapper(res_obj)
 
     def plot_recursive_coefficient(self, variables=0, alpha=0.05,
                                    legend_loc='upper left', fig=None,
@@ -539,15 +558,15 @@ class RecursiveLSResults(MLEResults):
 
         Parameters
         ----------
-        variables : int or str or iterable of int or string, optional
+        variables : {int, str, list[int], list[str]}, optional
             Integer index or string name of the variable whose coefficient will
             be plotted. Can also be an iterable of integers or strings. Default
             is the first variable.
         alpha : float, optional
             The confidence intervals for the coefficient are (1 - alpha) %
-        legend_loc : string, optional
+        legend_loc : str, optional
             The location of the legend in the plot. Default is upper left.
-        fig : Matplotlib Figure instance, optional
+        fig : Figure, optional
             If given, subplots are created in this figure instead of in a new
             figure. Note that the grid will be created in the provided
             figure using `fig.add_subplot()`.
@@ -573,6 +592,7 @@ class RecursiveLSResults(MLEResults):
 
         # Create the plot
         from scipy.stats import norm
+
         from statsmodels.graphics.utils import _import_mpl, create_mpl_fig
         plt = _import_mpl()
         fig = create_mpl_fig(fig, figsize)
@@ -615,7 +635,7 @@ class RecursiveLSResults(MLEResults):
                 # Only add CI to legend for the first plot
                 if i == 0:
                     # Proxy artist for fill_between legend entry
-                    # See http://matplotlib.org/1.3.1/users/legend_guide.html
+                    # See https://matplotlib.org/1.3.1/users/legend_guide.html
                     p = plt.Rectangle((0, 0), 1, 1,
                                       fc=ci_poly.get_facecolor()[0])
 
@@ -690,9 +710,9 @@ class RecursiveLSResults(MLEResults):
         ----------
         alpha : float, optional
             The plotted significance bounds are alpha %.
-        legend_loc : string, optional
+        legend_loc : str, optional
             The location of the legend in the plot. Default is upper left.
-        fig : Matplotlib Figure instance, optional
+        fig : Figure, optional
             If given, subplots are created in this figure instead of in a new
             figure. Note that the grid will be created in the provided
             figure using `fig.add_subplot()`.
@@ -712,7 +732,6 @@ class RecursiveLSResults(MLEResults):
            Regression Relationships over Time."
            Journal of the Royal Statistical Society.
            Series B (Methodological) 37 (2): 149-92.
-
         """
         # Create the plot
         from statsmodels.graphics.utils import _import_mpl, create_mpl_fig
@@ -783,9 +802,9 @@ class RecursiveLSResults(MLEResults):
         ----------
         alpha : float, optional
             The plotted significance bounds are alpha %.
-        legend_loc : string, optional
+        legend_loc : str, optional
             The location of the legend in the plot. Default is upper left.
-        fig : Matplotlib Figure instance, optional
+        fig : Figure, optional
             If given, subplots are created in this figure instead of in a new
             figure. Note that the grid will be created in the provided
             figure using `fig.add_subplot()`.
@@ -812,7 +831,6 @@ class RecursiveLSResults(MLEResults):
            "Critical Values for the Cusumsq Statistic
            in Medium and Large Sized Samples."
            Oxford Bulletin of Economics and Statistics 56 (3): 355-65.
-
         """
         # Create the plot
         from statsmodels.graphics.utils import _import_mpl, create_mpl_fig

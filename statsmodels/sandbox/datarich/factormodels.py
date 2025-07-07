@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Nov 14 08:21:41 2010
 
@@ -6,7 +5,6 @@ Author: josef-pktd
 License: BSD (3-clause)
 """
 
-from __future__ import print_function
 import numpy as np
 import statsmodels.api as sm
 from statsmodels.sandbox.tools import pca
@@ -16,7 +14,7 @@ from statsmodels.sandbox.tools.cross_val import LeaveOneOut
 #from sandbox/example_pca_regression.py
 
 
-class FactorModelUnivariate(object):
+class FactorModelUnivariate:
     '''
 
     Todo:
@@ -130,7 +128,7 @@ class FactorModelUnivariate(object):
 
         Returns
         -------
-        sumstr : string
+        sumstr : str
             summary of the results for selecting the number of factors
 
         '''

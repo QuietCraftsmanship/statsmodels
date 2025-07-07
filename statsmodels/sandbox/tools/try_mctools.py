@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Sep 30 15:20:45 2011
 
@@ -8,8 +7,8 @@ from statsmodels.compat.python import lrange
 import numpy as np
 from scipy import stats
 from statsmodels.sandbox.tools.mctools import StatTestMC
-from statsmodels.sandbox.stats.diagnostic import (
-                    acorr_ljungbox, unitroot_adf)
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.tsa.stattools import adfuller
 
 def normalnoisesim(nobs=500, loc=0.0):
     return (loc+np.random.randn(nobs))
@@ -40,8 +39,9 @@ print(mc1.cdf(crit, [1,2,3])[1])
 def randwalksim(nobs=500, drift=0.0):
     return (drift+np.random.randn(nobs)).cumsum()
 
+
 def adf20(x):
-    return unitroot_adf(x, 2, trendorder=0, autolag=None)
+    return adfuller(x, 2, regression="n", autolag=None)
 
 print(adf20(np.random.randn(100)))
 

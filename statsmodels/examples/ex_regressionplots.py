@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """Examples for Regression Plots
 
 Author: Josef Perktold
 
 """
 
-from __future__ import print_function
 import numpy as np
 import statsmodels.api as sm
 import matplotlib.pyplot as plt

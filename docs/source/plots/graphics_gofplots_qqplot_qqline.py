@@ -1,13 +1,14 @@
 '''
-    Import the food expenditure dataset.  Plot annual food expendeture on
+    Import the food expenditure dataset.  Plot annual food expenditure on
     x-axis and household income on y-axis.  Use qqline to add regression line
     into the plot.
 '''
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
+
+import statsmodels.api as sm
 from statsmodels.graphics.gofplots import qqline
 
-foodexp = sm.datasets.engel.load(as_pandas=False)
+foodexp = sm.datasets.engel.load()
 x = foodexp.exog
 y = foodexp.endog
 ax = plt.subplot(111)

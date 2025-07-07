@@ -1,11 +1,12 @@
 import numpy as np
 import numpy.random
 from numpy.testing import assert_almost_equal, assert_equal
-from statsmodels.stats.contrast import Contrast
+
 import statsmodels.stats.contrast as smc
+from statsmodels.stats.contrast import Contrast
 
 
-class TestContrast(object):
+class TestContrast:
     @classmethod
     def setup_class(cls):
         numpy.random.seed(54321)
@@ -35,8 +36,8 @@ class TestContrast(object):
 
     def test_estimable(self):
         X2 = np.column_stack((self.X, self.X[:,5]))
-        c = Contrast(self.X[:,5],X2)
-        #TODO: I don't think this should be estimable?  isestimable correct?
+        Contrast(self.X[:,5],X2)
+        #TODO: I do not think this should be estimable?  isestimable correct?
 
 
 def test_constraints():

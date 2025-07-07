@@ -1,15 +1,14 @@
-
-
-from __future__ import print_function
-import numpy as np
 import matplotlib.pyplot as plt
-#import statsmodels.linear_model.regression as smreg
-
+import numpy as np
 from scipy import special
 
 import statsmodels.api as sm
 from statsmodels.datasets.macrodata import data
-dta = data.load(as_pandas=False)
+
+#import statsmodels.linear_model.regression as smreg
+
+
+dta = data.load()
 gdp = np.log(dta.data['realgdp'])
 
 

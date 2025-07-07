@@ -1,9 +1,10 @@
-from __future__ import division
+from statsmodels.compat.pandas import assert_series_equal, assert_frame_equal
 
+from io import StringIO
 from textwrap import dedent
 
+import numpy as np
 import numpy.testing as npt
-import pandas.util.testing as pdtest
 
 import numpy
 from numpy.testing import assert_equal
@@ -11,7 +12,6 @@ import pandas
 import pytest
 
 from statsmodels.imputation import ros
-from statsmodels.compat.python import StringIO
 
 
 def load_basic_data():
@@ -168,8 +168,8 @@ def load_basic_cohn():
     return cohn
 
 
-class Test__ros_sort(object):
-    def setup(self):
+class Test__ros_sort:
+    def setup_method(self):
         self.df = load_basic_data()
 
         self.expected_baseline = pandas.DataFrame([
@@ -197,18 +197,18 @@ class Test__ros_sort(object):
 
     def test_baseline(self):
         result = ros._ros_sort(self.df, 'conc', 'censored')
-        pdtest.assert_frame_equal(result, self.expected_baseline)
+        assert_frame_equal(result, self.expected_baseline)
 
     def test_censored_greater_than_max(self):
         df = self.df.copy()
         max_row = df['conc'].idxmax()
         df.loc[max_row, 'censored'] = True
         result = ros._ros_sort(df, 'conc', 'censored')
-        pdtest.assert_frame_equal(result, self.expected_with_warning)
+        assert_frame_equal(result, self.expected_with_warning)
 
 
-class Test_cohn_numbers(object):
-    def setup(self):
+class Test_cohn_numbers:
+    def setup_method(self):
         self.df = load_basic_data()
         self.final_cols = ['lower_dl', 'upper_dl', 'nuncen_above', 'nobs_below',
                            'ncen_equal', 'prob_exceedance']
@@ -233,7 +233,7 @@ class Test_cohn_numbers(object):
 
     def test_baseline(self):
         result = ros.cohn_numbers(self.df, observations='conc', censorship='censored')
-        pdtest.assert_frame_equal(result, self.expected_baseline)
+        assert_frame_equal(result, self.expected_baseline)
 
     def test_no_NDs(self):
         _df = self.df.copy()
@@ -242,8 +242,8 @@ class Test_cohn_numbers(object):
         assert result.shape == (0, 6)
 
 
-class Test__detection_limit_index(object):
-    def setup(self):
+class Test__detection_limit_index:
+    def setup_method(self):
         self.cohn = load_basic_cohn()
         self.empty_cohn = pandas.DataFrame(numpy.empty((0, 7)))
 
@@ -269,11 +269,11 @@ def test__ros_group_rank():
 
     result = ros._ros_group_rank(df, 'dl_idx', 'params')
     expected = pandas.Series([1, 2, 1, 1, 2, 3, 1, 1, 2, 4, 2, 3], name='rank')
-    pdtest.assert_series_equal(result.astype(int), expected.astype(int))
+    assert_series_equal(result.astype(int), expected.astype(int))
 
 
-class Test__ros_plot_pos(object):
-    def setup(self):
+class Test__ros_plot_pos:
+    def setup_method(self):
         self.cohn = load_basic_cohn()
 
     def test_uncensored_1(self):
@@ -357,7 +357,7 @@ def test__do_ros():
     npt.assert_array_almost_equal(result, expected)
 
 
-class CheckROSMixin(object):
+class CheckROSMixin:
     def test_ros_df(self):
         result = ros.impute_ros(self.rescol, self.cencol, df=self.df)
         npt.assert_array_almost_equal(
@@ -380,10 +380,10 @@ class CheckROSMixin(object):
             'ncen_equal', 'prob_exceedance'
         ]
         cohn = ros.cohn_numbers(self.df, self.rescol, self.cencol)
-        pdtest.assert_frame_equal(
-            cohn[cols],
-            self.expected_cohn[cols],
-            check_less_precise=True,
+        # Use round in place of the deprecated check_less_precise arg
+        assert_frame_equal(
+            np.round(cohn[cols], 3),
+            np.round(self.expected_cohn[cols], 3),
         )
 
 

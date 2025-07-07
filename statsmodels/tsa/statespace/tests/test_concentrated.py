@@ -6,7 +6,6 @@ Note: the univariate cases is well tested in test_sarimax.py
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
 import numpy as np
 import pandas as pd
@@ -43,7 +42,7 @@ def get_sarimax_models(endog, filter_univariate=False, **kwargs):
 
 
 def test_concentrated_loglike_sarimax():
-    # Note: we won't use the "concentrate_scale" option to SARIMAX for this
+    # Note: we will not use the "concentrate_scale" option to SARIMAX for this
     # test, which is a lower-level test of the Kalman filter using the SARIMAX
     # model as an example
     nobs = 30
@@ -87,7 +86,7 @@ def test_concentrated_loglike_sarimax():
     # Add loglikelihood burn, trend, and exog
     kwargs['loglikelihood_burn'] = 5
     kwargs['trend'] = 'c'
-    kwargs['exog'] = np.ones(nobs)
+    kwargs['exog'] = np.arange(nobs)
     out = get_sarimax_models(endog, **kwargs)
     assert_allclose(out.res_conc.llf, out.res_orig.llf)
     assert_allclose(out.res_conc.llf_obs[2:], out.res_orig.llf_obs[2:])
@@ -98,7 +97,7 @@ def test_concentrated_loglike_sarimax():
 
 
 def test_concentrated_predict_sarimax():
-    # Note: we won't use the "concentrate_scale" option to SARIMAX for this
+    # Note: we will not use the "concentrate_scale" option to SARIMAX for this
     # test, which is a lower-level test of the Kalman filter using the SARIMAX
     # model as an example
     nobs = 30
@@ -121,7 +120,7 @@ def test_fixed_scale_sarimax():
     kwargs = {
         'seasonal_order': (1, 1, 1, 2),
         'trend': 'ct',
-        'exog': np.ones(nobs)
+        'exog': np.sin(np.arange(nobs))
     }
 
     # Construct a concentrated version of the given SARIMAX model
@@ -182,7 +181,7 @@ def check_concentrated_scale(filter_univariate=False, missing=False, **kwargs):
     mod_orig.ssm.filter_univariate = filter_univariate
     mod_conc.ssm.filter_univariate = filter_univariate
 
-    # Since VARMAX doesn't explicitly allow concentrating out the scale, for
+    # Since VARMAX does not explicitly allow concentrating out the scale, for
     # now we will simulate it by setting the first variance to be 1.
     # Note that start_scale will not be the scale used for the non-concentrated
     # model, because we need to use the MLE scale estimated by the
@@ -234,7 +233,7 @@ def check_concentrated_scale(filter_univariate=False, missing=False, **kwargs):
         desired = getattr(res_orig.filter_results, name)
         assert_allclose(actual, desired, atol=1e-7)
 
-    # Note: don't want to compare the elements from any diffuse
+    # Note: do not want to compare the elements from any diffuse
     # initialization for things like covariances, so only compare for
     # periods past the loglikelihood_burn period
     filter_attr_burn = ['standardized_forecasts_error',

@@ -2,11 +2,13 @@
 Tests for contingency table analyses.
 """
 
+import os
+import warnings
+
 import numpy as np
 import statsmodels.stats.contingency_tables as ctab
 import pandas as pd
 from numpy.testing import assert_allclose, assert_equal
-import os
 import statsmodels.api as sm
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -321,11 +323,12 @@ def test_cochranq():
     assert_equal(str(b1).startswith("df          1\npvalue      0.65"), True)
 
 
-class CheckStratifiedMixin(object):
+class CheckStratifiedMixin:
 
     @classmethod
-    def initialize(cls, tables):
-        cls.rslt = ctab.StratifiedTable(tables)
+    def initialize(cls, tables, use_arr=False):
+        tables1 = tables if not use_arr else np.dstack(tables)
+        cls.rslt = ctab.StratifiedTable(tables1)
         cls.rslt_0 = ctab.StratifiedTable(tables, shift_zeros=True)
         tables_pandas = [pd.DataFrame(x) for x in tables]
         cls.rslt_pandas = ctab.StratifiedTable(tables_pandas)
@@ -366,15 +369,21 @@ class CheckStratifiedMixin(object):
         if not hasattr(self, "or_homog"):
             return
 
-        rslt = self.rslt_0.test_equal_odds()
+        rslt = self.rslt.test_equal_odds(adjust=False)
         assert_allclose(rslt.statistic, self.or_homog, rtol=1e-4, atol=1e-4)
         assert_allclose(rslt.pvalue, self.or_homog_p, rtol=1e-4, atol=1e-4)
+
+        rslt = self.rslt.test_equal_odds(adjust=True)
+        assert_allclose(rslt.statistic, self.or_homog_adj, rtol=1e-4, atol=1e-4)
+        assert_allclose(rslt.pvalue, self.or_homog_adj_p, rtol=1e-4, atol=1e-4)
 
 
     def test_pandas(self):
 
-        assert_equal(self.rslt.summary().as_text(),
-                     self.rslt_pandas.summary().as_text())
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            assert_equal(self.rslt.summary().as_text(),
+                         self.rslt_pandas.summary().as_text())
 
 
     def test_from_data(self):
@@ -428,6 +437,7 @@ class TestStratified1(CheckStratifiedMixin):
 
 class TestStratified2(CheckStratifiedMixin):
     """
+    library(DescTools)
     data = array(c(20, 14, 10, 24,
                    15, 12, 3, 15,
                    3, 2, 3, 2,
@@ -435,6 +445,8 @@ class TestStratified2(CheckStratifiedMixin):
                    1, 0, 3, 2),
                    dim=c(2, 2, 5))
     rslt = mantelhaen.test(data)
+    bd1 = BreslowDayTest(data, correct=FALSE)
+    bd2 = BreslowDayTest(data, correct=TRUE)
     """
 
     @classmethod
@@ -446,7 +458,8 @@ class TestStratified2(CheckStratifiedMixin):
         tables[3] = np.array([[12, 3], [7, 5]])
         tables[4] = np.array([[1, 0], [3, 2]])
 
-        cls.initialize(tables)
+        # check array of int
+        cls.initialize(tables, use_arr=True)
 
         cls.oddsratio_pooled = 3.5912
         cls.logodds_pooled = np.log(3.5912)
@@ -457,9 +470,18 @@ class TestStratified2(CheckStratifiedMixin):
         cls.or_lcb = 1.781135
         cls.or_ucb = 7.240633
 
+        # Breslow Day test without Tarone adjustment
+        cls.or_homog = 1.8438
+        cls.or_homog_p = 0.7645
+
+        # Breslow Day test with Tarone adjustment
+        cls.or_homog_adj = 1.8436
+        cls.or_homog_adj_p = 0.7645
+
 
 class TestStratified3(CheckStratifiedMixin):
     """
+    library(DescTools)
     data = array(c(313, 512, 19, 89,
                    207, 353, 8, 17,
                    205, 120, 391, 202,
@@ -468,6 +490,8 @@ class TestStratified3(CheckStratifiedMixin):
                    351, 22, 317, 24),
                    dim=c(2, 2, 6))
     rslt = mantelhaen.test(data)
+    bd1 = BreslowDayTest(data, correct=FALSE)
+    bd2 = BreslowDayTest(data, correct=TRUE)
     """
 
     @classmethod
@@ -491,11 +515,15 @@ class TestStratified3(CheckStratifiedMixin):
         cls.or_lcb = 0.9402012
         cls.or_ucb = 1.2913602
 
+        # Breslow Day test without Tarone adjustment
         cls.or_homog = 18.83297
         cls.or_homog_p = 0.002064786
 
+        # Breslow Day test with Tarone adjustment
+        cls.or_homog_adj = 18.83297
+        cls.or_homog_adj_p = 0.002064786
 
-class Check2x2Mixin(object):
+class Check2x2Mixin:
     @classmethod
     def initialize(cls):
         cls.tbl_obj = ctab.Table2x2(cls.table)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=W0231, W0142
 """Tests for statistical power calculations
 
@@ -13,8 +12,14 @@ import copy
 import warnings
 
 import numpy as np
-from numpy.testing import (assert_almost_equal, assert_allclose, assert_raises,
-                           assert_equal, assert_warns)
+from numpy.testing import (
+    assert_allclose,
+    assert_almost_equal,
+    assert_array_equal,
+    assert_equal,
+    assert_raises,
+    assert_warns,
+)
 import pytest
 
 import statsmodels.stats.power as smp
@@ -27,7 +32,7 @@ except ImportError:
     pass
 
 
-class CheckPowerMixin(object):
+class CheckPowerMixin:
 
     def test_power(self):
         #test against R results
@@ -41,6 +46,7 @@ class CheckPowerMixin(object):
         res1 = self.cls()
         assert_almost_equal(res1.power(**kwds), self.res2.power, decimal=decimal)
 
+    #@pytest.mark.xfail(strict=True)
     def test_positional(self):
 
         res1 = self.cls()
@@ -87,7 +93,7 @@ class CheckPowerMixin(object):
 
     @pytest.mark.matplotlib
     def test_power_plot(self, close_figures):
-        if self.cls == smp.FTestPower:
+        if self.cls in [smp.FTestPower, smp.FTestPowerF2]:
             pytest.skip('skip FTestPower plot_power')
         fig = plt.figure()
         ax = fig.add_subplot(2,1,1)
@@ -393,10 +399,8 @@ class TestTTPowerTwoS6(CheckPowerMixin):
 
 def test_normal_power_explicit():
     # a few initial test cases for NormalIndPower
-    sigma = 1
     d = 0.3
     nobs = 80
-    alpha = 0.05
     res1 = smp.normal_power(d, nobs/2., 0.05)
     res2 = smp.NormalIndPower().power(d, nobs, 0.05)
     res3 = smp.NormalIndPower().solve_power(effect_size=0.3, nobs1=80, alpha=0.05, power=None)
@@ -488,7 +492,7 @@ class TestNormalIndPower_onesamp1(CheckPowerMixin):
         cls.res2 = res2
         cls.kwds = {'effect_size': res2.d, 'nobs1': res2.n,
                      'alpha': res2.sig_level, 'power':res2.power}
-        # keyword for which we don't look for root:
+        # keyword for which we do not look for root:
         cls.kwds_extra = {'ratio': 0}
 
         cls.cls = smp.NormalIndPower
@@ -512,7 +516,7 @@ class TestNormalIndPower_onesamp2(CheckPowerMixin):
         cls.res2 = res2
         cls.kwds = {'effect_size': res2.d, 'nobs1': res2.n,
                      'alpha': res2.sig_level, 'power':res2.power}
-        # keyword for which we don't look for root:
+        # keyword for which we do not look for root:
         cls.kwds_extra = {'ratio': 0, 'alternative':'smaller'}
 
         cls.cls = smp.NormalIndPower
@@ -536,13 +540,13 @@ class TestChisquarePower(CheckPowerMixin):
         cls.res2 = res2
         cls.kwds = {'effect_size': res2.w, 'nobs': res2.N,
                      'alpha': res2.sig_level, 'power':res2.power}
-        # keyword for which we don't look for root:
-        # solving for n_bins doesn't work, will not be used in regular usage
+        # keyword for which we do not look for root:
+        # solving for n_bins does not work, will not be used in regular usage
         cls.kwds_extra = {'n_bins': res2.df + 1}
 
         cls.cls = smp.GofChisquarePower
 
-    def _test_positional(self):
+    def test_positional(self):
 
         res1 = self.cls()
         args_names = ['effect_size','nobs', 'alpha', 'n_bins']
@@ -582,7 +586,7 @@ def test_ftest_power():
 
 
     # TODO: no class yet
-    # examples agains R::pwr
+    # examples against R::pwr
     res2 = Holder()
     #> rf = pwr.f2.test(u=5, v=199, f2=0.1**2, sig.level=0.01)
     #> cat_items(rf, "res2.")
@@ -651,9 +655,9 @@ class TestFtestAnovaPower(CheckPowerMixin):
         cls.res2 = res2
         cls.kwds = {'effect_size': res2.f, 'nobs': res2.n,
                      'alpha': res2.alpha, 'power': res2.power}
-        # keyword for which we don't look for root:
-        # solving for n_bins doesn't work, will not be used in regular usage
-        cls.kwds_extra = {'k_groups': res2.k} # rootfinding doesn't work
+        # keyword for which we do not look for root:
+        # solving for n_bins does not work, will not be used in regular usage
+        cls.kwds_extra = {'k_groups': res2.k} # rootfinding does not work
         #cls.args_names = ['effect_size','nobs', 'alpha']#, 'k_groups']
         cls.cls = smp.FTestAnovaPower
         # precision for test_power
@@ -679,13 +683,53 @@ class TestFtestPower(CheckPowerMixin):
         cls.kwds = {'effect_size': np.sqrt(res2.f2), 'df_num': res2.v,
                      'df_denom': res2.u, 'alpha': res2.sig_level,
                      'power': res2.power}
-        # keyword for which we don't look for root:
-        # solving for n_bins doesn't work, will not be used in regular usage
+        # keyword for which we do not look for root:
+        # solving for n_bins does not work, will not be used in regular usage
         cls.kwds_extra = {}
         cls.args_names = ['effect_size', 'df_num', 'df_denom', 'alpha']
         cls.cls = smp.FTestPower
         # precision for test_power
         cls.decimal = 5
+
+    def test_kwargs(self):
+
+        with pytest.warns(UserWarning):
+            smp.FTestPower().solve_power(
+                effect_size=0.3, alpha=0.1, power=0.9, df_denom=2,
+                nobs=None)
+
+        with pytest.raises(ValueError):
+            smp.FTestPower().solve_power(
+                effect_size=0.3, alpha=0.1, power=0.9, df_denom=2,
+                junk=3)
+
+
+class TestFtestPowerF2(CheckPowerMixin):
+
+    @classmethod
+    def setup_class(cls):
+        res2 = Holder()
+        #> rf = pwr.f2.test(u=5, v=19, f2=0.3**2, sig.level=0.1)
+        #> cat_items(rf, "res2.")
+        res2.u = 5
+        res2.v = 19
+        res2.f2 = 0.09
+        res2.sig_level = 0.1
+        res2.power = 0.235454222377575
+        res2.method = 'Multiple regression power calculation'
+
+        cls.res2 = res2
+        cls.kwds = {'effect_size': res2.f2, 'df_num': res2.u,
+                     'df_denom': res2.v, 'alpha': res2.sig_level,
+                     'power': res2.power}
+        # keyword for which we do not look for root:
+        # solving for n_bins does not work, will not be used in regular usage
+        cls.kwds_extra = {}
+        cls.args_names = ['effect_size', 'df_num', 'df_denom', 'alpha']
+        cls.cls = smp.FTestPowerF2
+        # precision for test_power
+        cls.decimal = 5
+
 
 
 def test_power_solver():
@@ -726,7 +770,7 @@ def test_power_solver():
     assert_almost_equal(es, 0.01)
 
     # I let this case fail, could be fixed for some statistical tests
-    # (we shouldn't get here in the first place)
+    # (we should not get here in the first place)
     # effect size is negative, but last stage brentq uses [1e-8, 1-1e-8]
     assert_raises(ValueError, nip.solve_power, None, nobs1=1600, alpha=0.01,
                   power=0.005, ratio=1, alternative='larger')
@@ -738,7 +782,7 @@ def test_power_solver():
 
 
 # TODO: can something useful be made from this?
-@pytest.mark.skip(reason='Known failure on modern SciPy >= 0.10')
+@pytest.mark.xfail(reason='Known failure on modern SciPy >= 0.10', strict=True)
 def test_power_solver_warn():
     # messing up the solver to trigger warning
     # I wrote this with scipy 0.9,
@@ -771,3 +815,22 @@ def test_power_solver_warn():
                               alternative='larger')
         assert_equal(nip.cache_fit_res[0], 0)
         assert_equal(len(nip.cache_fit_res), 3)
+
+
+def test_normal_sample_size_one_tail():
+    # Test that using default value of std_alternative does not raise an
+    # exception. A power of 0.8 and alpha of 0.05 were chosen to reflect
+    # commonly used values in hypothesis testing. Difference in means and
+    # standard deviation of null population were chosen somewhat arbitrarily --
+    # there's nothing special about those values. Return value doesn't matter
+    # for this "test", so long as an exception is not raised.
+    smp.normal_sample_size_one_tail(5, 0.8, 0.05, 2, std_alternative=None)
+
+    # Test that zero is returned in the correct elements if power is less
+    # than alpha.
+    alphas = np.asarray([0.01, 0.05, 0.1, 0.5, 0.8])
+    powers = np.asarray([0.99, 0.95, 0.9, 0.5, 0.2])
+    # zero_mask = np.where(alphas - powers > 0, 0.0, alphas - powers)
+    nobs_with_zeros = smp.normal_sample_size_one_tail(5, powers, alphas, 2, 2)
+    # check_nans = np.isnan(zero_mask) == np.isnan(nobs_with_nans)
+    assert_array_equal(nobs_with_zeros[powers <= alphas], 0)

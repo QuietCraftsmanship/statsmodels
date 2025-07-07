@@ -2,13 +2,15 @@
 # TODO: Test robust kurtosis
 import numpy as np
 import pandas as pd
-from numpy.testing import (assert_almost_equal, assert_raises, assert_equal)
+from numpy.testing import (assert_almost_equal, assert_raises, assert_equal,
+                           assert_allclose)
+
+from statsmodels.stats._adnorm import normal_ad
 from statsmodels.stats.stattools import (omni_normtest, jarque_bera,
                                          durbin_watson, _medcouple_1d, medcouple,
                                          robust_kurtosis, robust_skewness)
-from statsmodels.stats._adnorm import normal_ad
 
-#a random array, rounded to 4 decimals
+# a random array, rounded to 4 decimals
 x = np.array([-0.1184, -1.3403, 0.0063, -0.612, -0.3869, -0.2313, -2.8485,
               -0.2167, 0.4153, 1.8492, -0.3706, 0.9726, -0.1501, -0.0337,
               -1.4423, 1.2489, 0.9182, -0.2331, -0.6182, 0.183])
@@ -41,6 +43,11 @@ def test_durbin_watson():
 
     st_R = 0.921488912587806
     assert_almost_equal(durbin_watson(x[1:] + 0.9 * x[:-1]), st_R, 14)
+
+    X = np.array([x, x])
+    st_R = 1.95298958377419
+    assert_almost_equal(durbin_watson(X, axis=1), np.array([st_R, st_R]), 14)
+    assert_almost_equal(durbin_watson(X.T, axis=0), np.array([st_R, st_R]), 14)
 
 
 def test_omni_normtest():
@@ -163,7 +170,7 @@ def test_durbin_watson_pandas(reset_randomstate):
     assert_almost_equal(durbin_watson(x), durbin_watson(x_series), decimal=13)
 
 
-class TestStattools(object):
+class TestStattools:
     @classmethod
     def setup_class(cls):
         x = np.random.standard_normal(1000)
@@ -258,6 +265,15 @@ class TestStattools(object):
         result = np.zeros((10, 10))
         for sk in sk_3d:
             assert_almost_equal(sk, result)
+
+    def test_robust_skewness_4(self, reset_randomstate):
+        x = np.random.standard_normal(1000)
+        x[x > 0] *= 3
+        m = np.median(x)
+        s = x.std(ddof=0)
+        expected = (x.mean() - m) / s
+        _, _, _, sk4 = robust_skewness(x)
+        assert_allclose(expected, sk4)
 
     def test_robust_kurtosis_1d_2d(self, reset_randomstate):
         x = np.random.randn(100)

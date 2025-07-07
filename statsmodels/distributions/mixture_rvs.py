@@ -1,4 +1,3 @@
-from statsmodels.compat.python import range
 import numpy as np
 
 def _make_index(prob,size):
@@ -6,7 +5,7 @@ def _make_index(prob,size):
     Returns a boolean index for given probabilities.
 
     Notes
-    ---------
+    -----
     prob = [.75,.25] means that there is a 75% chance of the first column
     being True and a 25% chance of the second column being True. The
     columns are mutually exclusive.
@@ -21,11 +20,11 @@ def mixture_rvs(prob, size, dist, kwargs=None):
 
     Parameters
     ----------
-    prob : array-like
+    prob : array_like
         Probability of sampling from each distribution in dist
     size : int
         The length of the returned sample.
-    dist : array-like
+    dist : array_like
         An iterable of distributions objects from scipy.stats.
     kwargs : tuple of dicts, optional
         A tuple of dicts.  Each dict in kwargs can have keys loc, scale, and
@@ -64,7 +63,7 @@ def mixture_rvs(prob, size, dist, kwargs=None):
     return sample
 
 
-class MixtureDistribution(object):
+class MixtureDistribution:
     '''univariate mixture distribution
 
     for simple case for now (unbound support)
@@ -86,11 +85,11 @@ class MixtureDistribution(object):
 
         Parameters
         ----------
-        x : array-like
+        x : array_like
             Array containing locations where the PDF should be evaluated
-        prob : array-like
+        prob : array_like
             Probability of sampling from each distribution in dist
-        dist : array-like
+        dist : array_like
             An iterable of distributions objects from scipy.stats.
         kwargs : tuple of dicts, optional
             A tuple of dicts.  Each dict in kwargs can have keys loc, scale, and
@@ -136,13 +135,13 @@ class MixtureDistribution(object):
 
         Parameters
         ----------
-        x : array-like
+        x : array_like
             Array containing locations where the CDF should be evaluated
-        prob : array-like
+        prob : array_like
             Probability of sampling from each distribution in dist
         size : int
             The length of the returned sample.
-        dist : array-like
+        dist : array_like
             An iterable of distributions objects from scipy.stats.
         kwargs : tuple of dicts, optional
             A tuple of dicts.  Each dict in kwargs can have keys loc, scale, and
@@ -189,11 +188,11 @@ def mv_mixture_rvs(prob, size, dist, nvars, **kwargs):
 
     Parameters
     ----------
-    prob : array-like
+    prob : array_like
         Probability of sampling from each distribution in dist
     size : int
         The length of the returned sample.
-    dist : array-like
+    dist : array_like
         An iterable of distributions instances with callable method rvs.
     nvargs : int
         dimension of the multivariate distribution, could be inferred instead
@@ -217,7 +216,6 @@ def mv_mixture_rvs(prob, size, dist, nvars, **kwargs):
     mvn3 = mvd.MVNormal(mu, cov3)
     mvn32 = mvd.MVNormal(mu2, cov3/2., 4)
     rvs = mix.mv_mixture_rvs([0.4, 0.6], 2000, [mvn3, mvn32], 3)
-
     """
     if len(prob) != len(dist):
         raise ValueError("You must provide as many probabilities as distributions")

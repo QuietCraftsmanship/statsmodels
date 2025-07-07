@@ -2,6 +2,7 @@
 Results for ARMA models.  Produced by gretl.
 """
 import os
+
 from numpy import genfromtxt
 
 current_path = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +34,7 @@ with open(current_path+"/results_arma_forecasts.csv", "rb") as fd:
     forecast_results = genfromtxt(fd, names=True, delimiter=",", dtype=float)
 
 
-class Y_arma11(object):
+class Y_arma11:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.788452102751, 0.381793815167]
@@ -79,7 +80,7 @@ class Y_arma11(object):
             self.sigma2 = 0.996717562780**2
 
 
-class Y_arma14(object):
+class Y_arma14:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.763798613302, 0.306453049063, -0.835653786888,
@@ -149,7 +150,7 @@ class Y_arma14(object):
             self.sigma2 = 1.031950951582**2
 
 
-class Y_arma41(object):
+class Y_arma41:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.859167822255, -0.445990454620, -0.094364739597,
@@ -215,7 +216,7 @@ class Y_arma41(object):
             self.sigma2 = 0.914551777765**2
 
 
-class Y_arma22(object):
+class Y_arma22:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.810898877154, -0.535753742985, 0.101765385197,
@@ -271,7 +272,7 @@ class Y_arma22(object):
             self.sigma2 = 1.074973483083**2
 
 
-class Y_arma50(object):
+class Y_arma50:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.726892679311, -0.312619864536, 0.323740181610,
@@ -330,7 +331,7 @@ class Y_arma50(object):
             self.sigma2 = .939724 ** 2
 
 
-class Y_arma02(object):
+class Y_arma02:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [0.169096401142, -0.683713393265]
@@ -375,7 +376,7 @@ class Y_arma02(object):
             self.sigma2 = 1.123571177436**2
 
 
-class Y_arma11c(object):
+class Y_arma11c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [4.856475759430, 0.664363281011, 0.407547531124]
@@ -430,7 +431,7 @@ class Y_arma11c(object):
             self.sigma2 = 1.040940645447**2
 
 
-class Y_arma14c(object):
+class Y_arma14c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [4.773779823083, 0.591149657917, 0.322267595204,
@@ -519,7 +520,7 @@ class Y_arma14c(object):
             self.sigma2 = 0.998687642867**2
 
 
-class Y_arma41c(object):
+class Y_arma41c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [1.062980233899, 0.768972932892, -0.264824839032,
@@ -608,7 +609,7 @@ class Y_arma41c(object):
             self.sigma2 = 0.915919923456**2
 
 
-class Y_arma22c(object):
+class Y_arma22c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [4.507728587708, 0.788365037622, -0.358656861792,
@@ -677,7 +678,7 @@ class Y_arma22c(object):
             self.sigma2 = 1.201409294941**2
 
 
-class Y_arma50c(object):
+class Y_arma50c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [4.562207236168, 0.754284447885, -0.305849188005,
@@ -771,7 +772,7 @@ class Y_arma50c(object):
             self.sigma2 = 0.974939 ** 2
 
 
-class Y_arma02c(object):
+class Y_arma02c:
     def __init__(self, method="mle"):
         if method == "mle":
             self.params = [4.519277801954, 0.200385403960, -0.643766305844]

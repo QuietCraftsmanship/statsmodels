@@ -1,8 +1,9 @@
-# -*- coding: utf-8 -*-
+from itertools import product
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from itertools import product
-import matplotlib.pyplot as plt
+
 from statsmodels.graphics.mosaicplot import mosaic
 
 # The most simple use case is to take a dictionary and plot the result
@@ -25,7 +26,7 @@ data = pd.Series(rand(8), index=index)
 mosaic(data, title='hierarchical index series')
 plt.show()
 
-# The third accepted data structureis the np array, for which a very simple
+# The third accepted data structure is the np array, for which a very simple
 # index will be created.
 rand = np.random.random
 data = 1+rand((2, 2))

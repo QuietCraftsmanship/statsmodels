@@ -39,8 +39,8 @@ takes this keyword. You can find more information in the docstring of
 
 .. _build-faq:
 
-Why won't statsmodels build?
-----------------------------
+Why will not statsmodels build?
+-------------------------------
 
 Remember that to build, you must have:
 
@@ -55,7 +55,7 @@ You might also try cleaning up your source directory by running:
 .. code-block:: bash
 
     pip uninstall statsmodels
-    python setup.py clean
+    git clean -xfd
 
 And then attempting to re-compile. If you want to be more aggressive, you
 could also reset git to a prior version by:
@@ -64,8 +64,7 @@ could also reset git to a prior version by:
 
     git reset --hard
     git clean -xdf
-    git checkout master
-    python setup.py clean
+    git checkout main
 
 I'd like to contribute. Where do I start?
 -----------------------------------------
@@ -75,8 +74,8 @@ get involved. We accept Pull Requests on our GitHub page for bugfixes and
 topics germane to statistics and statistical modeling. In addition, usability
 and quality of life enhancements are greatly appreciated as well.
 
-What if my question isn't answered here?
-----------------------------------------
+What if my question is not answered here?
+-----------------------------------------
 
 You may find answers for questions that have not yet been added here on GitHub
 under the `FAQ issues tag <https://github.com/statsmodels/statsmodels/labels/FAQ>`_.

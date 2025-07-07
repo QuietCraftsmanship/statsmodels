@@ -2,15 +2,20 @@
 Conditional logistic, Poisson, and multinomial logit regression
 """
 
-import numpy as np
-import statsmodels.base.model as base
-import statsmodels.regression.linear_model as lm
-import statsmodels.base.wrapper as wrap
-from statsmodels.discrete.discrete_model import (MultinomialResults,
-      MultinomialResultsWrapper)
 import collections
-import warnings
 import itertools
+import warnings
+
+import numpy as np
+
+import statsmodels.base.model as base
+import statsmodels.base.wrapper as wrap
+from statsmodels.discrete.discrete_model import (
+    MultinomialResults,
+    MultinomialResultsWrapper,
+)
+from statsmodels.formula.formulatools import advance_eval_env
+import statsmodels.regression.linear_model as lm
 
 
 class _ConditionalModel(base.LikelihoodModel):
@@ -29,7 +34,7 @@ class _ConditionalModel(base.LikelihoodModel):
             msg = "The leading dimension of 'exog' should equal the length of 'endog'"
             raise ValueError(msg)
 
-        super(_ConditionalModel, self).__init__(
+        super().__init__(
             endog, exog, missing=missing, **kwargs)
 
         if self.data.const_idx is not None:
@@ -41,7 +46,7 @@ class _ConditionalModel(base.LikelihoodModel):
         self.k_params = exog.shape[1]
 
         # Get the row indices for each group
-        row_ix = collections.OrderedDict()
+        row_ix = {}
         for i, g in enumerate(groups):
             if g not in row_ix:
                 row_ix[g] = []
@@ -114,7 +119,7 @@ class _ConditionalModel(base.LikelihoodModel):
             skip_hessian=False,
             **kwargs):
 
-        rslt = super(_ConditionalModel, self).fit(
+        rslt = super().fit(
             start_params=start_params,
             method=method,
             maxiter=maxiter,
@@ -122,7 +127,12 @@ class _ConditionalModel(base.LikelihoodModel):
             disp=disp,
             skip_hessian=skip_hessian)
 
-        crslt = ConditionalResults(self, rslt.params, rslt.cov_params(), 1)
+        if skip_hessian:
+            cov_params = None
+        else:
+            cov_params = rslt.cov_params()
+
+        crslt = ConditionalResults(self, rslt.params, cov_params, 1)
         crslt.method = method
         crslt.nobs = self.nobs
         crslt.n_groups = self._n_groups
@@ -145,29 +155,32 @@ class _ConditionalModel(base.LikelihoodModel):
 
         Parameters
         ----------
-        method :
+        method : {'elastic_net'}
             Only the `elastic_net` approach is currently implemented.
-        alpha : scalar or array-like
+        alpha : scalar or array_like
             The penalty weight.  If a scalar, the same penalty weight
             applies to all variables in the model.  If a vector, it
             must have the same length as `params`, and contains a
             penalty weight for each coefficient.
-        start_params : array-like
+        start_params : array_like
             Starting values for `params`.
         refit : bool
             If True, the model is refit using only the variables that
             have non-zero coefficients in the regularized fit.  The
             refitted model is not regularized.
+        **kwargs
+            Additional keyword argument that are used when fitting the model.
 
         Returns
         -------
-        An array of parameter estimates.
+        Results
+            A results instance.
         """
 
         from statsmodels.base.elastic_net import fit_elasticnet
 
         if method != "elastic_net":
-            raise ValueError("method for fit_regularied must be elastic_net")
+            raise ValueError("method for fit_regularized must be elastic_net")
 
         defaults = {"maxiter": 50, "L1_wt": 1, "cnvrg_tol": 1e-10,
                     "zero_tol": 1e-10}
@@ -200,8 +213,8 @@ class _ConditionalModel(base.LikelihoodModel):
 
         if "0+" not in formula.replace(" ", ""):
             warnings.warn("Conditional models should not include an intercept")
-
-        model = super(_ConditionalModel, cls).from_formula(
+        advance_eval_env(kwargs)
+        model = super().from_formula(
             formula, data=data, groups=groups, *args, **kwargs)
 
         return model
@@ -218,19 +231,18 @@ class ConditionalLogit(_ConditionalModel):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         The response variable, must contain only 0 and 1.
-    exog : array-like
+    exog : array_like
         The array of covariates.  Do not include an intercept
         in this array.
-    groups : array-like
+    groups : array_like
         Codes defining the groups. This is a required keyword parameter.
     """
 
     def __init__(self, endog, exog, missing='none', **kwargs):
 
-        super(ConditionalLogit, self).__init__(
-            endog, exog, missing=missing, **kwargs)
+        super().__init__(endog, exog, missing=missing, **kwargs)
 
         if np.any(np.unique(self.endog) != np.r_[0, 1]):
             msg = "endog must be coded as 0, 1"
@@ -356,11 +368,11 @@ class ConditionalPoisson(_ConditionalModel):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         The response variable
-    exog : array-like
+    exog : array_like
         The covariates
-    groups : array-like
+    groups : array_like
         Codes defining the groups. This is a required keyword parameter.
     """
 
@@ -411,7 +423,7 @@ class ConditionalPoisson(_ConditionalModel):
 class ConditionalResults(base.LikelihoodModelResults):
     def __init__(self, model, params, normalized_cov_params, scale):
 
-        super(ConditionalResults, self).__init__(
+        super().__init__(
             model,
             params,
             normalized_cov_params=normalized_cov_params,
@@ -423,27 +435,27 @@ class ConditionalResults(base.LikelihoodModelResults):
 
         Parameters
         ----------
-        yname : string, optional
+        yname : str, optional
             Default is `y`
-        xname : list of strings, optional
-            Default is `var_##` for ## in p the number of regressors
-        title : string, optional
+        xname : list[str], optional
+            Names for the exogenous variables, default is "var_xx".
+            Must match the number of parameters in the model
+        title : str, optional
             Title for the top table. If not None, then this replaces the
             default title
         alpha : float
-            significance level for the confidence intervals
+            Significance level for the confidence intervals
 
         Returns
         -------
         smry : Summary instance
-            this holds the summary tables and text, which can be printed or
+            This holds the summary tables and text, which can be printed or
             converted to various output formats.
 
         See Also
         --------
         statsmodels.iolib.summary.Summary : class to hold summary
             results
-
         """
 
         top_left = [
@@ -487,32 +499,32 @@ class ConditionalMNLogit(_ConditionalModel):
 
     Parameters
     ----------
-    endog : array-like
+    endog : array_like
         The dependent variable, must be integer-valued, coded
         0, 1, ..., c-1, where c is the number of response
         categories.
-    exog : array-like
+    exog : array_like
         The independent variables.
-    groups : array-like
+    groups : array_like
         Codes defining the groups. This is a required keyword parameter.
+
+    Notes
+    -----
+    Equivalent to femlogit in Stata.
 
     References
     ----------
     Gary Chamberlain (1980).  Analysis of covariance with qualitative
     data. The Review of Economic Studies.  Vol. 47, No. 1, pp. 225-238.
-
-    Notes
-    -----
-    Equivalent to femlogit in Stata.
     """
 
     def __init__(self, endog, exog, missing='none', **kwargs):
 
-        super(ConditionalMNLogit, self).__init__(
+        super().__init__(
             endog, exog, missing=missing, **kwargs)
 
         # endog must be integers
-        self.endog = self.endog.astype(np.int)
+        self.endog = self.endog.astype(int)
 
         self.k_cat = self.endog.max() + 1
         self.df_model = (self.k_cat - 1) * self.exog.shape[1]
@@ -549,7 +561,7 @@ class ConditionalMNLogit(_ConditionalModel):
             c = self.k_cat - 1
             start_params = np.random.normal(size=q * c)
 
-        # Don't call super(...).fit because it can't handle the 2d-params.
+        # Do not call super(...).fit because it cannot handle the 2d-params.
         rslt = base.LikelihoodModel.fit(
             self,
             start_params=start_params,
@@ -563,7 +575,7 @@ class ConditionalMNLogit(_ConditionalModel):
         rslt = MultinomialResults(self, rslt)
 
         # Not clear what the null likelihood should be, there is no intercept
-        # so the null model isn't clearly defined.  This is needed for summary
+        # so the null model is not clearly defined.  This is needed for summary
         # to work.
         rslt.set_null_options(llnull=np.nan)
 
@@ -581,7 +593,7 @@ class ConditionalMNLogit(_ConditionalModel):
         ll = 0.0
         for ii in self._grp_ix:
             x = lpr[ii, :]
-            jj = np.arange(x.shape[0], dtype=np.int)
+            jj = np.arange(x.shape[0], dtype=int)
             y = self.endog[ii]
             denom = 0.0
             for p in itertools.permutations(y):
@@ -603,7 +615,7 @@ class ConditionalMNLogit(_ConditionalModel):
         grad = np.zeros((q, c))
         for ii in self._grp_ix:
             x = lpr[ii, :]
-            jj = np.arange(x.shape[0], dtype=np.int)
+            jj = np.arange(x.shape[0], dtype=int)
             y = self.endog[ii]
             denom = 0.0
             denomg = np.zeros((q, c))

@@ -8,66 +8,11 @@ during refactoring arises.
 The first group of functions provide consistency checks
 
 """
-import os
-import sys
-from distutils.version import LooseVersion
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_
 
 import pandas as pd
-import pandas.util.testing as tm
-
-
-class PytestTester(object):
-    def __init__(self, package_path=None):
-        f = sys._getframe(1)
-        if package_path is None:
-            package_path = f.f_locals.get('__file__', None)
-            if package_path is None:
-                raise ValueError('Unable to determine path')
-        self.package_path = os.path.dirname(package_path)
-        self.package_name = f.f_locals.get('__name__', None)
-
-    def __call__(self, extra_args=None, exit=False):
-        try:
-            import pytest
-            if not LooseVersion(pytest.__version__) >= LooseVersion('3.0'):
-                raise ImportError
-            if extra_args is None:
-                extra_args = ['--tb=short', '--disable-pytest-warnings']
-            cmd = [self.package_path] + extra_args
-            print('Running pytest ' + ' '.join(cmd))
-            status = pytest.main(cmd)
-            if exit:
-                sys.exit(status)
-        except ImportError:
-            raise ImportError('pytest>=3 required to run the test')
-
-
-def assert_equal(left, right):
-    """
-    pandas >= 0.24.0 has `tm.assert_equal` that works for any of
-    Index, Series, and DataFrame inputs.  Until statsmodels requirements
-    catch up to that, we implement a version of that here.
-
-    Parameters
-    ----------
-    left : pd.Index, pd.Series, or pd.DataFrame
-    right : object
-
-    Raises
-    ------
-    AssertionError
-    """
-    if isinstance(left, pd.Index):
-        tm.assert_index_equal(left, right)
-    elif isinstance(left, pd.Series):
-        tm.assert_series_equal(left, right)
-    elif isinstance(left, pd.DataFrame):
-        tm.assert_frame_equal(left, right)
-    else:
-        raise TypeError(type(left))
 
 
 def check_ttest_tvalues(results):
@@ -84,17 +29,19 @@ def check_ttest_tvalues(results):
     assert_allclose(tt.conf_int(), res.conf_int(), rtol=1e-10)
 
     # test params table frame returned by t_test
-    table_res = np.column_stack((res.params, res.bse, res.tvalues,
-                                 res.pvalues, res.conf_int()))
+    table_res = np.column_stack(
+        (res.params, res.bse, res.tvalues, res.pvalues, res.conf_int())
+    )
     table2 = tt.summary_frame().values
     assert_allclose(table2, table_res, rtol=1e-12)
 
     # TODO: move this to test_attributes ?
-    assert_(hasattr(res, 'use_t'))
+    assert_(hasattr(res, "use_t"))
 
     tt = res.t_test(mat[0])
-    tt.summary()   # smoke test for #1323
-    assert_allclose(tt.pvalue, res.pvalues[0], rtol=5e-10)
+    tt.summary()  # smoke test for #1323
+    pvalues = np.asarray(res.pvalues)
+    assert_allclose(tt.pvalue, pvalues[0], rtol=5e-10)
     # TODO: Adapt more of test_generic_methods.test_ttest_values here?
 
 
@@ -118,22 +65,26 @@ def check_ftest_pvalues(results):
     use_t = res.use_t
     k_vars = len(res.params)
     # check default use_t
-    pvals = [res.wald_test(np.eye(k_vars)[k], use_f=use_t).pvalue
-             for k in range(k_vars)]
+    pvals = [
+        res.wald_test(np.eye(k_vars)[k], use_f=use_t, scalar=True).pvalue
+        for k in range(k_vars)
+    ]
     assert_allclose(pvals, res.pvalues, rtol=5e-10, atol=1e-25)
 
     # automatic use_f based on results class use_t
-    pvals = [res.wald_test(np.eye(k_vars)[k]).pvalue
-             for k in range(k_vars)]
+    pvals = [
+        res.wald_test(np.eye(k_vars)[k], scalar=True).pvalue
+        for k in range(k_vars)
+    ]
     assert_allclose(pvals, res.pvalues, rtol=5e-10, atol=1e-25)
 
     # TODO: Separate these out into summary/summary2 tests?
     # label for pvalues in summary
-    string_use_t = 'P>|z|' if use_t is False else 'P>|t|'
+    string_use_t = "P>|z|" if use_t is False else "P>|t|"
     summ = str(res.summary())
     assert_(string_use_t in summ)
 
-    # try except for models that don't have summary2
+    # try except for models that do not have summary2
     try:
         summ2 = str(res.summary2())
     except AttributeError:
@@ -150,10 +101,10 @@ def check_fitted(results):
     from statsmodels.discrete.discrete_model import DiscreteResults
 
     # possibly unwrap -- GEE has no wrapper
-    results = getattr(results, '_results', results)
+    results = getattr(results, "_results", results)
 
     if isinstance(results, (GLMResults, DiscreteResults)):
-        pytest.skip('Not supported for {0}'.format(type(results)))
+        pytest.skip(f"Not supported for {type(results)}")
 
     res = results
     fitted = res.fittedvalues
@@ -181,9 +132,13 @@ def check_predict_types(results):
     # ignore wrapper for isinstance check
     from statsmodels.genmod.generalized_linear_model import GLMResults
     from statsmodels.discrete.discrete_model import DiscreteResults
+    from statsmodels.compat.pandas import (
+        assert_frame_equal,
+        assert_series_equal,
+    )
 
     # possibly unwrap -- GEE has no wrapper
-    results = getattr(results, '_results', results)
+    results = getattr(results, "_results", results)
 
     if isinstance(results, (GLMResults, DiscreteResults)):
         # SMOKE test only  TODO: mark this somehow
@@ -194,13 +149,14 @@ def check_predict_types(results):
         fitted = res.fittedvalues[:2]
         assert_allclose(fitted, res.predict(p_exog), rtol=1e-12)
         # this needs reshape to column-vector:
-        assert_allclose(fitted, res.predict(np.squeeze(p_exog).tolist()),
-                        rtol=1e-12)
+        assert_allclose(
+            fitted, res.predict(np.squeeze(p_exog).tolist()), rtol=1e-12
+        )
         # only one prediction:
-        assert_allclose(fitted[:1], res.predict(p_exog[0].tolist()),
-                        rtol=1e-12)
-        assert_allclose(fitted[:1], res.predict(p_exog[0]),
-                        rtol=1e-12)
+        assert_allclose(
+            fitted[:1], res.predict(p_exog[0].tolist()), rtol=1e-12
+        )
+        assert_allclose(fitted[:1], res.predict(p_exog[0]), rtol=1e-12)
 
         # Check that pandas wrapping works as expected
         exog_index = range(len(p_exog))
@@ -213,4 +169,7 @@ def check_predict_types(results):
         #  if p_exog has only one column
         cls = pd.Series if predicted.ndim == 1 else pd.DataFrame
         predicted_expected = cls(predicted, index=exog_index)
-        assert_equal(predicted_expected, predicted_pandas)
+        if isinstance(predicted_expected, pd.Series):
+            assert_series_equal(predicted_expected, predicted_pandas)
+        else:
+            assert_frame_equal(predicted_expected, predicted_pandas)

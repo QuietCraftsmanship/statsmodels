@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 Using the state crime dataset plot the effect of the rate of single
 households ('single') on the murder rate while accounting for high school
@@ -7,8 +6,9 @@ of poverty ('poverty').
 
 '''
 
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
+
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 crime_data = sm.datasets.statecrime.load_pandas()

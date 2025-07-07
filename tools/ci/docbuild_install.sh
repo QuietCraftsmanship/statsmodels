@@ -4,11 +4,12 @@
 echo sudo apt-get update
 sudo apt-get update
 
-echo sudo apt-get install graphviz libgfortran3 -qq
-sudo apt-get install graphviz libgfortran3 -qq
-# Install required packages and R
-echo conda install --channel conda-forge sphinx jupyter nbconvert numpydoc==0.8.0 r-robustbase r-lme4 r-geepack libiconv rpy2 --yes --quiet
-conda install --channel conda-forge sphinx jupyter nbconvert numpydoc==0.8.0 r-robustbase r-lme4 r-geepack libiconv rpy2 --yes --quiet
+echo sudo apt-get install graphviz libgfortran3 enchant pandoc -qq
+sudo apt-get install graphviz libgfortran3 enchant pandoc -qq
 # doctr and pdr
-echo pip install doctr pandas-datareader simplegeneric
-pip install doctr pandas-datareader simplegeneric
+echo python -m pip install sphinx sphinx-immaterial jupyter nbconvert numpydoc pyyaml doctr pandas-datareader simplegeneric seaborn sphinxcontrib-spelling nbsphinx
+python -m pip install sphinx sphinx-immaterial jupyter nbconvert numpydoc pyyaml doctr pandas-datareader simplegeneric seaborn sphinxcontrib-spelling nbsphinx
+
+# Add pymc3 and theano for statespace_sarimax_pymc3.
+echo conda install theano pymc3 -y
+conda install theano pymc3 -y

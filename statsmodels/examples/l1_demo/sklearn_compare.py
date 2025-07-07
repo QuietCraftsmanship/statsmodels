@@ -14,14 +14,15 @@ Computes a regularzation path with both packages.  The coefficient values in
 
 The results "prove" that the regularization paths are the same.  Note that
     finding the reparameterization is non-trivial since the coefficient paths
-    are NOT monotonic.  As a result, the paths don't match up perfectly.
+    are NOT monotonic.  As a result, the paths do not match up perfectly.
 """
-from __future__ import print_function
-from statsmodels.compat.python import range, lrange
-from sklearn import linear_model
-import statsmodels.api as sm
-import numpy as np
+from statsmodels.compat.python import lrange
+
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn import linear_model
+
+import statsmodels.api as sm
 
 ## Decide which dataset to use
 # Use either spector or anes96
@@ -30,7 +31,7 @@ use_spector = False
 #### Load data
 ## The Spector and Mazzeo (1980) data from statsmodels
 if use_spector:
-    spector_data = sm.datasets.spector.load(as_pandas=False)
+    spector_data = sm.datasets.spector.load()
     X = spector_data.exog
     Y = spector_data.endog
 else:
@@ -44,7 +45,7 @@ else:
 N = 200  # number of points to solve at
 K = X.shape[1]
 
-## Statsmodels
+## statsmodels
 logit_mod = sm.Logit(Y, X)
 sm_coeff = np.zeros((N, K))  # Holds the coefficients
 if use_spector:

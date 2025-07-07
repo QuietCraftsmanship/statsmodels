@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Test Johansen's Cointegration test against jplv, Spatial Econometrics Toolbox
 
 Created on Thu Aug 30 21:51:08 2012
@@ -13,8 +12,8 @@ from numpy.testing import assert_almost_equal, assert_equal
 import pandas as pd
 import pytest
 
-from statsmodels.tsa.vector_ar.vecm import coint_johansen
 from statsmodels.tools.sm_exceptions import HypothesisTestWarning
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 dta_path = os.path.join(current_path, "Matlab_results", "test_coint.csv")
@@ -22,7 +21,7 @@ with open(dta_path, "rb") as fd:
     dta = np.genfromtxt(fd)
 
 
-class CheckCointJoh(object):
+class CheckCointJoh:
 
     def test_basic(self):
         assert_equal(self.res.ind, np.arange(len(self.res.ind), dtype=int))
@@ -37,6 +36,12 @@ class CheckCointJoh(object):
         table2 = np.column_stack((self.res.lr2, self.res.cvm))
         assert_almost_equal(table2,
                             self.res2_m.reshape(table2.shape, order='F'))
+
+    def test_normalization(self):
+        # GH 5517
+        evec = self.res.evec
+        non_zero = evec.flat != 0
+        assert evec.flat[non_zero][0] > 0
 
 
 class TestCointJoh12(CheckCointJoh):

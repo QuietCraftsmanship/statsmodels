@@ -4,11 +4,12 @@ from numpy.testing import assert_allclose, assert_equal
 import pytest
 
 import statsmodels.api as sm
+
 nparam = sm.nonparametric
 
 
-class KDETestBase(object):
-    def setup(self):
+class KDETestBase:
+    def setup_method(self):
         nobs = 60
         np.random.seed(123456)
         self.o = np.random.binomial(2, 0.7, size=(nobs, 1))
@@ -114,6 +115,21 @@ class TestKDEUnivariate(KDETestBase):
         npt.assert_allclose(kde_vals0, kde_expected,
                             atol=1e-6)
 
+    def test_all_samples_same_location_bw(self):
+        x = np.ones(100)
+        kde = nparam.KDEUnivariate(x)
+        with pytest.raises(RuntimeError, match="Selected KDE bandwidth is 0"):
+            kde.fit()
+
+    def test_int(self, reset_randomstate):
+        x = np.random.randint(0, 100, size=1000)
+        kde = nparam.KDEUnivariate(x)
+        kde.fit()
+
+        kde_double = nparam.KDEUnivariate(x.astype("double"))
+        kde_double.fit()
+
+        assert_allclose(kde.bw, kde_double.bw)
 
 
 class TestKDEMultivariate(KDETestBase):
@@ -283,7 +299,7 @@ class TestKDEMultivariateConditional(KDETestBase):
 
     @pytest.mark.slow
     def test_unordered_CV_LS(self):
-        dens_ls = nparam.KDEMultivariateConditional(endog=[self.oecd],
+        nparam.KDEMultivariateConditional(endog=[self.oecd],
                                                     exog=[self.growth],
                                                     dep_type='u',
                                                     indep_type='c', bw='cv_ls')
@@ -399,3 +415,13 @@ class TestKDEMultivariateConditional(KDETestBase):
                                                           randomize=False,
                                                           n_sub=100))
         npt.assert_equal(dens.bw, bw_user)
+
+
+@pytest.mark.parametrize("kernel", ["biw", "cos", "epa", "gau",
+                                    "tri", "triw", "uni"])
+def test_all_kernels(kernel, reset_randomstate):
+    data = np.random.normal(size=200)
+    x_grid = np.linspace(min(data), max(data), 200)
+    density = sm.nonparametric.KDEUnivariate(data)
+    density.fit(kernel="gau", fft=False)
+    assert isinstance(density.evaluate(x_grid), np.ndarray)

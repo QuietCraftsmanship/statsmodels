@@ -31,9 +31,9 @@ def bunch_factory(attribute, columns):
     """
     class FactoryBunch(Bunch):
         def __init__(self, *args, **kwargs):
-            super(FactoryBunch, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             if not hasattr(self, attribute):
-                raise AttributeError('{0} is required and must be passed to '
+                raise AttributeError('{} is required and must be passed to '
                                      'the constructor'.format(attribute))
             for i, att in enumerate(columns):
                 self[att] = getattr(self, attribute)[:, i]
@@ -46,12 +46,24 @@ ParamsTableTestBunch = bunch_factory('params_table', PARAM_LIST)
 MarginTableTestBunch = bunch_factory('margins_table', PARAM_LIST)
 
 
-class Holder(object):
+class Holder:
     """
     Test-focused class to simplify accessing values by attribute
     """
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
+
+    def __str__(self):
+        ss = "\n".join(str(k) + " = " + str(v).replace('\n', '\n    ')
+                       for k, v in vars(self).items())
+        return ss
+
+    def __repr__(self):
+        # use repr for values including nested cases as in tost
+        ss = "\n".join(str(k) + " = " + repr(v).replace('\n', '\n    ')
+                       for k, v in vars(self).items())
+        ss = str(self.__class__) + "\n" + ss
+        return ss
 
 
 # adjusted functions

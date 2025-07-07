@@ -1,12 +1,7 @@
 from __future__ import division
-
 from statsmodels.compat.python import iterkeys, zip, lrange, iteritems, range
 
-from collections import OrderedDict
-from io import BytesIO
-from itertools import product
-
-import numpy as np
+from numpy.testing import assert_, assert_raises
 import pandas as pd
 import pytest
 from numpy.testing import assert_, assert_raises
@@ -15,19 +10,27 @@ from statsmodels.api import datasets
 
 # utilities for the tests
 
+from collections import OrderedDict
+from statsmodels.api import datasets
+
+import numpy as np
+from itertools import product
+
 try:
     import matplotlib.pyplot as plt  # noqa:F401
 except ImportError:
     pass
 
-# the main drawing function
-from statsmodels.graphics.mosaicplot import mosaic
 # other functions to be tested for accuracy
-from statsmodels.graphics.mosaicplot import _hierarchical_split
-from statsmodels.graphics.mosaicplot import _reduce_dict
-from statsmodels.graphics.mosaicplot import _key_splitting
-from statsmodels.graphics.mosaicplot import _normalize_split
-from statsmodels.graphics.mosaicplot import _split_rect
+# the main drawing function
+from statsmodels.graphics.mosaicplot import (
+    _hierarchical_split,
+    _key_splitting,
+    _normalize_split,
+    _reduce_dict,
+    _split_rect,
+    mosaic,
+)
 
 
 @pytest.mark.matplotlib
@@ -46,6 +49,7 @@ def test_data_conversion(close_figures):
     mosaic(data, ax=ax[0, 2], title='basic list', axes_label=False)
     data = np.asarray(data)
     mosaic(data, ax=ax[0, 3], title='basic array', axes_label=False)
+    plt.close("all")
 
     data = {('ax', 'cx'): 1, ('bx', 'cx'): 2, ('ax', 'dx'): 3, ('bx', 'dx'): 4}
     mosaic(data, ax=ax[1, 0], title='compound dict', axes_label=False)
@@ -59,6 +63,7 @@ def test_data_conversion(close_figures):
     data = np.array([[1, 2], [3, 4]])
     mosaic(data, ax=ax[1, 3], title='compound array', axes_label=False)
     mosaic(data, ax=ax[2, 3], title='inverted keys array', index=[1, 0], axes_label=False)
+    plt.close("all")
 
     gender = ['male', 'male', 'male', 'female', 'female', 'female']
     pet = ['cat', 'dog', 'dog', 'cat', 'dog', 'cat']
@@ -67,7 +72,7 @@ def test_data_conversion(close_figures):
     mosaic(data, ['pet'], ax=ax[3, 1], title='dataframe by key 2', axes_label=False)
     mosaic(data, ['gender', 'pet'], ax=ax[3, 2], title='both keys', axes_label=False)
     mosaic(data, ['pet', 'gender'], ax=ax[3, 3], title='keys inverted', axes_label=False)
-
+    plt.close("all")
     plt.suptitle('testing data conversion (plot 1 of 4)')
 
 
@@ -81,7 +86,7 @@ def test_mosaic_simple(close_figures):
     # the cartesian product of all the categories is
     # the complete set of categories
     keys = list(product(*key_set))
-    data = OrderedDict(zip(keys, range(1, 1 + len(keys))))
+    data = dict(zip(keys, range(1, 1 + len(keys))))
     # which colours should I use for the various categories?
     # put it into a dict
     props = {}
@@ -146,7 +151,7 @@ def test_mosaic_very_complex(close_figures):
     key_base = (['male', 'female'], ['old', 'young'],
                 ['healty', 'ill'], ['work', 'unemployed'])
     keys = list(product(*key_base))
-    data = OrderedDict(zip(keys, range(1, 1 + len(keys))))
+    data = dict(zip(keys, range(1, 1 + len(keys))))
     props = {}
     props[('male', 'old')] = {'color': 'r'}
     props[('female',)] = {'color': 'pink'}
@@ -154,7 +159,7 @@ def test_mosaic_very_complex(close_figures):
     _, axes = plt.subplots(L, L)
     for i in range(L):
         for j in range(L):
-            m = set(range(L)).difference(set((i, j)))
+            m = set(range(L)).difference({i, j})
             if i == j:
                 axes[i, i].text(0.5, 0.5, key_name[i],
                                 ha='center', va='center')
@@ -165,10 +170,10 @@ def test_mosaic_very_complex(close_figures):
             else:
                 ji = max(i, j)
                 ij = min(i, j)
-                temp_data = OrderedDict([((k[ij], k[ji]) + tuple(k[r] for r in m), v)
-                                            for k, v in iteritems(data)])
+                temp_data = {(k[ij], k[ji]) + tuple(k[r] for r in m): v
+                                  for k, v in data.items()}
 
-                keys = list(iterkeys(temp_data))
+                keys = list(temp_data.keys())
                 for k in keys:
                     value = _reduce_dict(temp_data, k[:2])
                     temp_data[k[:2]] = value
@@ -186,13 +191,17 @@ def test_axes_labeling(close_figures):
     # the cartesian product of all the categories is
     # the complete set of categories
     keys = list(product(*key_set))
-    data = OrderedDict(zip(keys, rand(len(keys))))
-    lab = lambda k: ''.join(s[0] for s in k)
+    data = dict(zip(keys, rand(len(keys))))
+
+    def labelizer(k):
+        return ''.join(s[0] for s in k)
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
-    mosaic(data, ax=ax1, labelizer=lab, horizontal=True, label_rotation=45)
-    mosaic(data, ax=ax2, labelizer=lab, horizontal=False,
+    mosaic(
+        data, ax=ax1, labelizer=labelizer, horizontal=True, label_rotation=45
+    )
+    mosaic(data, ax=ax2, labelizer=labelizer, horizontal=False,
            label_rotation=[0, 45, 90, 0])
-    #fig.tight_layout()
     fig.suptitle("correct alignment of the axes labels")
 
 
@@ -219,20 +228,21 @@ def test_mosaic_empty_cells(close_figures):
     _, vals = mosaic(mydata, ['id1','id2'])
 
 
-eq = lambda x, y: assert_(np.allclose(x, y))
+def eq(x, y):
+    return assert_(np.allclose(x, y))
 
 
 def test_recursive_split():
     keys = list(product('mf'))
-    data = OrderedDict(zip(keys, [1] * len(keys)))
+    data = dict(zip(keys, [1] * len(keys)))
     res = _hierarchical_split(data, gap=0)
-    assert_(list(iterkeys(res)) == keys)
+    assert_(list(res.keys()) == keys)
     res[('m',)] = (0.0, 0.0, 0.5, 1.0)
     res[('f',)] = (0.5, 0.0, 0.5, 1.0)
     keys = list(product('mf', 'yao'))
-    data = OrderedDict(zip(keys, [1] * len(keys)))
+    data = dict(zip(keys, [1] * len(keys)))
     res = _hierarchical_split(data, gap=0)
-    assert_(list(iterkeys(res)) == keys)
+    assert_(list(res.keys()) == keys)
     res[('m', 'y')] = (0.0, 0.0, 0.5, 1 / 3)
     res[('m', 'a')] = (0.0, 1 / 3, 0.5, 1 / 3)
     res[('m', 'o')] = (0.0, 2 / 3, 0.5, 1 / 3)
@@ -242,11 +252,11 @@ def test_recursive_split():
 
 
 def test__reduce_dict():
-    data = OrderedDict(zip(list(product('mf', 'oy', 'wn')), [1] * 8))
+    data = dict(zip(list(product('mf', 'oy', 'wn')), [1] * 8))
     eq(_reduce_dict(data, ('m',)), 4)
     eq(_reduce_dict(data, ('m', 'o')), 2)
     eq(_reduce_dict(data, ('m', 'o', 'w')), 1)
-    data = OrderedDict(zip(list(product('mf', 'oy', 'wn')), lrange(8)))
+    data = dict(zip(list(product('mf', 'oy', 'wn')), lrange(8)))
     eq(_reduce_dict(data, ('m',)), 6)
     eq(_reduce_dict(data, ('m', 'o')), 1)
     eq(_reduce_dict(data, ('m', 'o', 'w')), 0)
@@ -256,19 +266,19 @@ def test__key_splitting():
     # subdivide starting with an empty tuple
     base_rect = {tuple(): (0, 0, 1, 1)}
     res = _key_splitting(base_rect, ['a', 'b'], [1, 1], tuple(), True, 0)
-    assert_(list(iterkeys(res)) == [('a',), ('b',)])
+    assert_(list(res.keys()) == [('a',), ('b',)])
     eq(res[('a',)], (0, 0, 0.5, 1))
     eq(res[('b',)], (0.5, 0, 0.5, 1))
     # subdivide a in two sublevel
     res_bis = _key_splitting(res, ['c', 'd'], [1, 1], ('a',), False, 0)
-    assert_(list(iterkeys(res_bis)) == [('a', 'c'), ('a', 'd'), ('b',)])
+    assert_(list(res_bis.keys()) == [('a', 'c'), ('a', 'd'), ('b',)])
     eq(res_bis[('a', 'c')], (0.0, 0.0, 0.5, 0.5))
     eq(res_bis[('a', 'd')], (0.0, 0.5, 0.5, 0.5))
     eq(res_bis[('b',)], (0.5, 0, 0.5, 1))
     # starting with a non empty tuple and uneven distribution
     base_rect = {('total',): (0, 0, 1, 1)}
     res = _key_splitting(base_rect, ['a', 'b'], [1, 2], ('total',), True, 0)
-    assert_(list(iterkeys(res)) == [('total',) + (e,) for e in ['a', 'b']])
+    assert_(list(res.keys()) == [('total',) + (e,) for e in ['a', 'b']])
     eq(res[('total', 'a')], (0, 0, 1 / 3, 1))
     eq(res[('total', 'b')], (1 / 3, 0, 2 / 3, 1))
 

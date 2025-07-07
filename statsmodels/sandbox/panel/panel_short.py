@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Panel data analysis for short T and large N
 
 Created on Sat Dec 17 19:32:00 2011
@@ -77,7 +76,7 @@ def whiten_individuals_loop(x, transform, group_iter):
 
 
 
-class ShortPanelGLS2(object):
+class ShortPanelGLS2:
     '''Short Panel with general intertemporal within correlation
 
     assumes data is stacked by individuals, panel is balanced and
@@ -133,7 +132,7 @@ class ShortPanelGLS(GLS):
         nobs_i = len(endog) / self.n_groups #endog might later not be an ndarray
         #balanced only for now,
         #which is a requirement anyway in this case (full cov)
-        #needs to change for parameterized sigma_i
+        #needs to change for parametrized sigma_i
 
         #
         if sigma_i is None:
@@ -180,7 +179,7 @@ class ShortPanelGLS(GLS):
 
         Parameters
         ----------
-        maxiter : integer, optional
+        maxiter : int, optional
             the number of iterations
 
         Notes
@@ -196,9 +195,8 @@ class ShortPanelGLS(GLS):
         Repeated calls to fit_iterative, will do one redundant pinv_wexog
         calculation. Calling fit_iterative(maxiter) once does not do any
         redundant recalculations (whitening or calculating pinv_wexog).
-
         """
-        #Note: in contrast to GLSHet, we don't have an auxilliary regression here
+        #Note: in contrast to GLSHet, we do not have an auxiliary regression here
         #      might be needed if there is more structure in cov_i
 
         #because we only have the loop we are not attaching the ols_pooled

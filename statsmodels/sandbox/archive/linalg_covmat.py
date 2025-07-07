@@ -1,17 +1,16 @@
-from __future__ import print_function
 import math
+
 import numpy as np
-from scipy import linalg, stats, special
+from scipy import linalg, special, stats
 
 from .linalg_decomp_1 import SvdArray
-
 
 #univariate standard normal distribution
 #following from scipy.stats.distributions with adjustments
 sqrt2pi = math.sqrt(2 * np.pi)
 logsqrt2pi = math.log(sqrt2pi)
 
-class StandardNormal(object):
+class StandardNormal:
     '''Distribution of vector x, with independent distribution N(0,1)
 
     this is the same as univariate normal for pdf and logpdf
@@ -33,7 +32,7 @@ class StandardNormal(object):
         return special.ndtri(q)
 
 
-class AffineTransform(object):
+class AffineTransform:
     '''affine full rank transformation of a multivariate distribution
 
     no dimension checking, assumes everything broadcasts correctly
@@ -78,7 +77,7 @@ class AffineTransform(object):
 
 
 
-class MultivariateNormalChol(object):
+class MultivariateNormalChol:
     '''multivariate normal distribution with cholesky decomposition of sigma
 
     ignoring mean at the beginning, maybe
@@ -108,7 +107,7 @@ class MultivariateNormalChol(object):
         x_whitened = self.whiten(x)
 
         #sigmainv = linalg.cholesky(sigma)
-        logdetsigma = np.log(np.linalg.det(sigma))
+        np.log(np.linalg.det(sigma))
 
         sigma2 = 1. # error variance is included in sigma
 
@@ -127,7 +126,7 @@ class MultivariateNormalChol(object):
 
 
 
-class MultivariateNormal(object):
+class MultivariateNormal:
 
     def __init__(self, mean, sigma):
         self.mean = mean
@@ -206,7 +205,7 @@ def mvn_nloglike_obs(x, sigma):
     x_whitened = np.dot(cholsigmainv, x)
 
     #sigmainv = linalg.cholesky(sigma)
-    logdetsigma = np.log(np.linalg.det(sigma))
+    np.log(np.linalg.det(sigma))
 
     sigma2 = 1. # error variance is included in sigma
 

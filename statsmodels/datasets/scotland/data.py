@@ -5,7 +5,7 @@ __docformat__ = 'restructuredtext'
 
 COPYRIGHT   = """Used with express permission from the original author,
 who retains all rights."""
-TITLE       = "Taxation Powers Vote for the Scottish Parliamant 1997"
+TITLE       = "Taxation Powers Vote for the Scottish Parliament 1997"
 SOURCE      = """
 Jeff Gill's `Generalized Linear Models: A Unified Approach`
 
@@ -53,22 +53,16 @@ NOTE        = """::
 """
 
 
-def load(as_pandas=None):
+def load():
     """
     Load the Scotvote data and returns a Dataset instance.
 
-    Parameters
-    ----------
-    as_pandas : bool
-        Flag indicating whether to return pandas DataFrames and Series
-        or numpy recarrays and arrays.  If True, returns pandas.
-
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    return du.as_numpy_dataset(load_pandas(), as_pandas=as_pandas)
+    return load_pandas()
 
 
 def load_pandas():
@@ -77,7 +71,7 @@ def load_pandas():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()

@@ -1,14 +1,22 @@
-# -*- coding: utf-8 -*-
+from statsmodels.compat.pandas import PD_LT_1_4
 
 import os
+import warnings
 
 import numpy as np
+from numpy.testing import (
+    assert_,
+    assert_allclose,
+    assert_array_almost_equal,
+    assert_array_equal,
+    assert_array_less,
+    assert_equal,
+    assert_raises,
+)
 import pandas as pd
-from statsmodels.multivariate.factor import Factor
-from numpy.testing import (assert_equal, assert_array_almost_equal,
-        assert_raises, assert_array_equal, assert_, assert_array_less)
-from numpy.testing.utils import assert_allclose
 import pytest
+
+from statsmodels.multivariate.factor import Factor
 
 try:
     import matplotlib.pyplot as plt
@@ -195,7 +203,7 @@ def test_plots(close_figures):
     mod = Factor(X.iloc[:, 1:], 3)
     results = mod.fit()
     results.rotate('oblimin')
-    fig = results.plot_scree()
+    results.plot_scree()
 
     fig_loadings = results.plot_loadings()
     assert_equal(3, len(fig_loadings))
@@ -211,7 +219,7 @@ def test_getframe_smoke():
     assert_(isinstance(df, pd.DataFrame))
 
     lds = res.get_loadings_frame(style='strings', decimals=3, threshold=0.3)
-    lds.to_latex()
+
 
     # The Styler option require jinja2, skip if not available
     try:
@@ -220,6 +228,14 @@ def test_getframe_smoke():
         return
         # TODO: separate this and do pytest.skip?
 
+    # Old implementation that warns
+    if PD_LT_1_4:
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            lds.to_latex()
+    else:
+        # Smoke test using new style to_latex
+        lds.style.to_latex()
     try:
         from pandas.io import formats as pd_formats
     except ImportError:

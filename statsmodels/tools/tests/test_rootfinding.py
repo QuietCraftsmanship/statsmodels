@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Sat Mar 23 13:34:19 2013
@@ -54,12 +53,12 @@ def test_brentq_expanding():
             assert_allclose(res, a, rtol=1e-5)
 
     # wrong sign for start bounds
-    # doesn't raise yet during development TODO: activate this
+    # does not raise yet during development TODO: activate this
     # it kind of works in some cases, but not correctly or in a useful way
     #assert_raises(ValueError, brentq_expanding, func, args=(-500,), start_upp=-1000)
     #assert_raises(ValueError, brentq_expanding, func, args=(500,), start_low=1000)
 
-    # low upp given, but doesn't bound root, leave brentq exception
+    # low upp given, but does not bound root, leave brentq exception
     # ValueError: f(a) and f(b) must have different signs
     assert_raises(ValueError, brentq_expanding, funcn, args=(-50000,), low= -40000, upp=-10000)
 
@@ -71,7 +70,7 @@ def test_brentq_expanding():
     # RuntimeError: Failed to converge after 3 iterations.
     assert_raises(RuntimeError, brentq_expanding, func, args=(-50000,), maxiter_bq=3)
 
-    # cannot determin whether increasing, all 4 low trial points return nan
+    # cannot determine whether increasing, all 4 low trial points return nan
     assert_raises(ValueError, brentq_expanding, func_nan, args=(-20, 0.6))
 
     # test for full_output
@@ -80,14 +79,14 @@ def test_brentq_expanding():
     assert_allclose(val, a, rtol=1e-5)
     info1 = {'iterations': 63, 'start_bounds': (-1, 1),
              'brentq_bounds': (100, 1000), 'flag': 'converged',
-             'function_calls': 64, 'iterations_expand': 3, 'converged': True}
+             'function_calls': 64, 'iterations_expand': 3, 'converged': True,
+             }
 
-    # adjustments for scipy 0.8.0 with changed convergence criteria
-    assert_array_less(info.__dict__['iterations'], 70)
-    assert_array_less(info.__dict__['function_calls'], 70)
+    assert_array_less(info.iterations, 70)
+    assert_array_less(info.function_calls, 70)
     for k in info1:
         if k in ['iterations', 'function_calls']:
             continue
-        assert_equal(info1[k], info.__dict__[k])
+        assert_equal(info1[k], getattr(info, k))
 
     assert_allclose(info.root, a, rtol=1e-5)

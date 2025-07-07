@@ -1,22 +1,24 @@
-from __future__ import print_function, division
-
 from statsmodels.compat.platform import PLATFORM_WIN32
 
 import warnings
 
 import numpy as np
+from numpy.testing import assert_allclose, assert_equal, assert_raises
 import pandas as pd
 import pytest
-from numpy.testing import assert_allclose, assert_equal, assert_raises
 
-from statsmodels.multivariate.pca import PCA
-from statsmodels.multivariate.tests.results.datamlw import (data, princomp1,
-                                                            princomp2)
+from statsmodels.multivariate.pca import PCA, pca
+from statsmodels.multivariate.tests.results.datamlw import (
+    data,
+    princomp1,
+    princomp2,
+)
+from statsmodels.tools.sm_exceptions import EstimationWarning
 
 DECIMAL_5 = .00001
 
 
-class TestPCA(object):
+class TestPCA:
     @classmethod
     def setup_class(cls):
         rs = np.random.RandomState()
@@ -49,18 +51,20 @@ class TestPCA(object):
     @pytest.mark.matplotlib
     def test_smoke_plot_and_repr(self, close_figures):
         pc = PCA(self.x)
-        fig = pc.plot_scree()
-        fig = pc.plot_scree(ncomp=10)
-        fig = pc.plot_scree(log_scale=False)
-        fig = pc.plot_scree(cumulative=True)
-        fig = pc.plot_rsquare()
-        fig = pc.plot_rsquare(ncomp=5)
+        pc.plot_scree()
+        pc.plot_scree(ncomp=10)
+        pc.plot_scree(log_scale=False)
+        pc.plot_scree(cumulative=True)
+        pc.plot_rsquare()
+        pc.plot_rsquare(ncomp=5)
         # Additional smoke test
         pc.__repr__()
         pc = PCA(self.x, standardize=False)
         pc.__repr__()
         pc = PCA(self.x, standardize=False, demean=False)
         pc.__repr__()
+        pc = PCA(self.x, ncomp=2, gls=True)
+        assert "GLS" in pc.__repr__()
         # Check data for no changes
         assert_equal(self.x, pc.data)
 
@@ -168,31 +172,31 @@ class TestPCA(object):
 
     def test_warnings_and_errors(self):
         with warnings.catch_warnings(record=True) as w:
-            pc = PCA(self.x, ncomp=300)
+            PCA(self.x, ncomp=300)
             assert_equal(len(w), 1)
 
         with warnings.catch_warnings(record=True) as w:
             rs = self.rs
             x = rs.standard_normal((200, 1)) * np.ones(200)
-            pc = PCA(x, method='eig')
+            PCA(x, method='eig')
             assert_equal(len(w), 1)
 
         assert_raises(ValueError, PCA, self.x, method='unknown')
         assert_raises(ValueError, PCA, self.x, missing='unknown')
         assert_raises(ValueError, PCA, self.x, tol=2.0)
-        assert_raises(ValueError, PCA, np.nan * np.ones((200,100)), tol=2.0)
+        assert_raises(ValueError, PCA, np.nan * np.ones((200, 100)), tol=2.0)
 
     @pytest.mark.matplotlib
     def test_pandas(self, close_figures):
         pc = PCA(pd.DataFrame(self.x))
         pc1 = PCA(self.x)
         assert_allclose(pc.factors.values, pc1.factors)
-        fig = pc.plot_scree()
-        fig = pc.plot_scree(ncomp=10)
-        fig = pc.plot_scree(log_scale=False)
-        fig = pc.plot_rsquare()
-        fig = pc.plot_rsquare(ncomp=5)
-        proj = pc.project(2)
+        pc.plot_scree()
+        pc.plot_scree(ncomp=10)
+        pc.plot_scree(log_scale=False)
+        pc.plot_rsquare()
+        pc.plot_rsquare(ncomp=5)
+        pc.project(2)
         PCA(pd.DataFrame(self.x), ncomp=4, gls=True)
         PCA(pd.DataFrame(self.x), ncomp=4, standardize=False)
 
@@ -406,3 +410,37 @@ class TestPCA(object):
         pc_df = PCA(x_df, missing='drop-min')
         assert_allclose(pc.coeff, pc_df.coeff)
         assert_allclose(pc.factors, pc_df.factors)
+
+    def test_equivalence(self):
+        x = self.x.copy()
+        assert_allclose(PCA(x).factors, pca(x)[0])
+
+    def test_equivalence_full_matrices(self):
+        x = self.x.copy()
+        svd_full_matrices_true = PCA(x, svd_full_matrices=True).factors
+        svd_full_matrices_false = PCA(x).factors
+        assert_allclose(svd_full_matrices_true, svd_full_matrices_false)
+
+
+def test_missing():
+    data = np.empty((200, 50))
+    data[0, 0] = np.nan
+    with pytest.raises(ValueError, match="data contains non-finite values"):
+        PCA(data)
+
+
+def test_too_many_missing(reset_randomstate):
+    data = np.random.standard_normal((200, 50))
+    data[0, :-3] = np.nan
+    with pytest.raises(ValueError):
+        PCA(data, ncomp=5, missing="drop-col")
+    p = PCA(data, missing="drop-min")
+    assert max(p.factors.shape) == max(data.shape) - 1
+
+
+def test_gls_warning(reset_randomstate):
+    data = np.random.standard_normal((400, 200))
+    data[:, 1:] = data[:, :1] + .01 * data[:, 1:]
+    with pytest.warns(EstimationWarning, match="Many series are being down weighted"):
+        factors = PCA(data, ncomp=2, gls=True).factors
+    assert factors.shape == (data.shape[0], 2)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 10 08:23:48 2015
 
@@ -11,7 +10,7 @@ from ._penalties import NonePenalty
 from statsmodels.tools.numdiff import approx_fprime_cs, approx_fprime
 
 
-class PenalizedMixin(object):
+class PenalizedMixin:
     """Mixin class for Maximum Penalized Likelihood
 
     Parameters
@@ -28,7 +27,6 @@ class PenalizedMixin(object):
 
     TODO: do we adjust the inherited docstrings?
     We would need templating to add the penalization parameters
-
     """
 
     def __init__(self, *args, **kwds):
@@ -37,7 +35,7 @@ class PenalizedMixin(object):
         self.penal = kwds.pop('penal', None)
         self.pen_weight =  kwds.pop('pen_weight', None)
 
-        super(PenalizedMixin, self).__init__(*args, **kwds)
+        super().__init__(*args, **kwds)
 
         # TODO: define pen_weight as average pen_weight? i.e. per observation
         # I would have prefered len(self.endog) * kwds.get('pen_weight', 1)
@@ -52,7 +50,7 @@ class PenalizedMixin(object):
 
         self._init_keys.extend(['penal', 'pen_weight'])
         self._null_drop_keys = getattr(self, '_null_drop_keys', [])
-        self._null_drop_keys.extend(['penal'])
+        self._null_drop_keys.extend(['penal', 'pen_weight'])
 
     def _handle_scale(self, params, scale=None, **kwds):
 
@@ -68,12 +66,12 @@ class PenalizedMixin(object):
 
     def loglike(self, params, pen_weight=None, **kwds):
         """
-        Log-likelihodo of model at params
+        Log-likelihood of model at params
         """
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        llf = super(PenalizedMixin, self).loglike(params, **kwds)
+        llf = super().loglike(params, **kwds)
         if pen_weight != 0:
             scale = self._handle_scale(params, **kwds)
             llf -= 1/scale * pen_weight * self.penal.func(params)
@@ -87,7 +85,7 @@ class PenalizedMixin(object):
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        llf = super(PenalizedMixin, self).loglikeobs(params, **kwds)
+        llf = super().loglikeobs(params, **kwds)
         nobs_llf = float(llf.shape[0])
 
         if pen_weight != 0:
@@ -98,12 +96,12 @@ class PenalizedMixin(object):
 
     def score_numdiff(self, params, pen_weight=None, method='fd', **kwds):
         """score based on finite difference derivative
-
         """
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        loglike = lambda p: self.loglike(p, pen_weight=pen_weight, **kwds)
+        def loglike(p):
+            return self.loglike(p, pen_weight=pen_weight, **kwds)
 
         if method == 'cs':
             return approx_fprime_cs(params, loglike)
@@ -119,7 +117,7 @@ class PenalizedMixin(object):
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        sc = super(PenalizedMixin, self).score(params, **kwds)
+        sc = super().score(params, **kwds)
         if pen_weight != 0:
             scale = self._handle_scale(params, **kwds)
             sc -= 1/scale * pen_weight * self.penal.deriv(params)
@@ -133,7 +131,7 @@ class PenalizedMixin(object):
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        sc = super(PenalizedMixin, self).score_obs(params, **kwds)
+        sc = super().score_obs(params, **kwds)
         nobs_sc = float(sc.shape[0])
         if pen_weight != 0:
             scale = self._handle_scale(params, **kwds)
@@ -143,11 +141,12 @@ class PenalizedMixin(object):
 
     def hessian_numdiff(self, params, pen_weight=None, **kwds):
         """hessian based on finite difference derivative
-
         """
         if pen_weight is None:
             pen_weight = self.pen_weight
-        loglike = lambda p: self.loglike(p, pen_weight=pen_weight, **kwds)
+
+        def loglike(p):
+            return self.loglike(p, pen_weight=pen_weight, **kwds)
 
         from statsmodels.tools.numdiff import approx_hess
         return approx_hess(params, loglike)
@@ -159,7 +158,7 @@ class PenalizedMixin(object):
         if pen_weight is None:
             pen_weight = self.pen_weight
 
-        hess = super(PenalizedMixin, self).hessian(params, **kwds)
+        hess = super().hessian(params, **kwds)
         if pen_weight != 0:
             scale = self._handle_scale(params, **kwds)
             h = self.penal.deriv2(params)
@@ -177,7 +176,7 @@ class PenalizedMixin(object):
         ----------
         method : None or str
             Method specifies the scipy optimizer as in nonlinear MLE models.
-        trim : Boolean or float
+        trim : {bool, float}
             Default is False or None, which uses no trimming.
             If trim is True or a float, then small parameters are set to zero.
             If True, then a default threshold is used. If trim is a float, then
@@ -189,15 +188,17 @@ class PenalizedMixin(object):
             fit method of the underlying model class.
             Specifically, additional optimizer keywords and cov_type related
             keywords can be added.
-
         """
         # If method is None, then we choose a default method ourselves
 
         # TODO: temporary hack, need extra fit kwds
         # we need to rule out fit methods in a model that will not work with
         # penalization
-        if hasattr(self, 'family'):  # assume this identifies GLM
-            kwds.update({'max_start_irls' : 0})
+        from statsmodels.gam.generalized_additive_model import GLMGam
+        from statsmodels.genmod.generalized_linear_model import GLM
+        # Only for fit methods supporting max_start_irls
+        if isinstance(self, (GLM, GLMGam)):
+            kwds.update({'max_start_irls': 0})
 
         # currently we use `bfgs` by default
         if method is None:
@@ -206,7 +207,7 @@ class PenalizedMixin(object):
         if trim is None:
             trim = False
 
-        res = super(PenalizedMixin, self).fit(method=method, **kwds)
+        res = super().fit(method=method, **kwds)
 
         if trim is False:
             # note boolean check for "is False", not "False_like"

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """groupmean, groupby in pandas, la and tabular from a scikits.timeseries
 
 after a question on the scipy-user mailing list I tried to do
@@ -21,7 +20,7 @@ some brief comments
 Created on Sat Jan 30 08:33:11 2010
 Author: josef-pktd
 """
-from statsmodels.compat.python import lrange, zip
+from statsmodels.compat.python import lrange
 import numpy as np
 import scikits.timeseries as ts
 import la

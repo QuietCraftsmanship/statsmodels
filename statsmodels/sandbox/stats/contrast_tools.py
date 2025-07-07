@@ -22,11 +22,8 @@ Idea for second part
 
 
 
-from __future__ import print_function
-from numpy.testing import assert_equal
-
-from statsmodels.compat.python import zip
 import numpy as np
+from numpy.testing import assert_equal
 
 #next 3 functions copied from multicomp.py
 
@@ -98,7 +95,7 @@ def contrast_labels(contrasts, names, reverse=False):
         sl = slice(None, None, -1)
     else:
         sl = slice(None)
-    labels = [''.join(['%s%s' % (signstr(c, noplus=True),v)
+    labels = [''.join([f'{signstr(c, noplus=True)}{v}'
                           for c,v in zip(row, names)[sl] if c != 0])
                              for row in contrasts]
     return labels
@@ -128,7 +125,7 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
 
     n1 = len(names1)
     n2 = len(names2)
-    names_prod = ['%s_%s' % (i,j) for i in names1 for j in names2]
+    names_prod = [f'{i}_{j}' for i in names1 for j in names2]
     ee1 = np.zeros((1,n1))
     ee1[0,0] = 1
     if not pairs:
@@ -137,8 +134,8 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
         dd = np.r_[ee1, -contrast_allpairs(n1)]
 
     contrast_prod = np.kron(dd[1:], np.eye(n2))
-    names_contrast_prod0 = contrast_labels(contrast_prod, names_prod, reverse=True)
-    names_contrast_prod = [''.join(['%s%s' % (signstr(c, noplus=True),v)
+    contrast_labels(contrast_prod, names_prod, reverse=True)
+    names_contrast_prod = [''.join([f'{signstr(c, noplus=True)}{v}'
                               for c,v in zip(row, names_prod)[::-1] if c != 0])
                                  for row in contrast_prod]
 
@@ -151,7 +148,7 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
         dd2 = np.r_[ee2, -contrast_allpairs(n2)]
 
     contrast_prod2 = np.kron(np.eye(n1), dd2[1:])
-    names_contrast_prod2 = [''.join(['%s%s' % (signstr(c, noplus=True),v)
+    names_contrast_prod2 = [''.join([f'{signstr(c, noplus=True)}{v}'
                               for c,v in zip(row, names_prod)[::-1] if c != 0])
                                  for row in contrast_prod2]
 
@@ -176,7 +173,7 @@ def dummy_1d(x, varname=None):
     ----------
     x : ndarray, 1d
         categorical variable, requires integers if varname is None
-    varname : string
+    varname : str
         name of the variable used in labels for category levels
 
     Returns
@@ -184,7 +181,7 @@ def dummy_1d(x, varname=None):
     dummy : ndarray, 2d
         array of dummy variables, one column for each level of the
         category (full set)
-    labels : list of strings
+    labels : list[str]
         labels for the columns, i.e. levels of each category
 
 
@@ -340,11 +337,9 @@ def dummy_nested(d1, d2, method='full'):
 
 
     if method == 'drop-last':
-        d12rl = dummy_product(d1[:,:-1], d2[:,:-1])
         dd = np.column_stack((np.ones(d1.shape[0], int), d1[:,:-1], d2[:,col_dropl]))
         #Note: dtype int should preserve dtype of d1 and d2
     elif method == 'drop-first':
-        d12r = dummy_product(d1[:,1:], d2[:,1:])
         dd = np.column_stack((np.ones(d1.shape[0], int), d1[:,1:], d2[:,col_dropf]))
     else:
         raise ValueError('method not recognized')
@@ -352,7 +347,7 @@ def dummy_nested(d1, d2, method='full'):
     return dd, col_dropf, col_dropl
 
 
-class DummyTransform(object):
+class DummyTransform:
     '''Conversion between full rank dummy encodings
 
 
@@ -452,7 +447,7 @@ def groupmean_d(x, d):
 
 
 
-class TwoWay(object):
+class TwoWay:
     '''a wrapper class for two way anova type of analysis with OLS
 
 
@@ -555,7 +550,7 @@ class TwoWay(object):
 # --------------- tests
 # TODO: several tests still missing, several are in the example with print
 
-class TestContrastTools(object):
+class TestContrastTools:
 
     def __init__(self):
         self.v1name = ['a0', 'a1', 'a2']
@@ -684,12 +679,12 @@ if __name__ == '__main__':
     print(np.dot(tr_of, params_f_f) - params_f_df)
 
     transf_f_df = DummyTransform(dd_full, dd_dropf)
-    print(np.max(np.abs((dd_full - transf_f_df.inv_dot_right(dd_dropf)))))
-    print(np.max(np.abs((dd_dropf - transf_f_df.dot_right(dd_full)))))
-    print(np.max(np.abs((params_df_df
-                         - transf_f_df.inv_dot_left(params_df_f)))))
-    np.max(np.abs((params_f_df
-                         - transf_f_df.inv_dot_left(params_f_f))))
+    print(np.max(np.abs(dd_full - transf_f_df.inv_dot_right(dd_dropf))))
+    print(np.max(np.abs(dd_dropf - transf_f_df.dot_right(dd_full))))
+    print(np.max(np.abs(params_df_df
+                         - transf_f_df.inv_dot_left(params_df_f))))
+    np.max(np.abs(params_f_df
+                         - transf_f_df.inv_dot_left(params_f_f)))
 
     prodlab, C1, C1lab, C2, C2lab,_ = contrast_product(v1name, v2name)
 
@@ -710,7 +705,7 @@ if __name__ == '__main__':
     R_noint = np.hstack((np.zeros((2,4)), np.eye(2)))
     inter_direct = resols_full_dropf.tvalues[-2:]
     inter_transf = resols_full_full.t_test(transf_f_df.inv_dot_right(R_noint)).tvalue
-    print(np.max(np.abs((inter_direct - inter_transf))))
+    print(np.max(np.abs(inter_direct - inter_transf)))
 
     #now with class version
     tw = TwoWay(ydata_dropf, x1, x2)

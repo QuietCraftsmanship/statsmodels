@@ -1,18 +1,16 @@
-
 import numpy as np
 from numpy import (dot, eye, diag_indices, zeros, ones, diag,
         asarray, r_)
 from numpy.linalg import solve
-#from scipy.linalg import block_diag
-#from scipy import linalg
 
-#def denton(indicator, benchmark, freq="aq", **kwarg):
+
+# def denton(indicator, benchmark, freq="aq", **kwarg):
 #    """
 #    Denton's method to convert low-frequency to high frequency data.
 #
 #    Parameters
 #    ----------
-#    benchmark : array-like
+#    benchmark : array_like
 #        The higher frequency benchmark.  A 1d or 2d data series in columns.
 #        If 2d, then M series are assumed.
 #    indicator
@@ -30,7 +28,7 @@ from numpy.linalg import solve
 #            `freq` == "other".
 #    Returns
 #    -------
-#    benchmarked series : array
+#    benchmarked series : ndarray
 #
 #    Notes
 #    -----
@@ -93,25 +91,30 @@ def dentonm(indicator, benchmark, freq="aq", **kwargs):
 
     Parameters
     ----------
-    indicator
+    indicator : array_like
         A low-frequency indicator series.  It is assumed that there are no
         pre-sample indicators.  Ie., the first indicators line up with
         the first benchmark.
-    benchmark : array-like
+    benchmark : array_like
         The higher frequency benchmark.  A 1d or 2d data series in columns.
         If 2d, then M series are assumed.
     freq : str {"aq","qm", "other"}
-        "aq" - Benchmarking an annual series to quarterly.
-        "mq" - Benchmarking a quarterly series to monthly.
-        "other" - Custom stride.  A kwarg, k, must be supplied.
-    kwargs :
-        k : int
-            The number of high-frequency observations that sum to make an
-            aggregate low-frequency observation. `k` is used with
-            `freq` == "other".
+        The frequency to use in the conversion.
+
+        * "aq" - Benchmarking an annual series to quarterly.
+        * "mq" - Benchmarking a quarterly series to monthly.
+        * "other" - Custom stride.  A kwarg, k, must be supplied.
+    **kwargs
+        Additional keyword argument. For example:
+
+        * k, an int, the number of high-frequency observations that sum to make
+          an aggregate low-frequency observation. `k` is used with
+          `freq` == "other".
+
     Returns
     -------
-    benchmarked series : array
+    transformed : ndarray
+        The transformed series.
 
     Examples
     --------

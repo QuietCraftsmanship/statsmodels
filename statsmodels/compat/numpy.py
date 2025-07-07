@@ -2,7 +2,7 @@
 
 np_new_unique
 -------------
-Optionally provides the count of the number of occurences of each
+Optionally provides the count of the number of occurrences of each
 unique element.
 
 Copied from Numpy source, under license:
@@ -38,46 +38,24 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-
-from __future__ import absolute_import
-from distutils.version import LooseVersion
-
 import numpy as np
+from packaging.version import Version, parse
 
-from .python import PY3
+__all__ = [
+    "NP_LT_2",
+    "NP_LT_123",
+    "NP_LT_114",
+    "lstsq",
+    "np_matrix_rank",
+    "np_new_unique",
+]
 
-NP_LT_114 = LooseVersion(np.__version__) < LooseVersion('1.14')
-NP_LT_113 = LooseVersion(np.__version__) < '1.13.0'
+NP_LT_114 = parse(np.__version__) < Version("1.13.99")
+NP_LT_123 = parse(np.__version__) < Version("1.22.99")
+NP_LT_2 = parse(np.__version__) < Version("1.99.99")
 
 np_matrix_rank = np.linalg.matrix_rank
 np_new_unique = np.unique
-
-
-def recarray_select(recarray, fields):
-    """"
-    Work-around for changes in NumPy 1.13 that return views for recarray
-    multiple column selection
-    """
-    from pandas import DataFrame
-    fields = [fields] if not isinstance(fields, (tuple, list)) else fields
-    if len(fields) == len(recarray.dtype):
-        selection = recarray
-    else:
-        recarray = DataFrame.from_records(recarray)
-        selection = recarray[fields].to_records(index=False)
-
-    _bytelike_dtype_names(selection)
-    return selection
-
-
-def _bytelike_dtype_names(arr):
-    # See # 3658
-    if not PY3:
-        dtype = arr.dtype
-        names = dtype.names
-        names = [bytes(name) if isinstance(name, unicode)  # noqa:F821
-                 else name for name in names]
-        dtype.names = names
 
 
 def lstsq(a, b, rcond=None):

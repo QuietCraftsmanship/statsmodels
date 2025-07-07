@@ -4,11 +4,20 @@
 """
 State Space Models - Cython Tools declarations
 
-Author: Chad Fulton  
+Author: Chad Fulton
 License: Simplified-BSD
 """
 
 cimport numpy as np
+from statsmodels.tsa.statespace._representation cimport (
+    sStatespace, dStatespace, cStatespace, zStatespace
+)
+from statsmodels.tsa.statespace._kalman_filter cimport (
+    sKalmanFilter, dKalmanFilter, cKalmanFilter, zKalmanFilter
+)
+from statsmodels.tsa.statespace._kalman_smoother cimport (
+    sKalmanSmoother, dKalmanSmoother, cKalmanSmoother, zKalmanSmoother
+)
 
 cdef validate_matrix_shape(str name, Py_ssize_t *shape, int nrows, int ncols, object nobs=*)
 
@@ -29,26 +38,6 @@ cpdef int dldl(np.float64_t [::1, :] A) except *
 cpdef int cldl(np.complex64_t [::1, :] A) except *
 cpdef int zldl(np.complex128_t [::1, :] A) except *
 
-cdef int _sreorder_missing_diagonal(np.float32_t * a, int * missing, int n)
-cdef int _dreorder_missing_diagonal(np.float64_t * a, int * missing, int n)
-cdef int _creorder_missing_diagonal(np.complex64_t * a, int * missing, int n)
-cdef int _zreorder_missing_diagonal(np.complex128_t * a, int * missing, int n)
-
-cdef int _sreorder_missing_submatrix(np.float32_t * a, int * missing, int n)
-cdef int _dreorder_missing_submatrix(np.float64_t * a, int * missing, int n)
-cdef int _creorder_missing_submatrix(np.complex64_t * a, int * missing, int n)
-cdef int _zreorder_missing_submatrix(np.complex128_t * a, int * missing, int n)
-
-cdef int _sreorder_missing_rows(np.float32_t * a, int * missing, int n, int m)
-cdef int _dreorder_missing_rows(np.float64_t * a, int * missing, int n, int m)
-cdef int _creorder_missing_rows(np.complex64_t * a, int * missing, int n, int m)
-cdef int _zreorder_missing_rows(np.complex128_t * a, int * missing, int n, int m)
-
-cdef int _sreorder_missing_cols(np.float32_t * a, int * missing, int n, int m)
-cdef int _dreorder_missing_cols(np.float64_t * a, int * missing, int n, int m)
-cdef int _creorder_missing_cols(np.complex64_t * a, int * missing, int n, int m)
-cdef int _zreorder_missing_cols(np.complex128_t * a, int * missing, int n, int m)
-
 cpdef int sreorder_missing_matrix(np.float32_t [::1, :, :] A, int [::1, :] missing, int reorder_rows, int reorder_cols, int diagonal) except *
 cpdef int dreorder_missing_matrix(np.float64_t [::1, :, :] A, int [::1, :] missing, int reorder_rows, int reorder_cols, int diagonal) except *
 cpdef int creorder_missing_matrix(np.complex64_t [::1, :, :] A, int [::1, :] missing, int reorder_rows, int reorder_cols, int diagonal) except *
@@ -59,26 +48,6 @@ cpdef int dreorder_missing_vector(np.float64_t [::1, :] A, int [::1, :] missing)
 cpdef int creorder_missing_vector(np.complex64_t [::1, :] A, int [::1, :] missing) except *
 cpdef int zreorder_missing_vector(np.complex128_t [::1, :] A, int [::1, :] missing) except *
 
-cdef int _scopy_missing_diagonal(np.float32_t * a, np.float32_t * b, int * missing, int n)
-cdef int _dcopy_missing_diagonal(np.float64_t * a, np.float64_t * b, int * missing, int n)
-cdef int _ccopy_missing_diagonal(np.complex64_t * a, np.complex64_t * b, int * missing, int n)
-cdef int _zcopy_missing_diagonal(np.complex128_t * a, np.complex128_t * b, int * missing, int n)
-
-cdef int _scopy_missing_submatrix(np.float32_t * a, np.float32_t * b, int * missing, int n)
-cdef int _dcopy_missing_submatrix(np.float64_t * a, np.float64_t * b, int * missing, int n)
-cdef int _ccopy_missing_submatrix(np.complex64_t * a, np.complex64_t * b, int * missing, int n)
-cdef int _zcopy_missing_submatrix(np.complex128_t * a, np.complex128_t * b, int * missing, int n)
-
-cdef int _scopy_missing_rows(np.float32_t * a, np.float32_t * b, int * missing, int n, int m)
-cdef int _dcopy_missing_rows(np.float64_t * a, np.float64_t * b, int * missing, int n, int m)
-cdef int _ccopy_missing_rows(np.complex64_t * a, np.complex64_t * b, int * missing, int n, int m)
-cdef int _zcopy_missing_rows(np.complex128_t * a, np.complex128_t * b, int * missing, int n, int m)
-
-cdef int _scopy_missing_cols(np.float32_t * a, np.float32_t * b, int * missing, int n, int m)
-cdef int _dcopy_missing_cols(np.float64_t * a, np.float64_t * b, int * missing, int n, int m)
-cdef int _ccopy_missing_cols(np.complex64_t * a, np.complex64_t * b, int * missing, int n, int m)
-cdef int _zcopy_missing_cols(np.complex128_t * a, np.complex128_t * b, int * missing, int n, int m)
-
 cpdef int scopy_missing_matrix(np.float32_t [::1, :, :] A, np.float32_t [::1, :, :] B, int [::1, :] missing, int copy_rows, int copy_cols, int diagonal) except *
 cpdef int dcopy_missing_matrix(np.float64_t [::1, :, :] A, np.float64_t [::1, :, :] B, int [::1, :] missing, int copy_rows, int copy_cols, int diagonal) except *
 cpdef int ccopy_missing_matrix(np.complex64_t [::1, :, :] A, np.complex64_t [::1, :, :] B, int [::1, :] missing, int copy_rows, int copy_cols, int diagonal) except *
@@ -88,26 +57,6 @@ cpdef int scopy_missing_vector(np.float32_t [::1, :] A, np.float32_t [::1, :] B,
 cpdef int dcopy_missing_vector(np.float64_t [::1, :] A, np.float64_t [::1, :] B, int [::1, :] missing) except *
 cpdef int ccopy_missing_vector(np.complex64_t [::1, :] A, np.complex64_t [::1, :] B, int [::1, :] missing) except *
 cpdef int zcopy_missing_vector(np.complex128_t [::1, :] A, np.complex128_t [::1, :] B, int [::1, :] missing) except *
-
-cdef int _scopy_index_diagonal(np.float32_t * a, np.float32_t * b, int * index, int n)
-cdef int _dcopy_index_diagonal(np.float64_t * a, np.float64_t * b, int * index, int n)
-cdef int _ccopy_index_diagonal(np.complex64_t * a, np.complex64_t * b, int * index, int n)
-cdef int _zcopy_index_diagonal(np.complex128_t * a, np.complex128_t * b, int * index, int n)
-
-cdef int _scopy_index_submatrix(np.float32_t * a, np.float32_t * b, int * index, int n)
-cdef int _dcopy_index_submatrix(np.float64_t * a, np.float64_t * b, int * index, int n)
-cdef int _ccopy_index_submatrix(np.complex64_t * a, np.complex64_t * b, int * index, int n)
-cdef int _zcopy_index_submatrix(np.complex128_t * a, np.complex128_t * b, int * index, int n)
-
-cdef int _scopy_index_rows(np.float32_t * a, np.float32_t * b, int * index, int n, int m)
-cdef int _dcopy_index_rows(np.float64_t * a, np.float64_t * b, int * index, int n, int m)
-cdef int _ccopy_index_rows(np.complex64_t * a, np.complex64_t * b, int * index, int n, int m)
-cdef int _zcopy_index_rows(np.complex128_t * a, np.complex128_t * b, int * index, int n, int m)
-
-cdef int _scopy_index_cols(np.float32_t * a, np.float32_t * b, int * index, int n, int m)
-cdef int _dcopy_index_cols(np.float64_t * a, np.float64_t * b, int * index, int n, int m)
-cdef int _ccopy_index_cols(np.complex64_t * a, np.complex64_t * b, int * index, int n, int m)
-cdef int _zcopy_index_cols(np.complex128_t * a, np.complex128_t * b, int * index, int n, int m)
 
 cpdef int scopy_index_matrix(np.float32_t [::1, :, :] A, np.float32_t [::1, :, :] B, int [::1, :] index, int copy_rows, int copy_cols, int diagonal) except *
 cpdef int dcopy_index_matrix(np.float64_t [::1, :, :] A, np.float64_t [::1, :, :] B, int [::1, :] index, int copy_rows, int copy_cols, int diagonal) except *
@@ -143,3 +92,18 @@ cdef int _zselect_cov(int k_states, int k_posdef, int k_states_total,
                            np.complex128_t * cov,
                            np.complex128_t * selected_cov)
 
+cpdef _scompute_smoothed_state_weights(
+    sKalmanSmoother smoother, sKalmanFilter kfilter, sStatespace model,
+    np.int32_t [:] compute_t, np.int32_t [:] compute_j, np.float32_t scale)
+
+cpdef _dcompute_smoothed_state_weights(
+    dKalmanSmoother smoother, dKalmanFilter kfilter, dStatespace model,
+    np.int32_t [:] compute_t, np.int32_t [:] compute_j, np.float64_t scale)
+
+cpdef _ccompute_smoothed_state_weights(
+    cKalmanSmoother smoother, cKalmanFilter kfilter, cStatespace model,
+    np.int32_t [:] compute_t, np.int32_t [:] compute_j, np.complex64_t scale)
+
+cpdef _zcompute_smoothed_state_weights(
+    zKalmanSmoother smoother, zKalmanFilter kfilter, zStatespace model,
+    np.int32_t [:] compute_t, np.int32_t [:] compute_j, np.complex128_t scale)

@@ -5,7 +5,6 @@ example is extended to look at the meaning of rsquared in WLS,
 at outliers, compares with RLM and a short bootstrap
 
 """
-from __future__ import print_function
 import numpy as np
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
@@ -31,7 +30,7 @@ plt.grid()
 wls_fit = sm.WLS(data.endog, data.exog[:, :-1], weights=1/incomesq).fit()
 
 # This however, leads to difficulties in interpreting the post-estimation
-# statistics.  Statsmodels does not yet handle this elegantly, but
+# statistics.  statsmodels does not yet handle this elegantly, but
 # the following may be more appropriate
 
 # explained sum of squares
@@ -126,9 +125,9 @@ def index_trim_outlier(resid, k):
 
     Returns
     -------
-    trimmed_index : array, 1d
+    trimmed_index : ndarray, 1d
         index array with k outliers removed
-    outlier_index : array, 1d
+    outlier_index : ndarray, 1d
         index array of k outliers
 
     Notes
@@ -246,7 +245,7 @@ print(np.column_stack([getattr(ols_fit, se, None)
 # a quick bootstrap analysis
 # --------------------------
 #
-# (I didn't check whether this is fully correct statistically)
+# (I did not check whether this is fully correct statistically)
 
 # **With OLS on full sample**
 
@@ -381,12 +380,12 @@ plt.figtext(0.5, 0.935,  'WLS rm2 Bootstrap',
 # for statsmodels
 #
 # * In this case rsquared for original data looks less random/arbitrary.
-# * Don't change definition of rsquared from centered tss to uncentered
+# * Do not change definition of rsquared from centered tss to uncentered
 #   tss when calculating rsquared in WLS if the original exog contains
 #   a constant. The increase in rsquared because of a change in definition
 #   will be very misleading.
 # * Whether there is a constant in the transformed exog, wexog, or not,
-#   might affect also the degrees of freedom calculation, but I haven't
+#   might affect also the degrees of freedom calculation, but I have not
 #   checked this. I would guess that the df_model should stay the same,
 #   but needs to be verified with a textbook.
 # * df_model has to be adjusted if the original data does not have a
@@ -397,7 +396,7 @@ plt.figtext(0.5, 0.935,  'WLS rm2 Bootstrap',
 #   This can be done through keyword parameter to model.__init__ or
 #   through autodedection with hasconst = (exog.var(0)<1e-10).any()
 #   I'm not sure about fixed effects with a full dummy set but
-#   without a constant. In this case autodedection wouldn't work this
+#   without a constant. In this case autodedection would not work this
 #   way. Also, I'm not sure whether a ddof keyword parameter can also
 #   handle the hasconst case.
 '''  # noqa:E501

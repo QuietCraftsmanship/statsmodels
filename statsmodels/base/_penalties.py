@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 A collection of smooth penalty functions.
 
@@ -19,29 +18,16 @@ The penaties should be smooth so that they can be subtracted from log
 likelihood functions and optimized using standard methods (i.e. L1
 penalties do not belong here).
 """
-from __future__ import division
-
 import numpy as np
 
 
-def _check_wts(weights, wts):
-    """helper function for deprecating `wts`
-    """
-    if wts is not None:
-        import warnings
-        warnings.warn('`wts` method is deprecated. Use `weights` instead',
-                      DeprecationWarning)
-    weights = weights if weights is not None else wts
-    return weights
-
-
-class Penalty(object):
+class Penalty:
     """
     A class for representing a scalar-value penalty.
 
     Parameters
     ----------
-    weights : array-like
+    weights : array_like
         A vector of weights that determines the weight of the penalty
         for each parameter.
 
@@ -50,7 +36,7 @@ class Penalty(object):
     The class has a member called `alpha` that scales the weights.
     """
 
-    def __init__(self, weights):
+    def __init__(self, weights=1.):
         self.weights = weights
         self.alpha = 1.
 
@@ -60,7 +46,7 @@ class Penalty(object):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             A vector of parameters.
 
         Returns
@@ -76,7 +62,7 @@ class Penalty(object):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             A vector of parameters
 
         Returns
@@ -85,12 +71,6 @@ class Penalty(object):
         `params`.
         """
         raise NotImplementedError
-
-    def grad(self, params):
-        import warnings
-        warnings.warn('grad method is deprecated. Use `deriv` instead',
-                      DeprecationWarning)
-        return self.deriv(params)
 
     def _null_weights(self, params):
         """work around for Null model
@@ -113,9 +93,10 @@ class NonePenalty(Penalty):
     """
 
     def __init__(self, **kwds):
+        super().__init__()
         if kwds:
             import warnings
-            warnings.warn('keywords will be ignored')
+            warnings.warn('keyword arguments are be ignored')
 
     def func(self, params):
         if params.ndim == 2:
@@ -136,13 +117,8 @@ class L2(Penalty):
     The L2 (ridge) penalty.
     """
 
-    def __init__(self, weights=None, wts=None):
-        weights = _check_wts(weights, wts)  # for deprecation wts
-        if weights is None:
-            self.weights  = 1.
-        else:
-            self.weights  = weights
-        self.alpha = 1.
+    def __init__(self, weights=1.):
+        super().__init__(weights)
 
     def func(self, params):
         return np.sum(self.weights * self.alpha * params**2)
@@ -180,14 +156,9 @@ class PseudoHuber(Penalty):
     The pseudo-Huber penalty.
     """
 
-    def __init__(self, dlt, weights=None, wts=None):
+    def __init__(self, dlt, weights=1.):
+        super().__init__(weights)
         self.dlt = dlt
-        weights = _check_wts(weights, wts)  # for deprecation wts
-        if weights is None:
-            self.weights  = 1.
-        else:
-            self.weights  = weights
-        self.alpha = 1.
 
     def func(self, params):
         v = np.sqrt(1 + (params / self.dlt)**2)
@@ -245,11 +216,8 @@ class SCAD(Penalty):
     1348-1360.
     """
 
-    def __init__(self, tau, c=3.7, weights=None):
-        if weights is None:
-            self.weights = 1.
-        else:
-            self.weights = weights
+    def __init__(self, tau, c=3.7, weights=1.):
+        super().__init__(weights)
         self.tau = tau
         self.c = c
 
@@ -337,15 +305,10 @@ class SCADSmoothed(SCAD):
     -----
     TODO: Use delegation instead of subclassing, so smoothing can be added to
     all penalty classes.
-
     """
 
-    def __init__(self, tau, c=3.7, c0=None, weights=None, restriction=None):
-        if weights is None:
-            self.weights = 1.
-        else:
-            self.weights = weights
-        self.alpha = 1.
+    def __init__(self, tau, c=3.7, c0=None, weights=1., restriction=None):
+        super().__init__(tau, c=c, weights=weights)
         self.tau = tau
         self.c = c
         self.c0 = c0 if c0 is not None else tau * 0.1
@@ -357,8 +320,8 @@ class SCADSmoothed(SCAD):
         # need to temporarily override weights for call to super
         weights = self.weights
         self.weights = 1.
-        deriv_c0 = super(SCADSmoothed, self).deriv(c0)
-        value_c0 = super(SCADSmoothed, self).func(c0)
+        deriv_c0 = super().deriv(c0)
+        value_c0 = super().func(c0)
         self.weights = weights
 
         self.aq1 = value_c0 - 0.5 * deriv_c0 * c0
@@ -375,7 +338,7 @@ class SCADSmoothed(SCAD):
         # Note: we have the same problem with `restriction`
         self_weights = self.weights
         self.weights = 1.
-        value = super(SCADSmoothed, self).func(params[None, ...])
+        value = super().func(params[None, ...])
         self.weights = self_weights
 
         # shift down so func(0) == 0
@@ -396,7 +359,7 @@ class SCADSmoothed(SCAD):
         # need to temporarily override weights for call to super
         self_weights = self.weights
         self.weights = 1.
-        value = super(SCADSmoothed, self).deriv(params)
+        value = super().deriv(params)
         self.weights = self_weights
 
         #change the segment corrsponding to quadratic approximation
@@ -417,7 +380,7 @@ class SCADSmoothed(SCAD):
         # need to temporarily override weights for call to super
         self_weights = self.weights
         self.weights = 1.
-        value = super(SCADSmoothed, self).deriv2(params)
+        value = super().deriv2(params)
         self.weights = self_weights
 
         # change the segment corrsponding to quadratic approximation
@@ -434,7 +397,7 @@ class SCADSmoothed(SCAD):
             return weights * value
 
 
-class ConstraintsPenalty(object):
+class ConstraintsPenalty:
     """
     Penalty applied to linear transformation of parameters
 
@@ -456,7 +419,6 @@ class ConstraintsPenalty(object):
     constraints of the original parameters.
     Examples for these contrast are difference penalities or all pairs
     penalties.
-
     """
 
     def __init__(self, penalty, weights=None, restriction=None):
@@ -549,9 +511,8 @@ class ConstraintsPenalty(object):
         return value
 
 
-class L2ContraintsPenalty(ConstraintsPenalty):
+class L2ConstraintsPenalty(ConstraintsPenalty):
     """convenience class of ConstraintsPenalty with L2 penalization
-
     """
 
     def __init__(self, weights=None, restriction=None, sigma_prior=None):
@@ -561,11 +522,11 @@ class L2ContraintsPenalty(ConstraintsPenalty):
 
         penalty = L2Univariate()
 
-        super(L2ContraintsPenalty, self).__init__(penalty, weights=weights,
+        super().__init__(penalty, weights=weights,
                                                   restriction=restriction)
 
 
-class CovariancePenalty(object):
+class CovariancePenalty:
 
     def __init__(self, weight):
         # weight should be scalar
@@ -602,12 +563,6 @@ class CovariancePenalty(object):
         of `mat`.
         """
         raise NotImplementedError
-
-    def grad(self, mat, mat_inv):
-        import warnings
-        warnings.warn('grad method is deprecated. Use `deriv` instead',
-                      DeprecationWarning)
-        return self.deriv(mat, mat_inv)
 
 
 class PSD(CovariancePenalty):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Tue Dec 20 20:24:20 2011
@@ -8,7 +7,6 @@ License: BSD-3
 
 """
 
-from statsmodels.compat.python import range
 import numpy as np
 from statsmodels.regression.linear_model import OLS, GLS, WLS
 
@@ -132,7 +130,6 @@ class GLSHet(WLS):
     Usage : see example ....
 
     TODO: test link option
-
     """
     def __init__(self, endog, exog, exog_var=None, weights=None, link=None):
         self.exog_var = atleast_2dcols(exog_var)
@@ -151,7 +148,7 @@ class GLSHet(WLS):
         """
         Perform an iterative two-step procedure to estimate a WLS model.
 
-        The model is assumed to have heteroscedastic errors.
+        The model is assumed to have heteroskedastic errors.
         The variance is estimated by OLS regression of the link transformed
         squared residuals on Z, i.e.::
 
@@ -159,7 +156,7 @@ class GLSHet(WLS):
 
         Parameters
         ----------
-        maxiter : integer, optional
+        maxiter : int, optional
             the number of iterations
 
         Notes
@@ -175,7 +172,6 @@ class GLSHet(WLS):
         Repeated calls to fit_iterative, will do one redundant pinv_wexog
         calculation. Calling fit_iterative(maxiter) ones does not do any
         redundant recalculations (whitening or calculating pinv_wexog).
-
         """
 
         import collections
