@@ -534,29 +534,30 @@ class BinaryDistribution(Distribution):
         return False
 
 
-setup(
-    name=DISTNAME,
-    maintainer=MAINTAINER,
-    ext_modules=extensions,
-    maintainer_email=MAINTAINER_EMAIL,
-    description=DESCRIPTION,
-    license=LICENSE,
-    url=URL,
-    download_url=DOWNLOAD_URL,
-    project_urls=PROJECT_URLS,
-    long_description=LONG_DESCRIPTION,
-    classifiers=CLASSIFIERS,
-    platforms="any",
-    cmdclass=cmdclass,
-    packages=find_packages(),
-    package_data=package_data,
-    distclass=BinaryDistribution,
-    include_package_data=False,  # True will install all files in repo
-    install_requires=INSTALL_REQUIRES,
-    extras_require=EXTRAS_REQUIRE,
-    zip_safe=False,
-    python_requires=">=3.9",
-)
+setup(name=DISTNAME,
+      version=versioneer.get_version(),
+      maintainer=MAINTAINER,
+      ext_modules=extensions,
+      maintainer_email=MAINTAINER_EMAIL,
+      description=DESCRIPTION,
+      license=LICENSE,
+      url=URL,
+      download_url=DOWNLOAD_URL,
+      project_urls=PROJECT_URLS,
+      long_description=LONG_DESCRIPTION,
+      classifiers=CLASSIFIERS,
+      platforms='any',
+      cmdclass=cmdclass,
+      packages=find_packages(),
+      package_data=package_data,
+      distclass=BinaryDistribution,
+      include_package_data=False,  # True will install all files in repo
+      setup_requires=SETUP_REQUIRES,
+      install_requires=INSTALL_REQUIRES,
+      extras_require=EXTRAS_REQUIRE,
+      zip_safe=False,
+      data_files=[('', ['LICENSE.txt', 'setup.cfg'])]
+      )
 
 # Clean-up copied files
 for copy in FILES_COPIED_TO_PACKAGE:

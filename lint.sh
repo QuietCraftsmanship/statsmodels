@@ -186,16 +186,9 @@ if [ "$LINT" == true ]; then
         statsmodels/regression/tests/test_lme.py \
         statsmodels/regression/tests/test_processreg.py \
         statsmodels/regression/tests/test_quantile_regression.py \
-        statsmodels/regression/tests/test_rolling.py \
-        statsmodels/regression/tests/test_tools.py \
-        statsmodels/robust \
-        statsmodels/robust/tests \
-        statsmodels/robust/tests/results \
-        statsmodels/sandbox/__init__.py \
-        statsmodels/sandbox/archive/__init__.py \
-        statsmodels/sandbox/distributions/__init__.py \
-        statsmodels/sandbox/distributions/examples/__init__.py \
-        statsmodels/sandbox/distributions/tests/__init__.py \
+        statsmodels/regression/tests/results/ \
+        statsmodels/robust/tests/ \
+        statsmodels/sandbox/distributions/try_pot.py \
         statsmodels/sandbox/distributions/tests/test_gof_new.py \
         statsmodels/sandbox/distributions/try_pot.py \
         statsmodels/sandbox/mcevaluate/__init__.py \
@@ -379,7 +372,7 @@ if [ "$LINT" == true ]; then
     fi
     git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
     git fetch origin --quiet
-    NEW_FILES=$(git diff origin/main --name-status -u -- "*.py" | grep ^A | cut -c 3- | paste -sd " " -)
+    NEW_FILES=$(git diff origin/master --name-status -u -- "*.py" | grep ^A | cut -c 3- | paste -sd " " -)
     if [ -n "$NEW_FILES" ]; then
         echo "Linting newly added files with strict rules"
         echo "New files: $NEW_FILES"

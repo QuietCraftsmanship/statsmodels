@@ -1,6 +1,6 @@
-from statsmodels.compat.python import lrange
-
-from io import StringIO
+from statsmodels.compat.python import (StringIO, urlopen, HTTPError, URLError, lrange,
+                                       cPickle, urljoin, long, PY3)
+import shutil
 from os import environ, makedirs
 from os.path import abspath, dirname, exists, expanduser, join
 import shutil
@@ -119,17 +119,29 @@ def _get_cache(cache):
 
 
 def _cache_it(data, cache_path):
-    import zlib
-    with open(cache_path, "wb") as zf:
-        zf.write(zlib.compress(data))
+    if PY3:
+        # for some reason encode("zip") won't work for me in Python 3?
+        import zlib
+        # use protocol 2 so can open with python 2.x if cached in 3.x
+        data = data.decode('utf-8')
+        open(cache_path, "wb").write(zlib.compress(cPickle.dumps(data,
+                                                                 protocol=2)))
+    else:
+        open(cache_path, "wb").write(cPickle.dumps(data).encode("zip"))
 
 
 def _open_cache(cache_path):
-    import zlib
-
-    # return as bytes object encoded in utf-8 for cross-compat of cached
-    with open(cache_path, 'rb') as zf:
-        return zlib.decompress(zf.read())
+    if PY3:
+        # NOTE: don't know why but decode('zip') doesn't work on my
+        # Python 3 build
+        import zlib
+        data = zlib.decompress(open(cache_path, 'rb').read())
+        # return as bytes object encoded in utf-8 for cross-compat of cached
+        data = cPickle.loads(data).encode('utf-8')
+    else:
+        data = open(cache_path, 'rb').read().decode('zip')
+        data = cPickle.loads(data)
+    return data
 
 
 def _urlopen_cached(url, cache):

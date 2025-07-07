@@ -60,6 +60,10 @@ except ImportError:
 
 data_klasses = (pd.Series, pd.DataFrame)
 
+data_klasses = (pandas.Series, pandas.DataFrame)
+if pandas_lt_25_0:
+    data_klasses += (pandas.Panel,)
+
 try:
     import pandas.testing as testing
 except ImportError:

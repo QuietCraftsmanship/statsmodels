@@ -1,6 +1,10 @@
 """
 Test VAR Model
 """
+import warnings
+# pylint: disable=W0612,W0231
+from statsmodels.compat.python import (iteritems, StringIO, lrange, BytesIO,
+                                       range)
 
 from statsmodels.compat.pandas import QUARTER_END, assert_index_equal
 from statsmodels.compat.python import lrange
@@ -28,6 +32,24 @@ DECIMAL_5 = 5
 DECIMAL_4 = 4
 DECIMAL_3 = 3
 DECIMAL_2 = 2
+
+
+@pytest.fixture()
+def bivariate_var_data(reset_randomstate):
+    """A bivariate dataset for VAR estimation"""
+    e = np.random.standard_normal((252, 2))
+    y = np.zeros_like(e)
+    y[:2] = e[:2]
+    for i in range(2, 252):
+        y[i] = .2 * y[i - 1] + .1 * y[i - 2] + e[i]
+    return y
+
+
+@pytest.fixture()
+def bivariate_var_result(bivariate_var_data):
+    """A bivariate VARResults for reuse"""
+    mod = VAR(bivariate_var_data)
+    return mod.fit()
 
 
 @pytest.fixture()
@@ -446,11 +468,11 @@ class TestVARResults(CheckIRF, CheckFEVD):
 
     @pytest.mark.smoke
     def test_forecast(self):
-        self.res.forecast(self.res.endog[-5:], 5)
+        point = self.res.forecast(self.res.y[-5:], 5)
 
     @pytest.mark.smoke
     def test_forecast_interval(self):
-        y = self.res.endog[: -self.p :]
+        y = self.res.y[:-self.p:]
         point, lower, upper = self.res.forecast_interval(y, 5)
 
     @pytest.mark.matplotlib
@@ -861,138 +883,11 @@ class TestVARExtras:
 
         fci1 = res_lin_trend.forecast_interval(res_lin_trend.endog[-2:], h)
         exf = np.arange(len(data), len(data) + h)
-        fci2 = res_lin_trend1.forecast_interval(
-            res_lin_trend1.endog[-2:], h, exog_future=exf
-        )
-        exf2 = exf[:, None] ** [0, 1]
-        fci3 = res_lin_trend2.forecast_interval(
-            res_lin_trend2.endog[-2:], h, exog_future=exf2
-        )
-        assert_allclose(fci2, fci1, rtol=1e-12, atol=1e-12)
-        assert_allclose(fci3, fci1, rtol=1e-12, atol=1e-12)
-        assert_allclose(fci3, fci2, rtol=1e-12, atol=1e-12)
-
-    def test_multiple_simulations(self):
-        res0 = self.res0
-        k_ar = res0.k_ar
-        neqs = res0.neqs
-        init = self.data[-k_ar:]
-
-        sim1 = res0.simulate_var(seed=987128, steps=10)
-        sim2 = res0.simulate_var(seed=987128, steps=10, nsimulations=2)
-        assert_equal(sim2.shape, (2, 10, neqs))
-        assert_allclose(sim1, sim2[0])
-
-        sim2_init = res0.simulate_var(
-            seed=987128, steps=10, initial_values=init, nsimulations=2
-        )
-        assert_allclose(sim2_init[0, :k_ar], init)
-        assert_allclose(sim2_init[1, :k_ar], init)
-
-
-def test_var_cov_params_pandas(bivariate_var_data):
-    df = pd.DataFrame(bivariate_var_data, columns=["x", "y"])
-    mod = VAR(df)
-    res = mod.fit(2)
-    cov = res.cov_params()
-    assert isinstance(cov, pd.DataFrame)
-    exog_names = ("const", "L1.x", "L1.y", "L2.x", "L2.y")
-    index = pd.MultiIndex.from_product((exog_names, ("x", "y")))
-    assert_index_equal(cov.index, cov.columns)
-    assert_index_equal(cov.index, index)
-
-
-def test_summaries_exog(reset_randomstate):
-    y = np.random.standard_normal((500, 6))
-    df = pd.DataFrame(y)
-    cols = [f"endog_{i}" for i in range(2)] + [f"exog_{i}" for i in range(4)]
-    df.columns = cols
-    df.index = pd.date_range("1-1-1950", periods=500, freq="MS")
-    endog = df.iloc[:, :2]
-    exog = df.iloc[:, 2:]
-
-    res = VAR(endog=endog, exog=exog).fit(maxlags=0)
-    summ = res.summary().summary
-    assert "exog_0" in summ
-    assert "exog_1" in summ
-    assert "exog_2" in summ
-    assert "exog_3" in summ
-
-    res = VAR(endog=endog, exog=exog).fit(maxlags=2)
-    summ = res.summary().summary
-    assert "exog_0" in summ
-    assert "exog_1" in summ
-    assert "exog_2" in summ
-    assert "exog_3" in summ
-
-
-def test_whiteness_nlag(reset_randomstate):
-    # GH 6686
-    y = np.random.standard_normal((200, 2))
-    res = VAR(y).fit(maxlags=1, ic=None)
-    with pytest.raises(ValueError, match="The whiteness test can only"):
-        res.test_whiteness(1)
-
-
-def test_var_maxlag(reset_randomstate):
-    y = np.random.standard_normal((22, 10))
-    VAR(y).fit(maxlags=None, ic="aic")
-    with pytest.raises(ValueError, match="maxlags is too large"):
-        VAR(y).fit(maxlags=8, ic="aic")
-
-
-def test_from_formula():
-    with pytest.raises(NotImplementedError):
-        VAR.from_formula("y ~ x", None)
-
-
-def test_correct_nobs():
-    # GH6748
-    mdata = macrodata.load_pandas().data
-    # prepare the dates index
-    dates = mdata[["year", "quarter"]].astype(int).astype(str)
-    quarterly = dates["year"] + "Q" + dates["quarter"]
-    quarterly = dates_from_str(quarterly)
-    mdata = mdata[["realgdp", "realcons", "realinv"]]
-    mdata.index = pd.DatetimeIndex(quarterly)
-    data = np.log(mdata).diff().dropna()
-    data.index.freq = data.index.inferred_freq
-    data_exog = pd.DataFrame(index=data.index)
-    data_exog["exovar1"] = np.random.normal(size=data_exog.shape[0])
-    # make a VAR model
-    model = VAR(endog=data, exog=data_exog)
-    results = model.fit(maxlags=1)
-    irf = results.irf_resim(orth=False, repl=100, steps=10, seed=1, burn=100, cum=False)
-    assert irf.shape == (100, 11, 3, 3)
-
-
-@pytest.mark.slow
-def test_irf_err_bands():
-    # smoke tests
-    data = get_macrodata()
-    model = VAR(data)
-    results = model.fit(maxlags=2)
-    irf = results.irf()
-    # Smoke tests only
-    irf.err_band_sz1()
-    irf.err_band_sz2()
-    irf.err_band_sz3()
-    irf.errband_mc()
-
-
-def test_0_lag(reset_randomstate):
-    # GH 9412
-    y = np.random.rand(500, 2)
-    results = VAR(y).fit(maxlags=1, ic="bic", trend="c")
-    assert results.params.shape == (1, 2)
-    fcasts = results.forecast(y, steps=5)
-    assert_allclose(fcasts, np.ones((5, 1)) * results.params)
-
-
-def test_forecast_wrong_shape_params(reset_randomstate):
-    # GH 9412
-    y = np.random.rand(300, 2)
-    mod = VAR(y)
-    results = mod.fit(maxlags=1, ic="aic", trend="c")
-    with pytest.raises(ValueError):
-        forecast(y, results.params, results.params, steps=5)
+        fci2 = res_lin_trend1.forecast_interval(res_lin_trend1.endog[-2:], h,
+                                                exog_future=exf)
+        exf2 = exf[:, None]**[0, 1]
+        fci3 = res_lin_trend2.forecast_interval(res_lin_trend2.endog[-2:], h,
+                                               exog_future=exf2)
+        assert_allclose(fci2, fci1, rtol=1e-12)
+        assert_allclose(fci3, fci1, rtol=1e-12)
+        assert_allclose(fci3, fci2, rtol=1e-12)

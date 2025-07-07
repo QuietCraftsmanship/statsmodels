@@ -1,16 +1,20 @@
-from statsmodels.compat.python import lrange
+from __future__ import division
+from statsmodels.compat.python import iterkeys, zip, lrange, iteritems, range
 
-from io import BytesIO
-from itertools import product
-
-import numpy as np
 from numpy.testing import assert_, assert_raises
 import pandas as pd
 import pytest
+from numpy.testing import assert_, assert_raises
 
 from statsmodels.api import datasets
 
 # utilities for the tests
+
+from collections import OrderedDict
+from statsmodels.api import datasets
+
+import numpy as np
+from itertools import product
 
 try:
     import matplotlib.pyplot as plt  # noqa:F401

@@ -5,13 +5,14 @@ References
 ----------
 Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
 """
+from __future__ import print_function, division
+from statsmodels.compat.python import range
+
 import numpy as np
 import numpy.linalg as npl
 from numpy.linalg import slogdet
 
-from statsmodels.tools.decorators import deprecated_alias
-from statsmodels.tools.numdiff import approx_fprime, approx_hess
-import statsmodels.tsa.base.tsa_model as tsbase
+from statsmodels.tools.numdiff import approx_hess, approx_fprime
 from statsmodels.tsa.vector_ar.irf import IRAnalysis
 import statsmodels.tsa.vector_ar.util as util
 from statsmodels.tsa.vector_ar.var_model import VARProcess, VARResults
@@ -564,6 +565,10 @@ class SVARResults(SVARProcess, VARResults):
 
     _model_type = 'SVAR'
 
+    y = deprecated_alias("y", "endog", remove_version="0.11.0")
+    ys_lagged = deprecated_alias("ys_lagged", "endog_lagged",
+                                 remove_version="0.11.0")
+
     def __init__(self, endog, endog_lagged, params, sigma_u, lag_order,
                  A=None, B=None, A_mask=None, B_mask=None, model=None,
                  trend='c', names=None, dates=None):
@@ -625,7 +630,7 @@ class SVARResults(SVARProcess, VARResults):
 
         return IRAnalysis(self, P=P, periods=periods, svar=True)
 
-    def sirf_errband_mc(self, orth=False, repl=1000, steps=10,
+    def sirf_errband_mc(self, orth=False, repl=1000, T=10,
                         signif=0.05, seed=None, burn=100, cum=False):
         """
         Compute Monte Carlo integrated error bands assuming normally
@@ -633,11 +638,11 @@ class SVARResults(SVARProcess, VARResults):
 
         Parameters
         ----------
-        orth : bool, default False
-            Compute orthogonalized impulse response error bands
-        repl : int
+        orth: bool, default False
+            Compute orthoganalized impulse response error bands
+        repl: int
             number of Monte Carlo replications to perform
-        steps : int, default 10
+        T: int, default 10
             number of impulse response periods
         signif : float (0 < signif <1)
             Significance level for error bars, defaults to 95% CI

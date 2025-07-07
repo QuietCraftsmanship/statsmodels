@@ -6,13 +6,10 @@ Created on Sat Apr 16 15:02:13 2011
 from statsmodels.compat.scipy import SP_LT_116
 
 import numpy as np
-from numpy.testing import assert_allclose, assert_almost_equal
-import pytest
-
+from numpy.testing import (assert_almost_equal, assert_array_almost_equal,
+                           assert_allclose)
 from statsmodels.sandbox.distributions.multivariate import (
-    mvstdnormcdf,
-    mvstdtprob,
-)
+                mvstdtprob, mvstdnormcdf)
 from statsmodels.sandbox.distributions.mv_normal import MVT, MVNormal
 
 
@@ -136,51 +133,45 @@ class TestMVDistributions:
         mvn3 = self.mvn3
 
         r_val = [-7.667977543898155, -6.917977543898155, -5.167977543898155]
-        assert_allclose(mvn3.logpdf(cov3), r_val, rtol=1e-13)
-
+        assert_array_almost_equal( mvn3.logpdf(cov3), r_val, decimal = 14)
+        #decimal 18
         r_val = [0.000467562492721686, 0.000989829804859273, 0.005696077243833402]
-        assert_allclose(mvn3.pdf(cov3), r_val, rtol=1e-13)
-
-        mvn3b = MVNormal(np.array([0, 0, 0]), cov3)
+        assert_array_almost_equal( mvn3.pdf(cov3), r_val, decimal = 17)
+        #cheating new mean, same cov, too dangerous, got wrong instance in tests
+        #mvn3.mean = np.array([0,0,0])
+        mvn3b = MVNormal(np.array([0,0,0]), cov3)
         r_val = [0.02914269740502042, 0.02269635555984291, 0.01767593948287269]
-        assert_allclose(mvn3b.pdf(cov3), r_val, rtol=1e-13)
+        assert_array_almost_equal( mvn3b.pdf(cov3), r_val, decimal = 16)
 
     def test_mvt_pdf(self, reset_randomstate):
         cov3 = self.cov3
         mu3 = self.mu3
 
-        mvt = MVT((0, 0), 1, 5)
-        assert_almost_equal(
-            mvt.logpdf(np.array([0.0, 0.0])), -1.837877066409345, decimal=15
-        )
-        assert_almost_equal(
-            mvt.pdf(np.array([0.0, 0.0])), 0.1591549430918953, decimal=15
-        )
+        mvt = MVT((0,0), 1, 5)
+        assert_almost_equal(mvt.logpdf(np.array([0.,0.])), -1.837877066409345,
+                            decimal=15)
+        assert_almost_equal(mvt.pdf(np.array([0.,0.])), 0.1591549430918953,
+                            decimal=15)
 
-        mvt.logpdf(np.array([1.0, 1.0])) - (-3.01552989458359)
+        mvt.logpdf(np.array([1.,1.]))-(-3.01552989458359)
 
-        mvt1 = MVT((0, 0), 1, 1)
-        mvt1.logpdf(np.array([1.0, 1.0])) - (-3.48579549941151)  # decimal=16
+        mvt1 = MVT((0,0), 1, 1)
+        mvt1.logpdf(np.array([1.,1.]))-(-3.48579549941151) #decimal=16
 
         rvs = mvt.rvs(100000)
         assert_almost_equal(np.cov(rvs, rowvar=False), mvt.cov, decimal=1)
 
         mvt31 = MVT(mu3, cov3, 1)
-        assert_almost_equal(
-            mvt31.pdf(cov3),
+        assert_almost_equal(mvt31.pdf(cov3),
             [0.0007276818698165781, 0.0009980625182293658, 0.0027661422056214652],
-            decimal=17,
-        )
+            decimal=17)
 
         mvt = MVT(mu3, cov3, 3)
-        assert_almost_equal(
-            mvt.pdf(cov3),
+        assert_almost_equal(mvt.pdf(cov3),
             [0.000863777424247410, 0.001277510788307594, 0.004156314279452241],
-            decimal=17,
-        )
+            decimal=17)
 
 
 if __name__ == "__main__":
     import pytest
-
-    pytest.main([__file__, "-vvs", "-x", "--pdb"])
+    pytest.main([__file__, '-vvs', '-x', '--pdb'])

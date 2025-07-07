@@ -6,10 +6,9 @@ References
 Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
 """
 
-from __future__ import annotations
-
-from statsmodels.compat.python import lrange
-
+from __future__ import division, print_function
+from statsmodels.compat.python import (range, lrange, string_types,
+                                       StringIO, iteritems)
 from collections import defaultdict
 from io import StringIO
 
@@ -19,7 +18,9 @@ import scipy.stats as stats
 
 import statsmodels.base.wrapper as wrap
 from statsmodels.iolib.table import SimpleTable
-from statsmodels.tools.decorators import cache_readonly, deprecated_alias
+from statsmodels.tools.decorators import cache_readonly
+from statsmodels.tools.sm_exceptions import OutputWarning
+from statsmodels.tools.tools import chain_dot
 from statsmodels.tools.linalg import logdet_symm
 from statsmodels.tools.sm_exceptions import OutputWarning
 from statsmodels.tools.validation import array_like
@@ -539,11 +540,9 @@ class VAR(TimeSeriesModel):
     ----------
     Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
     """
-
-    y = deprecated_alias("y", "endog", remove_version="0.11.0")
-
-    def __init__(self, endog, exog=None, dates=None, freq=None, missing="none"):
-        super().__init__(endog, exog, dates, freq, missing=missing)
+    def __init__(self, endog, exog=None, dates=None, freq=None,
+                 missing='none'):
+        super(VAR, self).__init__(endog, exog, dates, freq, missing=missing)
         if self.endog.ndim == 1:
             raise ValueError("Only gave one variable to VAR")
         self.neqs = self.endog.shape[1]
@@ -580,9 +579,9 @@ class VAR(TimeSeriesModel):
             intercept = params[:k_trend]
             predictedvalues += intercept
 
-        y = self.endog
-        x = util.get_var_endog(y, lags, trend=trend, has_constant="raise")
-        fittedvalues = np.dot(x, params)
+        y = self.y
+        X = util.get_var_endog(y, lags, trend=trend, has_constant='raise')
+        fittedvalues = np.dot(X, params)
 
         fv_start = start - k_ar
         pv_end = min(len(predictedvalues), len(fittedvalues) - fv_start)
@@ -1093,8 +1092,9 @@ class VARProcess:
         return util.acf_to_acorr(self.acf(nlags=nlags))
 
     def plot_acorr(self, nlags=10, linewidth=8):
-        """Plot theoretical autocorrelation function"""
-        fig = plotting.plot_full_acorr(self.acorr(nlags=nlags), linewidth=linewidth)
+        "Plot theoretical autocorrelation function"
+        fig = plotting.plot_full_acorr(self.acorr(nlags=nlags),
+                                       linewidth=linewidth)
         return fig
 
     def forecast(self, y, steps, exog_future=None):
@@ -1222,8 +1222,7 @@ steps ({steps}) observations.
         -----
         Lütkepohl pp. 39-40
         """
-        if not 0 < alpha < 1:
-            raise ValueError("alpha must be between 0 and 1")
+        assert(0 < alpha < 1)
         q = util.norm_signif_level(alpha)
 
         point_forecast = self.forecast(y, steps, exog_future=exog_future)
@@ -1292,8 +1291,7 @@ class VARResults(VARProcess):
     sigma_u : ndarray (K x K)
         Estimate of white noise process variance Var[u_t]
     """
-
-    _model_type = "VAR"
+    _model_type = 'VAR'
 
     def __init__(
         self,
@@ -1358,13 +1356,13 @@ class VARResults(VARProcess):
         )
 
     def plot(self):
-        """Plot input time series"""
-        return plotting.plot_mts(self.endog, names=self.names, index=self.dates)
+        """Plot input time series
+        """
+        return plotting.plot_mts(self.y, names=self.names, index=self.dates)
 
     @property
     def df_model(self):
-        """
-        Number of estimated parameters per variable, including the intercept / trends
+        """Number of estimated parameters, including the intercept / trends
         """
         return self.neqs * self.k_ar + self.k_exog
 
@@ -1383,13 +1381,11 @@ class VARResults(VARProcess):
     @cache_readonly
     def resid(self):
         """
-        Residuals of response variable resulting from estimated coefficients
-        """
-        return self.endog[self.k_ar :] - self.fittedvalues
+        return self.y[self.k_ar:] - self.fittedvalues
 
     def sample_acov(self, nlags=1):
         """Sample acov"""
-        return _compute_acov(self.endog[self.k_ar :], nlags=nlags)
+        return _compute_acov(self.y[self.k_ar:], nlags=nlags)
 
     def sample_acorr(self, nlags=1):
         """Sample acorr"""
@@ -1397,25 +1393,9 @@ class VARResults(VARProcess):
         return _acovs_to_acorrs(acovs)
 
     def plot_sample_acorr(self, nlags=10, linewidth=8):
-        """
-        Plot sample autocorrelation function
-
-        Parameters
-        ----------
-        nlags : int
-            The number of lags to use in compute the autocorrelation. Does
-            not count the zero lag, which will be returned.
-        linewidth : int
-            The linewidth for the plots.
-
-        Returns
-        -------
-        Figure
-            The figure that contains the plot axes.
-        """
-        fig = plotting.plot_full_acorr(
-            self.sample_acorr(nlags=nlags), linewidth=linewidth
-        )
+        "Plot theoretical autocorrelation function"
+        fig = plotting.plot_full_acorr(self.sample_acorr(nlags=nlags),
+                                       linewidth=linewidth)
         return fig
 
     def resid_acov(self, nlags=1):
@@ -1470,8 +1450,19 @@ class VARResults(VARProcess):
         Adjusted to be an unbiased estimator
         Ref: Lütkepohl p.74-75
         """
-        z = self.endog_lagged
-        return np.kron(np.linalg.inv(z.T @ z), self.sigma_u)
+        import warnings
+        warnings.warn("For consistency with other statmsodels models, "
+                      "starting in version 0.11.0 `VARResults.cov_params` "
+                      "will be a method instead of a property.",
+                      category=FutureWarning)
+        z = self.ys_lagged
+        return np.kron(scipy.linalg.inv(np.dot(z.T, z)), self.sigma_u)
+
+    def _cov_params(self):
+        """Wrapper to avoid FutureWarning.  Remove after 0.11"""
+        import warnings
+        with warnings.catch_warnings(record=True):
+            return self.cov_params
 
     def cov_ybar(self):
         r"""Asymptotically consistent estimate of covariance of the sample mean
@@ -1591,17 +1582,10 @@ class VARResults(VARProcess):
         """
         Plot forecast
         """
-        mid, lower, upper = self.forecast_interval(
-            self.endog[-self.k_ar :], steps, alpha=alpha
-        )
-        fig = plotting.plot_var_forc(
-            self.endog,
-            mid,
-            lower,
-            upper,
-            names=self.names,
-            plot_stderr=plot_stderr,
-        )
+        mid, lower, upper = self.forecast_interval(self.y[-self.k_ar:], steps,
+                                                   alpha=alpha)
+        fig = plotting.plot_var_forc(self.y, mid, lower, upper,
+                                     names=self.names, plot_stderr=plot_stderr)
         return fig
 
     # Forecast error covariance functions
@@ -1643,27 +1627,19 @@ class VARResults(VARProcess):
         return fc_cov
 
     # Monte Carlo irf standard errors
-    def irf_errband_mc(
-        self,
-        orth=False,
-        repl=1000,
-        steps=10,
-        signif=0.05,
-        seed=None,
-        burn=100,
-        cum=False,
-    ):
+    def irf_errband_mc(self, orth=False, repl=1000, T=10,
+                       signif=0.05, seed=None, burn=100, cum=False):
         """
         Compute Monte Carlo integrated error bands assuming normally
         distributed for impulse response functions
 
         Parameters
         ----------
-        orth : bool, default False
-            Compute orthogonalized impulse response error bands
-        repl : int
+        orth: bool, default False
+            Compute orthoganalized impulse response error bands
+        repl: int
             number of Monte Carlo replications to perform
-        steps : int, default 10
+        T: int, default 10
             number of impulse response periods
         signif : float (0 < signif <1)
             Significance level for error bars, defaults to 95% CI
@@ -1682,9 +1658,8 @@ class VARResults(VARProcess):
         -------
         Tuple of lower and upper arrays of ma_rep monte carlo standard errors
         """
-        ma_coll = self.irf_resim(
-            orth=orth, repl=repl, steps=steps, seed=seed, burn=burn, cum=cum
-        )
+        ma_coll = self.irf_resim(orth=orth, repl=repl, T=T,
+                                 seed=seed, burn=burn, cum=cum)
 
         ma_sort = np.sort(ma_coll, axis=0)  # sort to get quantiles
         # python 2: round returns float
@@ -1694,9 +1669,8 @@ class VARResults(VARProcess):
         upper = ma_sort[upp_idx, :, :, :]
         return lower, upper
 
-    def irf_resim(
-        self, orth=False, repl=1000, steps=10, seed=None, burn=100, cum=False
-    ):
+    def irf_resim(self, orth=False, repl=1000, T=10,
+                  seed=None, burn=100, cum=False):
         """
         Simulates impulse response function, returning an array of simulations.
         Used for Sims-Zha error band calculation.
@@ -1707,7 +1681,7 @@ class VARResults(VARProcess):
             Compute orthogonalized impulse response error bands
         repl : int
             number of Monte Carlo replications to perform
-        steps : int, default 10
+        T: int, default 10
             number of impulse response periods
         signif : float (0 < signif <1)
             Significance level for error bars, defaults to 95% CI
@@ -1743,14 +1717,9 @@ class VARResults(VARProcess):
             return ret.cumsum(axis=0) if cum else ret
 
         for i in range(repl):
-            # discard first burn to eliminate correct for starting bias
-            sim = util.varsim(
-                coefs,
-                intercept,
-                sigma_u,
-                seed=seed,
-                steps=nobs_original + burn,
-            )
+            # discard first hundred to eliminate correct for starting bias
+            sim = util.varsim(coefs, intercept, sigma_u,
+                              seed=seed, steps=nobs+burn)
             sim = sim[burn:]
             ma_coll[i, :, :, :] = fill_coll(sim)
 
@@ -1799,14 +1768,9 @@ class VARResults(VARProcess):
         upper[:, : self.k_exog] = np.eye(self.k_exog)
 
         lower_dim = self.neqs * (self.k_ar - 1)
-        eye = np.eye(lower_dim)
-        lower = np.column_stack(
-            (
-                np.zeros((lower_dim, self.k_exog)),
-                eye,
-                np.zeros((lower_dim, self.neqs)),
-            )
-        )
+        I = np.eye(lower_dim)  # noqa:E741
+        lower = np.column_stack((np.zeros((lower_dim, self.k_exog)), I,
+                                 np.zeros((lower_dim, self.neqs))))
 
         return np.vstack((upper, self.params.T, lower))
 
@@ -2458,3 +2422,51 @@ def _compute_acov(x, nlags=1):
 def _acovs_to_acorrs(acovs):
     sd = np.sqrt(np.diag(acovs[0]))
     return acovs / np.outer(sd, sd)
+
+
+if __name__ == '__main__':
+    from statsmodels.tsa.vector_ar.util import parse_lutkepohl_data
+    import statsmodels.tools.data as data_util
+
+    np.set_printoptions(linewidth=140, precision=5)
+
+    sdata, dates = parse_lutkepohl_data('data/%s.dat' % 'e1')
+
+    names = sdata.dtype.names
+    data = data_util.struct_to_ndarray(sdata)
+    adj_data = np.diff(np.log(data), axis=0)
+    # est = VAR(adj_data, p=2, dates=dates[1:], names=names)
+    model = VAR(adj_data[:-16], dates=dates[1:-16], names=names)
+    # model = VAR(adj_data[:-16], dates=dates[1:-16], names=names)
+
+    est = model.fit(maxlags=2)
+    irf = est.irf()
+
+    y = est.y[-2:]
+    """
+    # irf.plot_irf()
+
+    # i = 2; j = 1
+    # cv = irf.cum_effect_cov(orth=True)
+    # print np.sqrt(cv[:, j * 3 + i, j * 3 + i]) / 1e-2
+
+    # data = np.genfromtxt('Canada.csv', delimiter=',', names=True)
+    # data = data.view((float, 4))
+    """
+
+    '''
+    mdata = sm.datasets.macrodata.load(as_pandas=False).data
+    mdata2 = mdata[['realgdp','realcons','realinv']]
+    names = mdata2.dtype.names
+    data = mdata2.view((float,3))
+    data = np.diff(np.log(data), axis=0)
+
+    import pandas as pn
+    df = pn.DataFrame.fromRecords(mdata)
+    df = np.log(df.reindex(columns=names))
+    df = (df - df.shift(1)).dropna()
+
+    model = VAR(df)
+    est = model.fit(maxlags=2)
+    irf = est.irf()
+    '''

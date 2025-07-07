@@ -107,8 +107,8 @@ def _partials_logistic(x):
     return partials
 
 
-def cy_hamilton_filter_log(initial_probabilities, regime_transition,
-                           conditional_loglikelihoods, model_order):
+def py_hamilton_filter(initial_probabilities, regime_transition,
+                       conditional_likelihoods):
     """
     Hamilton filter in log space using Cython inner loop.
 
@@ -165,9 +165,136 @@ def cy_hamilton_filter_log(initial_probabilities, regime_transition,
     if incompatible_shapes:
         raise ValueError('Arguments do not have compatible shapes')
 
-    # Convert to log space
-    initial_probabilities = np.log(initial_probabilities)
-    regime_transition = np.log(np.maximum(regime_transition, 1e-20))
+    # Storage
+    # Pr[S_t = s_t | Y_t]
+    filtered_marginal_probabilities = (
+        np.zeros((k_regimes, nobs), dtype=dtype))
+    # Pr[S_t = s_t, ... S_{t-r} = s_{t-r} | Y_{t-1}]
+    predicted_joint_probabilities = np.zeros(
+        (k_regimes,) * (order + 1) + (nobs,), dtype=dtype)
+    # f(y_t | Y_{t-1})
+    joint_likelihoods = np.zeros((nobs,), dtype)
+    # Pr[S_t = s_t, ... S_{t-r} = s_{t-r} | Y_t]
+    filtered_joint_probabilities = np.zeros(
+        (k_regimes,) * (order + 1) + (nobs + 1,), dtype=dtype)
+
+    # Initial probabilities
+    filtered_marginal_probabilities[:, 0] = initial_probabilities
+    tmp = np.copy(initial_probabilities)
+    shape = (k_regimes, k_regimes)
+    for i in range(order):
+        tmp = np.reshape(regime_transition[..., i], shape + (1,) * i) * tmp
+    filtered_joint_probabilities[..., 0] = tmp
+
+    # Check that regime_transition is oriented correctly.
+    if not np.allclose(np.sum(regime_transition, axis=0), 1):
+        raise ValueError('regime_transition does not contain '
+                         'left stochastic matrices.')
+
+    # Reshape regime_transition so we can use broadcasting
+    shape = (k_regimes, k_regimes)
+    shape += (1,) * (order-1)
+    shape += (regime_transition.shape[-1],)
+    regime_transition = np.reshape(regime_transition, shape)
+
+    # Get appropriate subset of transition matrix
+    if regime_transition.shape[-1] > 1:
+        regime_transition = regime_transition[..., order:]
+
+    # Hamilton filter iterations
+    transition_t = 0
+    for t in range(nobs):
+        if regime_transition.shape[-1] > 1:
+            transition_t = t
+
+        # S_t, S_{t-1}, ..., S_{t-r} | t-1, stored at zero-indexed location t
+        if order > 0:
+            predicted_joint_probabilities[..., t] = (
+                # S_t | S_{t-1}
+                regime_transition[..., transition_t] *
+                # S_{t-1}, S_{t-2}, ..., S_{t-r} | t-1
+                filtered_joint_probabilities[..., t].sum(axis=-1))
+        else:
+            predicted_joint_probabilities[..., t] = (
+                np.dot(regime_transition[..., transition_t],
+                       filtered_joint_probabilities[..., t]))
+
+        # f(y_t, S_t, ..., S_{t-r} | t-1)
+        tmp = (conditional_likelihoods[..., t] *
+               predicted_joint_probabilities[..., t])
+        # f(y_t | t-1)
+        joint_likelihoods[t] = np.sum(tmp)
+
+        # S_t, S_{t-1}, ..., S_{t-r} | t, stored at index t+1
+        filtered_joint_probabilities[..., t+1] = (
+            tmp / joint_likelihoods[t])
+
+    # S_t | t
+    filtered_marginal_probabilities = filtered_joint_probabilities[..., 1:]
+    for i in range(1, filtered_marginal_probabilities.ndim - 1):
+        filtered_marginal_probabilities = np.sum(
+            filtered_marginal_probabilities, axis=-2)
+
+    return (filtered_marginal_probabilities, predicted_joint_probabilities,
+            joint_likelihoods, filtered_joint_probabilities[..., 1:])
+
+
+def cy_hamilton_filter(initial_probabilities, regime_transition,
+                       conditional_likelihoods):
+    """
+    Hamilton filter using Cython inner loop
+
+    Parameters
+    ----------
+    initial_probabilities : array
+        Array of initial probabilities, shaped (k_regimes,) giving the
+        distribution of the regime process at time t = -order where order
+        is a nonnegative integer.
+    regime_transition : array
+        Matrix of regime transition probabilities, shaped either
+        (k_regimes, k_regimes, 1) or if there are time-varying transition
+        probabilities (k_regimes, k_regimes, nobs + order).  Entry [i, j,
+        t] contains the probability of moving from j at time t-1 to i at
+        time t, so each matrix regime_transition[:, :, t] should be left
+        stochastic.  The first order entries and initial_probabilities are
+        used to produce the initial joint distribution of dimension order +
+        1 at time t=0.
+    conditional_likelihoods : array
+        Array of likelihoods conditional on the last `order+1` regimes,
+        shaped (k_regimes,)*(order + 1) + (nobs,).
+
+    Returns
+    -------
+    filtered_marginal_probabilities : array
+        Array containing Pr[S_t=s_t | Y_t] - the probability of being in each
+        regime conditional on time t information. Shaped (k_regimes, nobs).
+    predicted_joint_probabilities : array
+        Array containing Pr[S_t=s_t, ..., S_{t-order}=s_{t-order} | Y_{t-1}] -
+        the joint probability of the current and previous `order` periods
+        being in each combination of regimes conditional on time t-1
+        information. Shaped (k_regimes,) * (order + 1) + (nobs,).
+    joint_likelihoods : array
+        Array of likelihoods condition on time t information, shaped (nobs,).
+    filtered_joint_probabilities : array
+        Array containing Pr[S_t=s_t, ..., S_{t-order}=s_{t-order} | Y_{t}] -
+        the joint probability of the current and previous `order` periods
+        being in each combination of regimes conditional on time t
+        information. Shaped (k_regimes,) * (order + 1) + (nobs,).
+    """
+
+    # Dimensions
+    k_regimes = len(initial_probabilities)
+    nobs = conditional_likelihoods.shape[-1]
+    order = conditional_likelihoods.ndim - 2
+    dtype = conditional_likelihoods.dtype
+
+    # Check for compatible shapes.
+    incompatible_shapes = (
+        regime_transition.shape[-1] not in (1, nobs + order)
+        or regime_transition.shape[:2] != (k_regimes, k_regimes)
+        or conditional_likelihoods.shape[0] != k_regimes)
+    if incompatible_shapes:
+        raise ValueError('Arguments do not have compatible shapes')
 
     # Storage
     # Pr[S_t = s_t | Y_t]
@@ -776,10 +903,9 @@ class MarkovSwitching(tsbase.TimeSeriesModel):
 
         # Apply the filter
         return ((regime_transition, initial_probabilities,
-                 conditional_loglikelihoods) +
-                cy_hamilton_filter_log(
-                    initial_probabilities, regime_transition,
-                    conditional_loglikelihoods, self.order))
+                 conditional_likelihoods) +
+                cy_hamilton_filter(initial_probabilities, regime_transition,
+                                   conditional_likelihoods))
 
     def filter(self, params, transformed=True, cov_type=None, cov_kwds=None,
                return_raw=False, results_class=None,
