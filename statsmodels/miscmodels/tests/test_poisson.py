@@ -2,8 +2,11 @@
 
 
 '''
+import pytest
 import numpy as np
 from numpy.testing import assert_almost_equal
+from scipy import stats
+
 import statsmodels.api as sm
 from statsmodels.miscmodels.count import PoissonGMLE, PoissonOffsetGMLE, \
                         PoissonZiGMLE
@@ -15,7 +18,7 @@ DEC = 4
 DEC4 = 4
 DEC5 = 5
 
-class CompareMixin(object):
+class CompareMixin:
 
     def test_params(self):
         assert_almost_equal(self.res.params, self.res_glm.params, DEC5)
@@ -42,8 +45,16 @@ class CompareMixin(object):
         assert_almost_equal(tt.tvalue, self.res.tvalues, DEC)
         assert_almost_equal(pvalue, self.res.pvalues, DEC)
 
+    def test_df(self):
+        res = self.res
+        k_extra = getattr(self, "k_extra", 0)
+        nobs, k_vars = res.model.exog.shape
+        assert res.df_resid == nobs - k_vars - k_extra
+        assert res.df_model == k_vars - 1  # -1 for constant
+        assert len(res.params) == k_vars + k_extra
+
+    @pytest.mark.smoke
     def test_summary(self):
-        # SMOKE test
         self.res.summary()
 
 
@@ -72,7 +83,24 @@ class TestPoissonMLE(CompareMixin):
         cls.res = cls.mod.fit(start_params=0.9 * cls.res_discrete.params,
                                 method='bfgs', disp=0)
 
+    def test_predict_distribution(self):
+        res = self.res
+        model = self.mod
 
+        with pytest.raises(ValueError):
+            # No "result" attribute
+            model.predict_distribution(model.exog)
+
+        try:
+            model.result = res
+            dist = model.predict_distribution(model.exog)
+            assert isinstance(dist, stats._distn_infrastructure.rv_frozen)
+            assert_almost_equal(dist.mean(),
+                                np.exp(model.exog.dot(res.params)),
+                                15)
+        finally:
+            # leave the model object how we found it
+            model.__delattr__("result")
 
 
 class TestPoissonOffset(CompareMixin):
@@ -124,6 +152,7 @@ class TestPoissonOffset(CompareMixin):
         #assert_almost_equal(self.res.tval, self.res_glm.t()[1:], DEC)
         #assert_almost_equal(self.res.params, self.res_discrete.params)
 
+
 #DEC = DEC - 1
 class TestPoissonZi(CompareMixin):
     #this uses the first exog to construct an offset variable
@@ -138,7 +167,7 @@ class TestPoissonZi(CompareMixin):
         data_exog = sm.add_constant(data_exog, prepend=False)
         xbeta = 1 + 0.1*rvs.sum(1)
         data_endog = np.random.poisson(np.exp(xbeta))
-
+        cls.k_extra = 1
 
         mod_glm = sm.GLM(data_endog, data_exog, family=sm.families.Poisson())
         cls.res_glm = mod_glm.fit()
@@ -179,4 +208,3 @@ class TestPoissonZi(CompareMixin):
         from numpy.testing import assert_warns
         mod1.data.xnames = mod1.data.xnames * 2
         assert_warns(ValueWarning, mod1.fit, disp=0)
-

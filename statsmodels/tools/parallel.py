@@ -6,10 +6,9 @@ Author: Alexandre Gramfort <gramfort@nmr.mgh.harvard.edu>
 License: Simplified BSD
 
 changes for statsmodels (Josef Perktold)
-- try import from joblib directly, (doesn't import all of sklearn)
+- try import from joblib directly, (does not import all of sklearn)
 
 """
-from __future__ import print_function
 
 from statsmodels.tools.sm_exceptions import (ModuleUnavailableWarning,
                                              module_unavailable_doc)
@@ -22,20 +21,20 @@ def parallel_func(func, n_jobs, verbose=5):
 
     Parameters
     ----------
-    func: callable
+    func : callable
         A function
-    n_jobs: int
+    n_jobs : int
         Number of jobs to run in parallel
-    verbose: int
+    verbose : int
         Verbosity level
 
     Returns
     -------
-    parallel: instance of joblib.Parallel or list
+    parallel : instance of joblib.Parallel or list
         The parallel object
-    my_func: callable
+    my_func : callable
         func if not parallel or delayed(func)
-    n_jobs: int
+    n_jobs : int
         Number of jobs >= 0
 
     Examples

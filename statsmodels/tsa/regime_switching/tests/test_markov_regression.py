@@ -4,21 +4,23 @@ Tests for Markov Regression models
 Author: Chad Fulton
 License: BSD-3
 """
-from __future__ import division, absolute_import, print_function
 
 import os
 import warnings
+
 import numpy as np
+from numpy.testing import assert_allclose, assert_raises
 import pandas as pd
+import pytest
+
 from statsmodels.tsa.regime_switching import (markov_switching,
                                               markov_regression)
-from numpy.testing import assert_allclose, assert_raises
 
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
 
-# See http://www.stata-press.com/data/r14/usmacro
+# See https://www.stata-press.com/data/r14/usmacro
 fedfunds = [1.03, 0.99, 1.34, 1.5, 1.94, 2.36, 2.48, 2.69, 2.81, 2.93, 2.93,
             3.0, 3.23, 3.25, 1.86, 0.94, 1.32, 2.16, 2.57, 3.08, 3.58, 3.99,
             3.93, 3.7, 2.94, 2.3, 2.0, 1.73, 1.68, 2.4, 2.46, 2.61, 2.85,
@@ -41,7 +43,7 @@ fedfunds = [1.03, 0.99, 1.34, 1.5, 1.94, 2.36, 2.48, 2.69, 2.81, 2.93, 2.93,
             4.46, 4.91, 5.25, 5.25, 5.26, 5.25, 5.07, 4.5, 3.18, 2.09, 1.94,
             0.51, 0.18, 0.18, 0.16, 0.12, 0.13, 0.19, 0.19, 0.19]
 
-# See http://www.stata-press.com/data/r14/usmacro
+# See https://www.stata-press.com/data/r14/usmacro
 ogap = [-0.53340107, 0.72974336, 2.93532324, 3.58194304, 4.15760183,
         4.28775644, 3.01683831, 2.64185619, 1.82473528, 2.37461162,
         2.39338565, 1.24197006, 1.1370815, -1.28657401, -4.46665335,
@@ -89,7 +91,7 @@ ogap = [-0.53340107, 0.72974336, 2.93532324, 3.58194304, 4.15760183,
         -7.43927145, -6.89403868, -6.8306222, -6.26507998, -5.93287086,
         -5.59370756]
 
-# See http://www.stata-press.com/data/r14/usmacro
+# See https://www.stata-press.com/data/r14/usmacro
 inf = [np.nan, np.nan, np.nan, np.nan, -0.2347243,
        0.37373397, 0.25006533, 1.04645514, 2.01665616, 2.58033299,
        3.41399837, 3.60986805, 3.46304512, 3.08529949, 3.45609665,
@@ -137,7 +139,7 @@ inf = [np.nan, np.nan, np.nan, np.nan, -0.2347243,
        -1.60695589, 1.48749816, 2.33687115, 1.78588998, 1.22873163,
        1.21550024]
 
-# See http://www.stata-press.com/data/r14/snp500
+# See https://www.stata-press.com/data/r14/snp500
 areturns = [1.60864139, 0.6581642, 0.91177338,
             1.88970506, 0.76378739, 0.10790635, 0.29509732,
             0.16913767, 1.30772412, 0.85901159, 0.92307973,
@@ -270,7 +272,7 @@ areturns = [1.60864139, 0.6581642, 0.91177338,
             0.37556711, 0.44287458, 0.34578958, 1.48449266,
             1.95924711, 0.09717447]
 
-# See http://www.stata-press.com/data/r14/mumpspc
+# See https://www.stata-press.com/data/r14/mumpspc
 # Note that this has already been seasonally differenced at period 12
 mumpspc = [0.29791319, 0.41467956, 1.13061404, 1.23267496,
            1.55659747, 1.41078568, 0.45335022, 0.1419628,
@@ -405,7 +407,7 @@ mumpspc = [0.29791319, 0.41467956, 1.13061404, 1.23267496,
            0.05628902, 0.00924054]
 
 
-class MarkovRegression(object):
+class MarkovRegression:
     @classmethod
     def setup_class(cls, true, endog, atol=1e-5, rtol=1e-7, **kwargs):
         cls.model = markov_regression.MarkovRegression(endog, **kwargs)
@@ -414,8 +416,9 @@ class MarkovRegression(object):
         cls.atol = atol
         cls.rtol = rtol
 
-        # Smoke test for summary
-        cls.result.summary()
+    @pytest.mark.smoke
+    def test_summary(self):
+        self.result.summary()
 
     def test_llf(self):
         assert_allclose(self.result.llf, self.true['llf'], atol=self.atol,
@@ -429,6 +432,7 @@ class MarkovRegression(object):
         assert_allclose(res.llf, self.true['llf_fit'], atol=self.atol,
                         rtol=self.rtol)
 
+    @pytest.mark.smoke
     def test_fit_em(self, **kwargs):
         # Test EM fitting (smoke test)
         res_em = self.model._fit_em(**kwargs)
@@ -766,7 +770,7 @@ class TestFedFundsConst(MarkovRegression):
             'predict_filtered': results['const_fyhat'],
             'predict_smoothed': results['const_syhat'],
         }
-        super(TestFedFundsConst, cls).setup_class(true, fedfunds, k_regimes=2)
+        super().setup_class(true, fedfunds, k_regimes=2)
 
     def test_filter_output(self, **kwargs):
         res = self.result
@@ -811,7 +815,7 @@ class TestFedFundsConst(MarkovRegression):
         assert_allclose(actual, self.true['predict_smoothed'], atol=1e-6)
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-7)
@@ -906,8 +910,7 @@ class TestFedFundsConstShort(MarkovRegression):
             'llf_fit': -7.8553370,
             'llf_fit_em': -7.8554974
         }
-        super(TestFedFundsConstShort, cls).setup_class(true, fedfunds[-10:],
-                                                       k_regimes=2)
+        super().setup_class(true, fedfunds[-10:], k_regimes=2)
 
     def test_filter_output(self, **kwargs):
         res = self.result
@@ -944,7 +947,7 @@ class TestFedFundsConstShort(MarkovRegression):
         nobs = 4
         initial_probabilities = np.ones(k_regimes) / k_regimes
 
-        # We don't actually transition between the 3 regimes.
+        # We do not actually transition between the 3 regimes.
         regime_transition = np.eye(k_regimes)[:, :, np.newaxis]
 
         # Regime i correponds to a sequence of iid draws from discrete
@@ -959,21 +962,17 @@ class TestFedFundsConstShort(MarkovRegression):
         expected_marginals[:, :2] = [[1/3], [1/3], [1/3]]
         expected_marginals[:, 2:] = [[0], [1], [0]]
 
-
-        py_results = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-        assert_allclose(py_results[0], expected_marginals)
-
-        cy_results = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-        assert_allclose(cy_results[0], expected_marginals)
+        cy_results = markov_switching.cy_hamilton_filter_log(
+            initial_probabilities, regime_transition,
+            np.log(conditional_likelihoods + 1e-20), model_order=0)
+        assert_allclose(cy_results[0], expected_marginals, atol=1e-15)
 
     def test_hamilton_filter_order_zero_with_tvtp(self):
         k_regimes = 3
         nobs = 8
         initial_probabilities = np.ones(k_regimes) / k_regimes
 
-        # We don't actually transition between the 3 regimes except from
+        # We do not actually transition between the 3 regimes except from
         # t=3 to t=4 where we reset to regimes 1 and 2 being equally
         # likely.
         regime_transition = np.zeros((k_regimes, k_regimes, nobs))
@@ -1011,13 +1010,10 @@ class TestFedFundsConstShort(MarkovRegression):
         expected_marginals[:, 4:6] = [[0], [1/2], [1/2]]
         expected_marginals[:, 6:8] = [[0], [0], [1]]
 
-        py_results = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-        assert_allclose(py_results[0], expected_marginals)
-
-        cy_results = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-        assert_allclose(cy_results[0], expected_marginals)
+        cy_results = markov_switching.cy_hamilton_filter_log(
+            initial_probabilities, regime_transition,
+            np.log(conditional_likelihoods + 1e-20), model_order=0)
+        assert_allclose(cy_results[0], expected_marginals, atol=1e-15)
 
     def test_hamilton_filter_shape_checks(self):
         k_regimes = 3
@@ -1026,53 +1022,12 @@ class TestFedFundsConstShort(MarkovRegression):
 
         initial_probabilities = np.ones(k_regimes) / k_regimes
         regime_transition = np.ones((k_regimes, k_regimes, nobs)) / k_regimes
-        conditional_likelihoods = np.ones(order * (k_regimes,) + (nobs,))
+        conditional_loglikelihoods = np.ones(order * (k_regimes,) + (nobs,))
 
-        for func in [markov_switching.py_hamilton_filter,
-                     markov_switching.cy_hamilton_filter]:
-            with assert_raises(ValueError):
-                func(initial_probabilities,
-                     regime_transition,
-                     conditional_likelihoods)
-
-    def test_py_hamilton_filter(self):
-        mod = self.model
-        params = self.true['params']
-
-        regime_transition = mod.regime_transition_matrix(params)
-        initial_probabilities = mod.initial_probabilities(
-            params, regime_transition)
-        conditional_likelihoods = mod._conditional_likelihoods(params)
-
-        actual = markov_switching.py_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-        desired = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-
-        for i in range(3):
-            assert_allclose(actual[i], desired[i])
-
-    def test_py_kim_smoother(self):
-        mod = self.model
-        params = self.true['params']
-
-        regime_transition = mod.regime_transition_matrix(params)
-        initial_probabilities = mod.initial_probabilities(
-            params, regime_transition)
-        conditional_likelihoods = mod._conditional_likelihoods(params)
-
-        # Hamilton filter
-        filter_output = markov_switching.cy_hamilton_filter(
-            initial_probabilities, regime_transition, conditional_likelihoods)
-
-        # Kim smoother
-        actual = markov_switching.py_kim_smoother(
-            regime_transition, filter_output[1], filter_output[3])
-        desired = markov_switching.cy_kim_smoother(
-            regime_transition, filter_output[1], filter_output[3])
-
-        for i in range(2):
-            assert_allclose(actual[i], desired[i])
+        with assert_raises(ValueError):
+            markov_switching.cy_hamilton_filter_log(
+                initial_probabilities, regime_transition,
+                conditional_loglikelihoods, model_order=order)
 
 
 class TestFedFundsConstL1(MarkovRegression):
@@ -1088,11 +1043,11 @@ class TestFedFundsConstL1(MarkovRegression):
             'bse_oim': np.r_[.1202616, .0495924, .2886657, .1183838, .0337234,
                              .0185031, np.nan]
         }
-        super(TestFedFundsConstL1, cls).setup_class(
+        super().setup_class(
             true, fedfunds[1:], k_regimes=2, exog=fedfunds[:-1])
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-6)
@@ -1120,14 +1075,14 @@ class TestFedFundsConstL1Exog(MarkovRegression):
             'predict1': results.iloc[4:]['constL1exog_syhat2'],
             'predict_smoothed': results.iloc[4:]['constL1exog_syhat'],
         }
-        super(TestFedFundsConstL1Exog, cls).setup_class(
+        super().setup_class(
             true, fedfunds[4:], k_regimes=2,
             exog=np.c_[fedfunds[3:-1], ogap[4:], inf[4:]])
 
     def test_fit(self, **kwargs):
         kwargs.setdefault('em_iter', 10)
         kwargs.setdefault('maxiter', 100)
-        super(TestFedFundsConstL1Exog, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
     def test_predict(self):
         # Predictions conditional on regime (the same no matter which
@@ -1154,7 +1109,7 @@ class TestFedFundsConstL1Exog(MarkovRegression):
         assert_allclose(actual, self.true['predict_smoothed'], atol=1e-5)
 
     def test_bse(self):
-        # Can't compare last element of bse because we estimate sigma^2 rather
+        # Cannot compare last element of bse because we estimate sigma^2 rather
         # than sigma^2
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-1], self.true['bse_oim'][:-1], atol=1e-7)
@@ -1176,14 +1131,14 @@ class TestFedFundsConstL1Exog3(MarkovRegression):
             'llf_fit': -182.27188,
             'llf_fit_em': -226.88581
         }
-        super(TestFedFundsConstL1Exog3, cls).setup_class(
+        super().setup_class(
             true, fedfunds[4:], k_regimes=3,
             exog=np.c_[fedfunds[3:-1], ogap[4:], inf[4:]])
 
     def test_fit(self, **kwargs):
         kwargs['search_reps'] = 20
         np.random.seed(1234)
-        super(TestFedFundsConstL1Exog3, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
 
 class TestAreturnsConstL1Variance(MarkovRegression):
@@ -1199,17 +1154,17 @@ class TestAreturnsConstL1Variance(MarkovRegression):
             'bse_oim': np.r_[.0634387, .0662574, .0782852, .2784204, .0301862,
                              .0857841, np.nan, np.nan]
         }
-        super(TestAreturnsConstL1Variance, cls).setup_class(
+        super().setup_class(
             true, areturns[1:], k_regimes=2, exog=areturns[:-1],
             switching_variance=True)
 
     def test_fit(self, **kwargs):
         kwargs.setdefault('em_iter', 10)
         kwargs.setdefault('maxiter', 100)
-        super(TestAreturnsConstL1Variance, self).test_fit(**kwargs)
+        super().test_fit(**kwargs)
 
     def test_bse(self):
-        # Can't compare last two element of bse because we estimate sigma^2
+        # Cannot compare last two element of bse because we estimate sigma^2
         # rather than sigma
         bse = self.result.cov_params_approx.diagonal()**0.5
         assert_allclose(bse[:-2], self.true['bse_oim'][:-2], atol=1e-7)
@@ -1226,6 +1181,124 @@ class TestMumpspcNoconstL1Variance(MarkovRegression):
             'llf_fit': 131.7225,
             'llf_fit_em': 131.7175
         }
-        super(TestMumpspcNoconstL1Variance, cls).setup_class(
-            true, mumpspc[1:], k_regimes=2, trend='nc', exog=mumpspc[:-1],
+        super().setup_class(
+            true, mumpspc[1:], k_regimes=2, trend='n', exog=mumpspc[:-1],
             switching_variance=True, atol=1e-4)
+
+
+gh5380_series = [
+    -2.28833689e-04, -4.83175915e-05, -4.93236435e-04, -2.92251109e-04,
+    -4.03295179e-04, -2.01009784e-04, 2.85109215e-04, 1.85710827e-04,
+    -2.04503930e-04, -9.06050944e-05, 1.06177818e-03, -4.97251569e-04,
+    7.16669183e-04, 1.81161945e-04, -6.87139289e-04, -4.85979721e-05,
+    -1.68387973e-05, -4.43257154e-04, 5.37457383e-04, -8.17822909e-04,
+    6.06814040e-04, -1.05481968e-05, -1.15698730e-04, -8.57638924e-04,
+    8.98143953e-05, 1.70216877e-04, -2.84874742e-04, -2.81999910e-05,
+    -3.43787510e-04, -5.74808548e-04, -6.47844682e-05, 1.08667397e-04,
+    -1.28790034e-04, 7.07615608e-05, 1.17633886e-04, 8.98163443e-07,
+    1.03860559e-05, -2.50298430e-06, -9.09673045e-07, -1.94645227e-05,
+    -5.21373877e-05, -1.38431813e-04, 1.11092157e-04, 3.09541647e-05,
+    -1.57756488e-04, 4.93176285e-05, -4.87488913e-05, 2.08097182e-04,
+    -7.08581132e-05, -8.12182224e-06, 8.03090891e-05, -1.02981093e-05,
+    2.07550066e-05, 3.75383116e-05, -3.96307514e-05, -1.12007982e-05,
+    -4.00958429e-05, 2.01206738e-05, -2.95802891e-05, 1.26422639e-04,
+    -3.95617289e-05, 1.94523738e-04, 4.63964270e-05, 2.07712951e-05,
+    2.92417981e-04, 2.15111259e-04, 1.23762736e-04, 7.78305555e-05,
+    -3.44022033e-04, -2.84249114e-05, -1.08351559e-04, -1.76944408e-04,
+    7.99332875e-05, 5.09785758e-04, 3.24506365e-04, -2.47943721e-04,
+    2.22346033e-04, -6.66164024e-05, 2.00911206e-04, 4.58750048e-04,
+    -1.55390954e-04, 3.67913831e-04, 1.08274314e-04, -1.27400351e-04,
+    1.50654063e-04, 2.69976025e-04, 4.51532804e-05, -2.21579419e-04,
+    1.54792373e-04, 1.98397630e-04, 3.96943388e-04, 6.18663277e-04,
+    8.86151537e-04, 6.16949774e-04, 5.44538857e-03, 7.33282114e-05,
+    3.93393013e-03, 6.66556165e-04, 6.18815111e-03, -6.40775088e-03,
+    -1.98864768e-03, -3.42828364e-05, -7.92023127e-04, -1.64656177e-03,
+    -3.31112273e-03, -2.63499766e-03, -2.55118821e-04, -3.63858500e-04,
+    -6.58065806e-04, -3.38492405e-04, -1.10458161e-03, -2.08228620e-07,
+    -7.21562092e-05, 7.92946105e-05, 1.25472212e-05, -1.27190212e-04,
+    3.94913196e-05, -1.87353437e-05, -6.57929565e-06, 1.61597869e-05,
+    1.90031845e-05, 8.76129739e-03, -8.34566734e-03, -5.82053353e-05,
+    1.28770725e-04, 2.38160836e-04, -1.84590083e-05, 3.10903734e-05,
+    1.89366264e-05, 7.61985181e-05, 3.20208326e-04, -6.90388272e-05,
+    2.09928647e-05, -3.14720707e-05, 1.32614437e-04, 1.10385710e-04,
+    -4.91256074e-05, -1.16967974e-04, 4.88977021e-05, 6.19231048e-05,
+    2.95994863e-04, 1.91592526e-03, -2.22511393e-04, -8.04871984e-04,
+    -6.66886069e-04, -3.80754506e-04, -4.06613941e-05, -4.66164600e-04,
+    -1.48077847e-04, 1.31787219e-04, 5.12392307e-05, -2.61346302e-05,
+    -1.46071993e-04, -3.17839957e-04, -2.52143621e-04, -1.73768102e-04,
+    -6.88107229e-05, -2.14130430e-05, 5.25348170e-07, -9.80972737e-05,
+    -6.90120785e-05, -1.28208365e-04, 2.09816018e-05, 1.02199123e-05,
+    2.08633684e-05, 1.05609818e-05, 1.35835269e-05, 1.50357742e-04,
+    5.72303827e-05, 1.27501839e-04, 1.20706157e-04, 8.27340411e-06,
+    3.77430540e-05, 8.10426523e-05, 9.99617511e-05, 1.21103273e-04,
+    1.10255996e-04, 6.89558159e-05, 3.22442426e-05, 8.49416109e-05,
+    4.05396296e-04, 1.69699170e-04, 1.10892701e-04, 7.21186150e-05,
+    1.24978570e-04, -2.91922347e-04, 5.50447651e-05, -1.68467417e-04,
+    -7.06084859e-05, -3.73250482e-04, -1.49829854e-04, -7.23752254e-05,
+    -9.80670951e-05, -3.00179050e-05, 4.15704679e-05, 2.87503307e-05,
+    -5.09988933e-05, -9.55791344e-06, -2.74369249e-05, -2.23330122e-05,
+    9.74727035e-06, -8.58146574e-06, 2.97704340e-05, -1.12990428e-05,
+    -5.90507361e-05, 9.50772649e-07, -7.35502474e-07, 5.66683332e-07,
+    -9.81320792e-06, -6.60845729e-07, -3.19848073e-05, -1.10779191e-04]
+
+
+@pytest.mark.smoke
+def test_avoid_underflow():
+    # See GH5380 for example and dataset demonstrating underflow. This test is
+    # the "Example 1" given there.
+
+    # The underlying problem was an underflow error in computing the smoothed
+    # states, which resulted in NaN values in e.g. smoothed_joint_probabilities
+    # This causes NaNs in the EM algorithm (e.g. _em_regime_transition), and
+    # so the _fit_em method would return NaN parameters, as would the fit
+    # method.
+
+    # This test runs the smoother at the last set of good parameter values
+    # (i.e. these parameters were generated by _fit_em and did not have any
+    # NaN values in them, but the smoothed_joint_probabilities computed at
+    # those parameters have NaNs in them, so that the next set of parameters
+    # would have NaNs). The test then checks that the underflow problem has
+    # been resolved, i.e. that there are no NaNs in the predicted, filtered,
+    # and smoothed joint probabilities.
+    m = markov_regression.MarkovRegression(
+        gh5380_series, k_regimes=2, switching_variance=True)
+    # To get these params, the following command was used:
+    # params = m._fit_em(maxiter=1).params
+    params = np.array([
+        6.97337611e-01, 6.26116329e-01, -6.41266551e-06, 3.81141202e-06,
+        4.72462327e-08, 4.45291473e-06])
+    res = m.smooth(params)
+
+    assert not np.any(np.isnan(res.predicted_joint_probabilities))
+    assert not np.any(np.isnan(res.filtered_joint_probabilities))
+    assert not np.any(np.isnan(res.smoothed_joint_probabilities))
+
+
+def test_exog_tvtp():
+    exog = np.ones_like(fedfunds)
+
+    mod1 = markov_regression.MarkovRegression(fedfunds, k_regimes=2)
+    mod2 = markov_regression.MarkovRegression(fedfunds, k_regimes=2,
+                                              exog_tvtp=exog)
+
+    params = np.r_[0.98209618, 0.05036498, 3.70877542, 9.55676298, 4.44181911]
+    params_tvtp = params.copy()
+    params_tvtp[0] = np.squeeze(
+        mod2._untransform_logistic(np.r_[0.], np.r_[1 - params[0]])
+    )
+    params_tvtp[1] = np.squeeze(
+        mod2._untransform_logistic(np.r_[0.], np.r_[1 - params[1]])
+    )
+
+    res1 = mod1.smooth(params)
+    res2 = mod2.smooth(params_tvtp)
+
+    assert_allclose(res2.llf_obs, res1.llf_obs)
+    assert_allclose(res2.regime_transition - res1.regime_transition, 0,
+                    atol=1e-15)
+    assert_allclose(res2.predicted_joint_probabilities,
+                    res1.predicted_joint_probabilities)
+    assert_allclose(res2.filtered_joint_probabilities,
+                    res1.filtered_joint_probabilities)
+    assert_allclose(res2.smoothed_joint_probabilities,
+                    res1.smoothed_joint_probabilities)

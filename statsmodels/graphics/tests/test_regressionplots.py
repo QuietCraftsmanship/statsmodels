@@ -1,21 +1,28 @@
-from statsmodels.compat.testing import skipif
 import numpy as np
+from numpy.testing import assert_array_less, assert_equal, assert_raises
+from pandas import DataFrame, Series
+import pytest
 
 import statsmodels.api as sm
-from numpy.testing import assert_equal, assert_raises
-from statsmodels.graphics.regressionplots import (plot_fit, plot_ccpr,
-                  plot_partregress, plot_regress_exog, abline_plot,
-                  plot_partregress_grid, plot_ccpr_grid, add_lowess,
-                  plot_added_variable, plot_partial_residuals,
-                  plot_ceres_residuals, influence_plot, plot_leverage_resid2)
-from pandas import Series, DataFrame
-from numpy.testing.utils import assert_array_less
+from statsmodels.graphics.regressionplots import (
+    abline_plot,
+    add_lowess,
+    influence_plot,
+    plot_added_variable,
+    plot_ccpr,
+    plot_ccpr_grid,
+    plot_ceres_residuals,
+    plot_fit,
+    plot_leverage_resid2,
+    plot_partial_residuals,
+    plot_partregress_grid,
+    plot_regress_exog,
+)
 
 try:
-    import matplotlib.pyplot as plt  #makes plt available for test functions
-    have_matplotlib = True
-except:
-    have_matplotlib = False
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
 pdf_output = False
 
@@ -25,35 +32,31 @@ if pdf_output:
 else:
     pdf = None
 
+
 def close_or_save(pdf, fig):
     if pdf_output:
         pdf.savefig(fig)
-    plt.close(fig)
 
-@skipif(not have_matplotlib, reason='matplotlib not available')
-def teardown_module():
-    plt.close('all')
-    if pdf_output:
-        pdf.close()
 
-class TestPlot(object):
+class TestPlot:
 
-    def setup(self):
+    @classmethod
+    def setup_class(cls):
         nsample = 100
         sig = 0.5
         x1 = np.linspace(0, 20, nsample)
-        x2 = 5 + 3* np.random.randn(nsample)
-        X = np.c_[x1, x2, np.sin(0.5*x1), (x2-5)**2, np.ones(nsample)]
+        x2 = 5 + 3 * np.random.randn(nsample)
+        x = np.c_[x1, x2, np.sin(0.5 * x1), (x2 - 5) ** 2, np.ones(nsample)]
         beta = [0.5, 0.5, 1, -0.04, 5.]
-        y_true = np.dot(X, beta)
+        y_true = np.dot(x, beta)
         y = y_true + sig * np.random.normal(size=nsample)
         exog0 = sm.add_constant(np.c_[x1, x2], prepend=False)
-        res = sm.OLS(y, exog0).fit()
 
-        self.res = res
+        cls.res = sm.OLS(y, exog0).fit()
+        cls.res_true = sm.OLS(y, x).fit()
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_plot_fit(self):
+    @pytest.mark.matplotlib
+    def test_plot_fit(self, close_figures):
         res = self.res
 
         fig = plot_fit(res, 0, y_true=None)
@@ -72,30 +75,25 @@ class TestPlot(object):
 
         close_or_save(pdf, fig)
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_plot_oth(self):
-        #just test that they run
+    @pytest.mark.matplotlib
+    def test_plot_oth(self, close_figures):
+        # just test that they run
         res = self.res
-        plt.close('all')
         plot_fit(res, 0, y_true=None)
-        plt.close('all')
-        plot_partregress_grid(res, exog_idx=[0,1])
-        plt.close('all')
+        plot_partregress_grid(res, exog_idx=[0, 1])
+        # GH 5873
+        plot_partregress_grid(self.res_true, grid=(2, 3))
         plot_regress_exog(res, exog_idx=0)
-        plt.close('all')
         plot_ccpr(res, exog_idx=0)
-        plt.close('all')
         plot_ccpr_grid(res, exog_idx=[0])
-        plt.close('all')
         fig = plot_ccpr_grid(res, exog_idx=[0,1])
         for ax in fig.axes:
             add_lowess(ax)
-   
-        close_or_save(pdf, fig)
-        plt.close('all')
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_plot_influence(self):
+        close_or_save(pdf, fig)
+
+    @pytest.mark.matplotlib
+    def test_plot_influence(self, close_figures):
         infl = self.res.get_influence()
         fig = influence_plot(self.res)
         assert_equal(isinstance(fig, plt.Figure), True)
@@ -108,7 +106,6 @@ class TestPlot(object):
         except AttributeError:
             import warnings
             warnings.warn('test not compatible with matplotlib version')
-        plt.close(fig)
 
         fig = influence_plot(self.res, criterion='DFFITS')
         assert_equal(isinstance(fig, plt.Figure), True)
@@ -119,19 +116,17 @@ class TestPlot(object):
             assert_array_less(ssr, 1e-12)
         except AttributeError:
             pass
-        plt.close(fig)
 
         assert_raises(ValueError, influence_plot, self.res, criterion='unknown')
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_plot_leverage_resid2(self):
+    @pytest.mark.matplotlib
+    def test_plot_leverage_resid2(self, close_figures):
         fig = plot_leverage_resid2(self.res)
         assert_equal(isinstance(fig, plt.Figure), True)
-        plt.close(fig)
 
 
 class TestPlotPandas(TestPlot):
-    def setup(self):
+    def setup_method(self):
         nsample = 100
         sig = 0.5
         x1 = np.linspace(0, 20, nsample)
@@ -150,18 +145,17 @@ class TestPlotPandas(TestPlot):
         self.data = data
 
 class TestPlotFormula(TestPlotPandas):
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_one_column_exog(self):
+
+    @pytest.mark.matplotlib
+    def test_one_column_exog(self, close_figures):
         from statsmodels.formula.api import ols
         res = ols("y~var1-1", data=self.data).fit()
-        fig = plot_regress_exog(res, "var1")
-        plt.close(fig)
+        plot_regress_exog(res, "var1")
         res = ols("y~var1", data=self.data).fit()
-        fig = plot_regress_exog(res, "var1")
-        plt.close(fig)
+        plot_regress_exog(res, "var1")
 
 
-class TestABLine(object):
+class TestABLine:
 
     @classmethod
     def setup_class(cls):
@@ -173,30 +167,30 @@ class TestABLine(object):
         cls.y = y
         cls.mod = mod
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_abline_model(self):
+    @pytest.mark.matplotlib
+    def test_abline_model(self, close_figures):
         fig = abline_plot(model_results=self.mod)
         ax = fig.axes[0]
         ax.scatter(self.X[:,1], self.y)
         close_or_save(pdf, fig)
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_abline_model_ax(self):
+    @pytest.mark.matplotlib
+    def test_abline_model_ax(self, close_figures):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.scatter(self.X[:,1], self.y)
         fig = abline_plot(model_results=self.mod, ax=ax)
         close_or_save(pdf, fig)
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_abline_ab(self):
+    @pytest.mark.matplotlib
+    def test_abline_ab(self, close_figures):
         mod = self.mod
         intercept, slope = mod.params
         fig = abline_plot(intercept=intercept, slope=slope)
         close_or_save(pdf, fig)
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_abline_ab_ax(self):
+    @pytest.mark.matplotlib
+    def test_abline_ab_ax(self, close_figures):
         mod = self.mod
         intercept, slope = mod.params
         fig = plt.figure()
@@ -205,8 +199,8 @@ class TestABLine(object):
         fig = abline_plot(intercept=intercept, slope=slope, ax=ax)
         close_or_save(pdf, fig)
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_abline_remove(self):
+    @pytest.mark.matplotlib
+    def test_abline_remove(self, close_figures):
         mod = self.mod
         intercept, slope = mod.params
         fig = plt.figure()
@@ -232,17 +226,35 @@ class TestABLinePandas(TestABLine):
         mod = sm.OLS(y,X).fit()
         cls.mod = mod
 
-class TestAddedVariablePlot(object):
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_added_variable_poisson(self):
+class TestAddedVariablePlot:
+
+    @pytest.mark.matplotlib
+    def test_added_variable_ols(self, close_figures):
+        np.random.seed(3446)
+        n = 100
+        p = 3
+        exog = np.random.normal(size=(n, p))
+        lin_pred = 4 + exog[:, 0] + 0.2 * exog[:, 1]**2
+        endog = lin_pred + np.random.normal(size=n)
+
+        model = sm.OLS(endog, exog)
+        results = model.fit()
+        fig = plot_added_variable(results, 0)
+        ax = fig.get_axes()[0]
+        ax.set_title("Added variable plot (OLS)")
+        close_or_save(pdf, fig)
+        close_figures()
+
+    @pytest.mark.matplotlib
+    def test_added_variable_poisson(self, close_figures):
 
         np.random.seed(3446)
 
         n = 100
         p = 3
         exog = np.random.normal(size=(n, p))
-        lin_pred = 4 + exog[:, 0] + 0.2*exog[:, 1]**2
+        lin_pred = 4 + exog[:, 0] + 0.2 * exog[:, 1]**2
         expval = np.exp(lin_pred)
         endog = np.random.poisson(expval)
 
@@ -255,7 +267,7 @@ class TestAddedVariablePlot(object):
                     weight_str = ["Unweighted", "Weighted"][use_glm_weights]
 
                     # Run directly and called as a results method.
-                    for j in 0,1:
+                    for j in 0, 1:
 
                         if j == 0:
                             fig = plot_added_variable(results, focus_col,
@@ -264,8 +276,8 @@ class TestAddedVariablePlot(object):
                             ti = "Added variable plot"
                         else:
                             fig = results.plot_added_variable(focus_col,
-                                                 use_glm_weights=use_glm_weights,
-                                                 resid_type=resid_type)
+                                                              use_glm_weights=use_glm_weights,
+                                                              resid_type=resid_type)
                             ti = "Added variable plot (called as method)"
                         ax = fig.get_axes()[0]
 
@@ -279,12 +291,13 @@ class TestAddedVariablePlot(object):
                         ti += "Using '%s' residuals" % resid_type
                         ax.set_title(ti)
                         close_or_save(pdf, fig)
+                        close_figures()
 
 
-class TestPartialResidualPlot(object):
+class TestPartialResidualPlot:
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_partial_residual_poisson(self):
+    @pytest.mark.matplotlib
+    def test_partial_residual_poisson(self, close_figures):
 
         np.random.seed(3446)
 
@@ -317,10 +330,10 @@ class TestPartialResidualPlot(object):
                              effect_str)
                 close_or_save(pdf, fig)
 
-class TestCERESPlot(object):
+class TestCERESPlot:
 
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_ceres_poisson(self):
+    @pytest.mark.matplotlib
+    def test_ceres_poisson(self, close_figures):
 
         np.random.seed(3446)
 
@@ -353,6 +366,24 @@ class TestCERESPlot(object):
                              effect_str)
                 close_or_save(pdf, fig)
 
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__, '-vvs', '-x', '--pdb'])
+
+@pytest.mark.matplotlib
+def test_partregress_formula_env():
+    # test that user function in formulas work, see #7672
+
+    @np.vectorize
+    def lg(x):
+        return np.log10(x) if x > 0 else 0
+
+    df = DataFrame(
+        dict(
+            a=np.random.random(size=10),
+            b=np.random.random(size=10),
+            c=np.random.random(size=10),
+            )
+        )
+    sm.graphics.plot_partregress(
+        "a", "lg(b)", ["c"], obs_labels=False, data=df, eval_env=1)
+
+    sm.graphics.plot_partregress(
+        "a", "lg(b)", ["c"], obs_labels=False, data=df)

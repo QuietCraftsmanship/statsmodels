@@ -5,16 +5,17 @@ toeplitz structure is not exploited, need cholesky or inv for toeplitz
 Author: josef-pktd
 '''
 
-from __future__ import print_function
 import numpy as np
-#from scipy import special #, stats
 from scipy import linalg
-from scipy.linalg import norm, toeplitz
+from scipy.linalg import toeplitz
 
-import statsmodels.api as sm
-from statsmodels.base.model import (GenericLikelihoodModel,
-        LikelihoodModel)
-from statsmodels.tsa.arima_process import arma_acovf, arma_generate_sample
+from statsmodels.base.model import GenericLikelihoodModel
+from statsmodels.datasets import sunspots
+from statsmodels.tsa.arima_process import (
+    ArmaProcess,
+    arma_acovf,
+    arma_generate_sample,
+)
 
 
 def mvn_loglike_sum(x, sigma):
@@ -102,8 +103,9 @@ def mvn_nloglike_obs(x, sigma):
     #logdetsigma = 2 * np.sum(np.log(np.diagonal(cholsigmainv)))
     x_whitened = np.dot(cholsigmainv, x)
 
-    #sigmainv = linalg.cholesky(sigma)
-    logdetsigma = np.log(np.linalg.det(sigma))
+    # Unused, commented out
+    # sigmainv = linalg.cholesky(sigma)
+    # logdetsigma = np.log(np.linalg.det(sigma))
 
     sigma2 = 1. # error variance is included in sigma
 
@@ -113,19 +115,11 @@ def mvn_nloglike_obs(x, sigma):
 
     return llike
 
+
 def invertibleroots(ma):
-    import numpy.polynomial as poly
-    pr = poly.polyroots(ma)
-    insideroots = np.abs(pr)<1
-    if insideroots.any():
-        pr[np.abs(pr)<1] = 1./pr[np.abs(pr)<1]
-        pnew = poly.Polynomial.fromroots(pr)
-        mainv = pn.coef/pnew.coef[0]
-        wasinvertible = False
-    else:
-        mainv = ma
-        wasinvertible = True
-    return mainv, wasinvertible
+    proc = ArmaProcess(ma=ma)
+    return proc.invertroots(retnew=False)
+
 
 def getpoly(self, params):
     ar = np.r_[[1], -params[:self.nar]]
@@ -195,7 +189,7 @@ if __name__ == '__main__':
     #ma = [1]
     np.random.seed(9875789)
     y = arma_generate_sample(ar,ma,nobs,2)
-    y -= y.mean() #I haven't checked treatment of mean yet, so remove
+    y -= y.mean() #I have not checked treatment of mean yet, so remove
     mod = MLEGLS(y)
     mod.nar, mod.nma = 2, 2   #needs to be added, no init method
     mod.nobs = len(y)
@@ -209,7 +203,7 @@ if __name__ == '__main__':
 
     arpoly, mapoly = getpoly(mod, res.params[:-1])
 
-    data = sm.datasets.sunspots.load()
+    data = sunspots.load()
     #ys = data.endog[-100:]
 ##    ys = data.endog[12:]-data.endog[:-12]
 ##    ys -= ys.mean()
@@ -218,8 +212,6 @@ if __name__ == '__main__':
 ##    mods.nobs = len(ys)
 ##    ress = mods.fit(start_params=np.r_[0.4, np.zeros(12), [0.2, 5.]],maxiter=200)
 ##    print(ress.params
-##    #from statsmodels.sandbox.tsa import arima as tsaa
-##    #tsaa
 ##    import matplotlib.pyplot as plt
 ##    plt.plot(data.endog[1])
 ##    #plt.show()
@@ -230,6 +222,3 @@ if __name__ == '__main__':
     print(llo.sum(), llo.shape)
     print(mvn_loglike_chol(y, sigma))
     print(mvn_loglike_sum(y, sigma))
-
-
-

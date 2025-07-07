@@ -1,19 +1,13 @@
-
 import numpy as np
 
 from statsmodels.sandbox.tools import cross_val
-
 
 if __name__ == '__main__':
     #A: josef-pktd
 
     import statsmodels.api as sm
-    from statsmodels.api import OLS
     #from statsmodels.datasets.longley import load
     from statsmodels.datasets.stackloss import load
-    from statsmodels.iolib.table import (SimpleTable, default_txt_fmt,
-                            default_latex_fmt, default_html_fmt)
-    import numpy as np
 
     data = load()
     data.exog = sm.tools.add_constant(data.exog, prepend=False)
@@ -39,8 +33,8 @@ if __name__ == '__main__':
 
     doplots = 1
     if doplots:
-        import matplotlib.pyplot as plt
         from matplotlib.font_manager import FontProperties
+        import matplotlib.pyplot as plt
 
         plt.figure()
         figtitle = 'Leave2out parameter estimates'

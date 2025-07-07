@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Wed Oct 17 09:48:34 2012
@@ -7,9 +6,14 @@ Author: Josef Perktold
 """
 
 import numpy as np
+from numpy.testing import assert_almost_equal, assert_equal, assert_
+import pytest
+
 import statsmodels.stats.weightstats as smws
 
-from numpy.testing import assert_almost_equal, assert_equal, assert_
+
+from statsmodels.tools.testing import Holder
+
 
 def assert_almost_equal_inf(x, y, decimal=6, msg=None):
     x = np.atleast_1d(x)
@@ -19,10 +23,6 @@ def assert_almost_equal_inf(x, y, decimal=6, msg=None):
     assert_equal(np.isnan(x), np.isnan(y))
     assert_almost_equal(x[np.isfinite(x)], y[np.isfinite(y)])
 
-
-
-class Holder(object):
-    pass
 
 raw_clinic = '''\
 1     1 2.84 4.00 3.45 2.55 2.46
@@ -368,7 +368,7 @@ res2 = smws.ttost_paired(clinic[:15, 3], clinic[15:, 3], -0.6, 0.6, transform=No
 res = smws.ttost_ind(clinic[:15, 3], clinic[15:, 3], -0.6, 0.6, usevar='unequal')
 
 
-class CheckTostMixin(object):
+class CheckTostMixin:
 
     def test_pval(self):
         assert_almost_equal(self.res1.pvalue, self.res2.p_value, decimal=13)
@@ -543,7 +543,10 @@ def test_ttest():
     assert_(cm.d1 is cm2.d1)
     assert_(cm.d1 is cm3.d1)
 
-def tost_transform_paired():
+
+@pytest.mark.xfail(reason="shape mismatch between res1[1:] and res_sas[1:]",
+                   raises=AssertionError, strict=True)
+def test_tost_transform_paired():
     raw = np.array('''\
        103.4 90.11  59.92 77.71  68.17 77.71  94.54 97.51
        69.48 58.21  72.17 101.3  74.37 79.84  84.44 96.06
@@ -557,18 +560,3 @@ def tost_transform_paired():
     assert_almost_equal(res1[1:], res_sas[1:], 2)
     #result R tost
     assert_almost_equal(res1[0], tost_s_paired.p_value, 13)
-
-if __name__ == '__main__':
-    tt = TestTostp1()
-    tt.test_special()
-    for cls in [TestTostp1, TestTostp2, TestTosti1, TestTosti2,
-                TestTostip1, TestTostip2]:
-        #print cls
-        tt = cls()
-        tt.test_pval()
-
-    test_ttest()
-    tost_transform_paired()
-    test_tost_log()
-
-

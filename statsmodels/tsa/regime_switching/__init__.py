@@ -1,2 +1,3 @@
-from statsmodels import PytestTester
+from statsmodels.tools._test_runner import PytestTester
+
 test = PytestTester()

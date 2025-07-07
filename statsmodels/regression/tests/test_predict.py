@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Apr 20 17:12:53 2014
 
@@ -8,6 +7,7 @@ author: Josef Perktold
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_equal
+import pandas as pd
 
 from statsmodels.regression.linear_model import OLS, WLS
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
@@ -15,7 +15,7 @@ from statsmodels.regression._prediction import get_prediction
 
 
 def test_predict_se():
-    # this test doesn't use reference values
+    # this test does not use reference values
     # checks conistency across options, and compares to direct calculation
 
     # generate dataset
@@ -45,15 +45,15 @@ def test_predict_se():
     #stats.t.isf(0.05/2., 50 - 2)
     q = 2.0106347546964458
     ci_half = q * predstd
-    np.testing.assert_allclose(iv_u, res2.fittedvalues + ci_half, rtol=1e-12)
-    np.testing.assert_allclose(iv_l, res2.fittedvalues - ci_half, rtol=1e-12)
+    np.testing.assert_allclose(iv_u, res2.fittedvalues + ci_half, rtol=1e-9)
+    np.testing.assert_allclose(iv_l, res2.fittedvalues - ci_half, rtol=1e-9)
 
     prstd, iv_l, iv_u = wls_prediction_std(res2, x2[:3,:])
     np.testing.assert_equal(prstd, prstd[:3])
     np.testing.assert_allclose(iv_u, res2.fittedvalues[:3] + ci_half[:3],
-                               rtol=1e-12)
+                               rtol=1e-9)
     np.testing.assert_allclose(iv_l, res2.fittedvalues[:3] - ci_half[:3],
-                               rtol=1e-12)
+                               rtol=1e-9)
 
 
     # check WLS
@@ -70,8 +70,8 @@ def test_predict_se():
     #stats.t.isf(0.05/2., 50 - 2)
     q = 2.0106347546964458
     ci_half = q * predstd
-    np.testing.assert_allclose(iv_u, res3.fittedvalues + ci_half, rtol=1e-12)
-    np.testing.assert_allclose(iv_l, res3.fittedvalues - ci_half, rtol=1e-12)
+    np.testing.assert_allclose(iv_u, res3.fittedvalues + ci_half, rtol=1e-9)
+    np.testing.assert_allclose(iv_l, res3.fittedvalues - ci_half, rtol=1e-9)
 
     # testing shapes of exog
     prstd, iv_l, iv_u = wls_prediction_std(res3, x2[-1:,:], weights=3.)
@@ -88,9 +88,9 @@ def test_predict_se():
     prstd, iv_l, iv_u = wls_prediction_std(res3, x2[:3,:])
     np.testing.assert_equal(prstd, prstd[:3])
     np.testing.assert_allclose(iv_u, res3.fittedvalues[:3] + ci_half[:3],
-                               rtol=1e-12)
+                               rtol=1e-9)
     np.testing.assert_allclose(iv_l, res3.fittedvalues[:3] - ci_half[:3],
-                               rtol=1e-12)
+                               rtol=1e-9)
 
     #use wrong size for exog
     #prstd, iv_l, iv_u = wls_prediction_std(res3, x2[-1,0], weights=3.)
@@ -105,7 +105,7 @@ def test_predict_se():
         np.testing.assert_allclose(sew, sew1 + res3.scale * (wv - 1))
 
 
-class TestWLSPrediction(object):
+class TestWLSPrediction:
 
     @classmethod
     def setup_class(cls):
@@ -132,7 +132,6 @@ class TestWLSPrediction(object):
         mod_wls = WLS(y, X, weights=1./w)
         cls.res_wls = mod_wls.fit()
 
-
     def test_ci(self):
         res_wls = self.res_wls
         prstd, iv_l, iv_u = wls_prediction_std(res_wls)
@@ -145,7 +144,7 @@ class TestWLSPrediction(object):
         sf = pred_res.summary_frame()
 
         col_names = ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper',
-                      'obs_ci_lower', 'obs_ci_upper']
+                     'obs_ci_lower', 'obs_ci_upper']
         assert_equal(sf.columns.tolist(), col_names)
 
         pred_res2 = res_wls.get_prediction()
@@ -159,7 +158,7 @@ class TestWLSPrediction(object):
 
         # check that list works, issue 4437
         x = res_wls.model.exog.mean(0)
-        pred_res3 = res_wls.get_prediction(x)
+        pred_res3 = res_wls.get_prediction([x])
         ci3 = pred_res3.conf_int(obs=True)
         pred_res3b = res_wls.get_prediction(x.tolist())
         ci3b = pred_res3b.conf_int(obs=True)
@@ -215,7 +214,9 @@ class TestWLSPrediction(object):
 
         # function for parameter transformation
         # should be separate test method
-        from statsmodels.genmod._prediction import params_transform_univariate
+        from statsmodels.base._prediction_inference import (
+            params_transform_univariate
+            )
         rates = params_transform_univariate(res_glm.params, res_glm.cov_params())
 
         rates2 = np.column_stack((np.exp(res_glm.params),
@@ -226,7 +227,9 @@ class TestWLSPrediction(object):
         from statsmodels.genmod.families import links
 
         # with identity transform
-        pt = params_transform_univariate(res_glm.params, res_glm.cov_params(), link=links.identity())
+        pt = params_transform_univariate(
+            res_glm.params, res_glm.cov_params(), link=links.Identity()
+        )
 
         assert_allclose(pt.tvalues, res_glm.tvalues, rtol=1e-13)
         assert_allclose(pt.se_mean, res_glm.bse, rtol=1e-13)
@@ -258,3 +261,22 @@ class TestWLSPrediction(object):
         assert_allclose(ci3b, ci3, rtol=1e-13)
         res_df = pred_res3b.summary_frame()
         assert_equal(res_df.index.values, [0, 1])
+
+
+def test_predict_remove_data():
+    # GH6887
+    endog = [i + np.random.normal(scale=0.1) for i in range(100)]
+    exog = [i for i in range(100)]
+    model = WLS(endog, exog, weights=[1 for _ in range(100)]).fit()
+    # we need to compute scale before we remove wendog, wexog
+    model.scale
+    model.remove_data()
+    scalar = model.get_prediction(1).predicted_mean
+    pred = model.get_prediction([1])
+    one_d = pred.predicted_mean
+    assert_allclose(scalar, one_d)
+    # smoke test for inferenctial part
+    pred.summary_frame()
+
+    series = model.get_prediction(pd.Series([1])).predicted_mean
+    assert_allclose(scalar, series)

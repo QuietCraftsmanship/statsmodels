@@ -1,13 +1,9 @@
-from __future__ import print_function
-from statsmodels.compat.python import range
 from optparse import OptionParser
-import statsmodels.api as sm
-import scipy as sp
-from scipy import linalg
-from scipy import stats
-import pdb
-# pdb.set_trace()
 
+import scipy as sp
+from scipy import linalg, stats
+
+import statsmodels.api as sm
 
 docstr = """
 Demonstrates l1 regularization for likelihood models.
@@ -125,33 +121,33 @@ def run_demo(mode, base_alpha=0.01, N=500, get_l1_slsqp_results=False,
 
     Parameters
     ----------
-    mode : String
+    mode : str
         either 'logit', 'mnlogit', or 'probit'
     base_alpha :  Float
         Size of regularization param (the param actually used will
         automatically scale with data size in this demo)
-    N :  Integer
+    N : int
         Number of data points to generate for fit
-    get_l1_slsqp_results : boolean,
+    get_l1_slsqp_results : bool,
         Do an l1 fit using slsqp.
-    get_l1_cvxopt_results : boolean
+    get_l1_cvxopt_results : bool
         Do an l1 fit using cvxopt
-    num_nonconst_covariates : Integer
+    num_nonconst_covariates : int
         Number of covariates that are not constant
         (a constant will be prepended)
-    noise_level : Float (non-negative)
+    noise_level : float (non-negative)
         Level of the noise relative to signal
-    cor_length : Float (non-negative)
+    cor_length : float (non-negative)
         Correlation length of the (Gaussian) independent variables
-    num_zero_params : Integer
+    num_zero_params : int
         Number of parameters equal to zero for every target in logistic
         regression examples.
-    num_targets : Integer
+    num_targets : int
         Number of choices for the endogenous response in multinomial logit
         example
-    print_summaries : Boolean
+    print_summaries : bool
         print the full fit summary.
-    save_arrays : Boolean
+    save_arrays : bool
         Save exog/endog/true_params to disk for future use.
     load_old_arrays
         Load exog/endog/true_params arrays from disk.
@@ -168,7 +164,7 @@ def run_demo(mode, base_alpha=0.01, N=500, get_l1_slsqp_results=False,
     # Here we scale it with N for simplicity.  In practice, you should
     # use cross validation to pick alpha
     alpha = base_alpha * N * sp.ones((num_nonconst_covariates+1, num_targets-1))
-    alpha[0,:] = 0  # Don't regularize the intercept
+    alpha[0,:] = 0  # Do not regularize the intercept
 
     #### Make the data and model
     exog = get_exog(N, num_nonconst_covariates, cor_length)
@@ -232,16 +228,16 @@ def get_summary_str(results, true_params, get_l1_slsqp_results,
     #### Format summaries
     # Short summary
     print_str = '\n\n=========== Short Error Summary ============'
-    print_str += '\n\n The maximum likelihood fit RMS error = %.4f'%RMSE_ML
+    print_str += '\n\n The maximum likelihood fit RMS error = %.4f' % RMSE_ML
     if get_l1_slsqp_results:
         RMSE_l1_slsqp = get_RMSE(results_l1_slsqp, true_params)
-        print_str += '\n The l1_slsqp fit RMS error = %.4f'%RMSE_l1_slsqp
+        print_str += '\n The l1_slsqp fit RMS error = %.4f' % RMSE_l1_slsqp
     if get_l1_cvxopt_results:
         RMSE_l1_cvxopt_cp = get_RMSE(results_l1_cvxopt_cp, true_params)
-        print_str += '\n The l1_cvxopt_cp fit RMS error = %.4f'%RMSE_l1_cvxopt_cp
+        print_str += '\n The l1_cvxopt_cp fit RMS error = %.4f' % RMSE_l1_cvxopt_cp
     # Parameters
     print_str += '\n\n\n============== Parameters ================='
-    print_str += "\n\nTrue parameters: \n%s"%true_params
+    print_str += "\n\nTrue parameters: \n%s" % true_params
     # Full summary
     if print_summaries:
         print_str += '\n' + results_ML.summary().as_text()
@@ -250,11 +246,11 @@ def get_summary_str(results, true_params, get_l1_slsqp_results,
         if get_l1_cvxopt_results:
             print_str += '\n' + results_l1_cvxopt_cp.summary().as_text()
     else:
-        print_str += '\n\nThe maximum likelihood params are \n%s'%results_ML.params
+        print_str += '\n\nThe maximum likelihood params are \n%s' % results_ML.params
         if get_l1_slsqp_results:
-            print_str += '\n\nThe l1_slsqp params are \n%s'%results_l1_slsqp.params
+            print_str += '\n\nThe l1_slsqp params are \n%s' % results_l1_slsqp.params
         if get_l1_cvxopt_results:
-            print_str += '\n\nThe l1_cvxopt_cp params are \n%s'%\
+            print_str += '\n\nThe l1_cvxopt_cp params are \n%s' % \
                     results_l1_cvxopt_cp.params
     # Return
     return print_str
@@ -292,7 +288,6 @@ def get_logit_endog(true_params, exog, noise_level):
     ### Create the probability of entering the different classes,
     ### given exog and true_params
     Xdotparams = sp.dot(exog, true_params)
-    noise = noise_level * sp.randn(*Xdotparams.shape)
     eXB = sp.column_stack((sp.ones(len(Xdotparams)), sp.exp(Xdotparams)))
     class_probabilities = eXB / eXB.sum(1)[:, None]
 
@@ -314,7 +309,6 @@ def get_probit_endog(true_params, exog, noise_level):
     ### Create the probability of entering the different classes,
     ### given exog and true_params
     Xdotparams = sp.dot(exog, true_params)
-    noise = noise_level * sp.randn(*Xdotparams.shape)
 
     ### Create the endog
     cdf = stats.norm._cdf(-Xdotparams)

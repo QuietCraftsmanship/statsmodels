@@ -28,10 +28,7 @@ References
 
 """
 
-from __future__ import division
 # TODO: make default behavior efficient=True above a certain n_obs
-
-from statsmodels.compat.python import range, string_types, next
 import copy
 
 import numpy as np
@@ -39,8 +36,7 @@ from scipy import optimize
 from scipy.stats.mstats import mquantiles
 
 from ._kernel_base import GenericKDE, EstimatorSettings, gpke, \
-    LeaveOneOut, _get_type_pos, _adjust_shape, _compute_min_std_IQR
-
+    LeaveOneOut, _get_type_pos, _adjust_shape, _compute_min_std_IQR, kernel_func
 
 
 __all__ = ['KernelReg', 'KernelCensoredReg']
@@ -53,64 +49,91 @@ class KernelReg(GenericKDE):
     Calculates the conditional mean ``E[y|X]`` where ``y = g(X) + e``.
     Note that the "local constant" type of regression provided here is also
     known as Nadaraya-Watson kernel regression; "local linear" is an extension
-    of that which suffers less from bias issues at the edge of the support.
+    of that which suffers less from bias issues at the edge of the support. Note
+    that specifying a custom kernel works only with "local linear" kernel
+    regression. For example, a custom ``tricube`` kernel yields LOESS regression.
 
     Parameters
     ----------
-    endog: list with one element which is array_like
+    endog : array_like
         This is the dependent variable.
-    exog: list
+    exog : array_like
         The training data for the independent variable(s)
         Each element in the list is a separate variable
-    var_type: str
+    var_type : str
         The type of the variables, one character per variable:
 
             - c: continuous
             - u: unordered (discrete)
             - o: ordered (discrete)
 
-    reg_type: {'lc', 'll'}, optional
+    reg_type : {'lc', 'll'}, optional
         Type of regression estimator. 'lc' means local constant and
         'll' local Linear estimator.  Default is 'll'
-    bw: str or array_like, optional
+    bw : str or array_like, optional
         Either a user-specified bandwidth or the method for bandwidth
-        selection.  If a string, valid values are 'cv_ls' (least-squares
+        selection. If a string, valid values are 'cv_ls' (least-squares
         cross-validation) and 'aic' (AIC Hurvich bandwidth estimation).
-        Default is 'cv_ls'.
-    defaults: EstimatorSettings instance, optional
+        Default is 'cv_ls'. User specified bandwidth must have as many
+        entries as the number of variables.
+    ckertype : str, optional
+        The kernel used for the continuous variables.
+    okertype : str, optional
+        The kernel used for the ordered discrete variables.
+    ukertype : str, optional
+        The kernel used for the unordered discrete variables.
+    defaults : EstimatorSettings instance, optional
         The default values for the efficient bandwidth estimation.
 
     Attributes
-    ---------
-    bw: array_like
+    ----------
+    bw : array_like
         The bandwidth parameters.
     """
     def __init__(self, endog, exog, var_type, reg_type='ll', bw='cv_ls',
-                 defaults=EstimatorSettings()):
+                 ckertype='gaussian', okertype='wangryzin',
+                 ukertype='aitchisonaitken', defaults=None):
         self.var_type = var_type
         self.data_type = var_type
         self.reg_type = reg_type
+        self.ckertype = ckertype
+        self.okertype = okertype
+        self.ukertype = ukertype
+        if not (self.ckertype in kernel_func and self.ukertype in kernel_func
+                and self.okertype in kernel_func):
+            raise ValueError('user specified kernel must be a supported '
+                             'kernel from statsmodels.nonparametric.kernels.')
+
         self.k_vars = len(self.var_type)
         self.endog = _adjust_shape(endog, 1)
         self.exog = _adjust_shape(exog, self.k_vars)
         self.data = np.column_stack((self.endog, self.exog))
         self.nobs = np.shape(self.exog)[0]
-        self.bw_func = dict(cv_ls=self.cv_loo, aic=self.aic_hurvich)
         self.est = dict(lc=self._est_loc_constant, ll=self._est_loc_linear)
+        defaults = EstimatorSettings() if defaults is None else defaults
         self._set_defaults(defaults)
+        if not isinstance(bw, str):
+            bw = np.asarray(bw)
+            if len(bw) != self.k_vars:
+                raise ValueError('bw must have the same dimension as the '
+                                 'number of variables.')
         if not self.efficient:
             self.bw = self._compute_reg_bw(bw)
         else:
             self.bw = self._compute_efficient(bw)
 
     def _compute_reg_bw(self, bw):
-        if not isinstance(bw, string_types):
+        if not isinstance(bw, str):
             self._bw_method = "user-specified"
             return np.asarray(bw)
         else:
             # The user specified a bandwidth selection method e.g. 'cv_ls'
             self._bw_method = bw
-            res = self.bw_func[bw]
+            # Workaround to avoid instance methods in __dict__
+            if bw == 'cv_ls':
+                res = self.cv_loo
+            else:  # bw == 'aic'
+                res = self.aic_hurvich
             X = np.std(self.exog, axis=0)
             h0 = 1.06 * X * \
                  self.nobs ** (- 1. / (4 + np.size(self.exog, axis=1)))
@@ -126,31 +149,31 @@ class KernelReg(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             Vector of bandwidth value(s).
-        endog: 1D array_like
+        endog : 1D array_like
             The dependent variable.
-        exog: 1D or 2D array_like
+        exog : 1D or 2D array_like
             The independent variable(s).
-        data_predict: 1D array_like of length K, where K is the number of variables.
+        data_predict : 1D array_like of length K, where K is the number of variables.
             The point at which the density is estimated.
 
         Returns
         -------
-        D_x: array_like
+        D_x : array_like
             The value of the conditional mean at `data_predict`.
 
         Notes
         -----
         See p. 81 in [1] and p.38 in [2] for the formulas.
         Unlike other methods, this one requires that `data_predict` be 1D.
-
         """
         nobs, k_vars = exog.shape
         ker = gpke(bw, data=exog, data_predict=data_predict,
                    var_type=self.var_type,
-                   #ukertype='aitchison_aitken_reg',
-                   #okertype='wangryzin_reg',
+                   ckertype=self.ckertype,
+                   ukertype=self.ukertype,
+                   okertype=self.okertype,
                    tosum=False) / float(nobs)
         # Create the matrix on p.492 in [7], after the multiplication w/ K_h,ij
         # See also p. 38 in [2]
@@ -202,12 +225,12 @@ class KernelReg(GenericKDE):
             The value of the conditional mean at `data_predict`.
         B_x : ndarray
             The marginal effects.
-
         """
         ker_x = gpke(bw, data=exog, data_predict=data_predict,
                      var_type=self.var_type,
-                     #ukertype='aitchison_aitken_reg',
-                     #okertype='wangryzin_reg',
+                     ckertype=self.ckertype,
+                     ukertype=self.ukertype,
+                     okertype=self.okertype,
                      tosum=False)
         ker_x = np.reshape(ker_x, np.shape(endog))
         G_numer = (ker_x * endog).sum(axis=0)
@@ -248,12 +271,13 @@ class KernelReg(GenericKDE):
         References
         ----------
         See ch.2 in [1] and p.35 in [2].
-
         """
         H = np.empty((self.nobs, self.nobs))
         for j in range(self.nobs):
             H[:, j] = gpke(bw, data=self.exog, data_predict=self.exog[j,:],
-                           var_type=self.var_type, tosum=False)
+                           ckertype=self.ckertype, ukertype=self.ukertype,
+                           okertype=self.okertype, var_type=self.var_type,
+                           tosum=False)
 
         denom = H.sum(axis=1)
         H = H / denom
@@ -277,15 +301,15 @@ class KernelReg(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             Vector of bandwidth values.
-        func: callable function
+        func : callable function
             Returns the estimator of g(x).  Can be either ``_est_loc_constant``
             (local constant) or ``_est_loc_linear`` (local_linear).
 
         Returns
         -------
-        L: float
+        L : float
             The value of the CV function.
 
         Notes
@@ -299,7 +323,6 @@ class KernelReg(GenericKDE):
 
         where :math:`g_{-i}(X_{i})` is the leave-one-out estimator of g(X)
         and :math:`h` is the vector of bandwidths
-
         """
         LOO_X = LeaveOneOut(self.exog)
         LOO_Y = LeaveOneOut(self.endog).__iter__()
@@ -328,7 +351,6 @@ class KernelReg(GenericKDE):
 
         where :math:`\hat{Y_{i}}` is the mean calculated in `fit` at the exog
         points.
-
         """
         Y = np.squeeze(self.endog)
         Yhat = self.fit()[0]
@@ -354,7 +376,6 @@ class KernelReg(GenericKDE):
             The regression result for the mean (i.e. the actual curve).
         mfx : ndarray
             The marginal effects, i.e. the partial derivatives of the mean.
-
         """
         func = self.est[self.reg_type]
         if data_predict is None:
@@ -368,7 +389,7 @@ class KernelReg(GenericKDE):
         for i in range(N_data_predict):
             mean_mfx = func(self.bw, self.endog, self.exog,
                             data_predict=data_predict[i, :])
-            mean[i] = mean_mfx[0]
+            mean[i] = np.squeeze(mean_mfx[0])
             mfx_c = np.squeeze(mean_mfx[1])
             mfx[i, :] = mfx_c
 
@@ -380,19 +401,18 @@ class KernelReg(GenericKDE):
 
         Parameters
         ----------
-        var_pos: sequence
+        var_pos : sequence
             The position of the variable in exog to be tested.
 
         Returns
         -------
-        sig: str
+        sig : str
             The level of significance:
 
                 - `*` : at 90% confidence level
                 - `**` : at 95% confidence level
                 - `***` : at 99* confidence level
                 - "Not Significant" : if not significant
-
         """
         var_pos = np.asarray(var_pos)
         ix_cont, ix_ord, ix_unord = _get_type_pos(self.var_type)
@@ -442,54 +462,71 @@ class KernelCensoredReg(KernelReg):
     """
     Nonparametric censored regression.
 
-    Calculates the condtional mean ``E[y|X]`` where ``y = g(X) + e``,
+    Calculates the conditional mean ``E[y|X]`` where ``y = g(X) + e``,
     where y is left-censored.  Left censored variable Y is defined as
     ``Y = min {Y', L}`` where ``L`` is the value at which ``Y`` is censored
     and ``Y'`` is the true value of the variable.
 
     Parameters
     ----------
-    endog: list with one element which is array_like
+    endog : list with one element which is array_like
         This is the dependent variable.
-    exog: list
+    exog : list
         The training data for the independent variable(s)
         Each element in the list is a separate variable
-    dep_type: str
+    dep_type : str
         The type of the dependent variable(s)
         c: Continuous
         u: Unordered (Discrete)
         o: Ordered (Discrete)
-    reg_type: str
+    reg_type : str
         Type of regression estimator
         lc: Local Constant Estimator
         ll: Local Linear Estimator
-    bw: array_like
+    bw : array_like
         Either a user-specified bandwidth or
         the method for bandwidth selection.
-        cv_ls: cross-validaton least squares
+        cv_ls: cross-validation least squares
         aic: AIC Hurvich Estimator
-    censor_val: float
+    ckertype : str, optional
+        The kernel used for the continuous variables.
+    okertype : str, optional
+        The kernel used for the ordered discrete variables.
+    ukertype : str, optional
+        The kernel used for the unordered discrete variables.
+    censor_val : float
         Value at which the dependent variable is censored
-    defaults: EstimatorSettings instance, optional
+    defaults : EstimatorSettings instance, optional
         The default values for the efficient bandwidth estimation
 
     Attributes
-    ---------
-    bw: array_like
+    ----------
+    bw : array_like
         The bandwidth parameters
     """
     def __init__(self, endog, exog, var_type, reg_type, bw='cv_ls',
-                 censor_val=0, defaults=EstimatorSettings()):
+                 ckertype='gaussian',
+                 ukertype='aitchison_aitken_reg',
+                 okertype='wangryzin_reg',
+                 censor_val=0, defaults=None):
         self.var_type = var_type
         self.data_type = var_type
         self.reg_type = reg_type
+        self.ckertype = ckertype
+        self.okertype = okertype
+        self.ukertype = ukertype
+        if not (self.ckertype in kernel_func and self.ukertype in kernel_func
+                and self.okertype in kernel_func):
+            raise ValueError('user specified kernel must be a supported '
+                             'kernel from statsmodels.nonparametric.kernels.')
+
         self.k_vars = len(self.var_type)
         self.endog = _adjust_shape(endog, 1)
         self.exog = _adjust_shape(exog, self.k_vars)
         self.data = np.column_stack((self.endog, self.exog))
         self.nobs = np.shape(self.exog)[0]
-        self.bw_func = dict(cv_ls=self.cv_loo, aic=self.aic_hurvich)
         self.est = dict(lc=self._est_loc_constant, ll=self._est_loc_linear)
+        defaults = EstimatorSettings() if defaults is None else defaults
         self._set_defaults(defaults)
         self.censor_val = censor_val
         if self.censor_val is not None:
@@ -536,32 +573,32 @@ class KernelCensoredReg(KernelReg):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             Vector of bandwidth value(s)
-        endog: 1D array_like
+        endog : 1D array_like
             The dependent variable
-        exog: 1D or 2D array_like
+        exog : 1D or 2D array_like
             The independent variable(s)
-        data_predict: 1D array_like of length K, where K is
+        data_predict : 1D array_like of length K, where K is
             the number of variables. The point at which
             the density is estimated
 
         Returns
         -------
-        D_x: array_like
+        D_x : array_like
             The value of the conditional mean at data_predict
 
         Notes
         -----
         See p. 81 in [1] and p.38 in [2] for the formulas
         Unlike other methods, this one requires that data_predict be 1D
-
         """
         nobs, k_vars = exog.shape
         ker = gpke(bw, data=exog, data_predict=data_predict,
                    var_type=self.var_type,
-                   ukertype='aitchison_aitken_reg',
-                   okertype='wangryzin_reg', tosum=False)
+                   ckertype=self.ckertype,
+                   ukertype=self.ukertype,
+                   okertype=self.okertype, tosum=False)
         # Create the matrix on p.492 in [7], after the multiplication w/ K_h,ij
         # See also p. 38 in [2]
 
@@ -595,16 +632,16 @@ class KernelCensoredReg(KernelReg):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             Vector of bandwidth values
-        func: callable function
+        func : callable function
             Returns the estimator of g(x).
             Can be either ``_est_loc_constant`` (local constant) or
             ``_est_loc_linear`` (local_linear).
 
         Returns
         -------
-        L: float
+        L : float
             The value of the CV function
 
         Notes
@@ -619,7 +656,6 @@ class KernelCensoredReg(KernelReg):
 
         where :math:`g_{-i}(X_{i})` is the leave-one-out estimator of g(X)
         and :math:`h` is the vector of bandwidths
-
         """
         LOO_X = LeaveOneOut(self.exog)
         LOO_Y = LeaveOneOut(self.endog).__iter__()
@@ -652,14 +688,14 @@ class KernelCensoredReg(KernelReg):
             mean_mfx = func(self.bw, self.endog, self.exog,
                             data_predict=data_predict[i, :],
                             W=self.W_in)
-            mean[i] = mean_mfx[0]
+            mean[i] = np.squeeze(mean_mfx[0])
             mfx_c = np.squeeze(mean_mfx[1])
             mfx[i, :] = mfx_c
 
         return mean, mfx
 
 
-class TestRegCoefC(object):
+class TestRegCoefC:
     """
     Significance test for continuous variables in a nonparametric regression.
 
@@ -668,20 +704,20 @@ class TestRegCoefC(object):
 
     Parameters
     ----------
-    model: KernelReg instance
+    model : KernelReg instance
         This is the nonparametric regression model whose elements
         are tested for significance.
-    test_vars: tuple, list of integers, array_like
+    test_vars : tuple, list of integers, array_like
         index of position of the continuous variables to be tested
         for significance. E.g. (1,3,5) jointly tests variables at
         position 1,3 and 5 for significance.
-    nboot: int
+    nboot : int
         Number of bootstrap samples used to determine the distribution
         of the test statistic in a finite sample. Default is 400
-    nested_res: int
+    nested_res : int
         Number of nested resamples used to calculate lambda.
         Must enable the pivot option
-    pivot: bool
+    pivot : bool
         Pivot the test statistic by dividing by its standard error
         Significantly increases computational time. But pivot statistics
         have more desirable properties
@@ -689,7 +725,7 @@ class TestRegCoefC(object):
 
     Attributes
     ----------
-    sig: str
+    sig : str
         The significance level of the variable(s) tested
         "Not Significant": Not significant at the 90% confidence level
                             Fails to reject the null
@@ -755,7 +791,7 @@ class TestRegCoefC(object):
         b = b[:, self.test_vars]
         b = np.reshape(b, (n, len(self.test_vars)))
         #fct = np.std(b)  # Pivot the statistic by dividing by SE
-        fct = 1.  # Don't Pivot -- Bootstrapping works better if Pivot
+        fct = 1.  # Do not Pivot -- Bootstrapping works better if Pivot
         lam = ((b / fct) ** 2).sum() / float(n)
         return lam
 
@@ -767,9 +803,9 @@ class TestRegCoefC(object):
         but slows down computation significantly.
         """
         n = np.shape(Y)[0]
-        lam = np.empty(shape=(self.nres, ))
+        lam = np.empty(shape=(self.nres,))
         for i in range(self.nres):
-            ind = np.random.random_integers(0, n-1, size=(n,1))
+            ind = np.random.randint(0, n, size=(n, 1))
             Y1 = Y[ind, 0]
             X1 = X[ind, :]
             lam[i] = self._compute_lambda(Y1, X1)
@@ -793,12 +829,12 @@ class TestRegCoefC(object):
         X[:, self.test_vars] = np.mean(X[:, self.test_vars], axis=0)
         # Calculate the restricted mean. See p. 372 in [8]
         M = KernelReg(Y, X, self.var_type, self.model.reg_type, self.bw,
-                      defaults = EstimatorSettings(efficient=False)).fit()[0]
+                      defaults=EstimatorSettings(efficient=False)).fit()[0]
         M = np.reshape(M, (n, 1))
         e = Y - M
         e = e - np.mean(e)  # recenter residuals
         for i in range(self.nboot):
-            ind = np.random.random_integers(0, n-1, size=(n,1))
+            ind = np.random.randint(0, n, size=(n, 1))
             e_boot = e[ind, 0]
             Y_boot = M + e_boot
             t_dist[i] = self._compute_test_stat(Y_boot, self.exog)
@@ -822,20 +858,20 @@ class TestRegCoefD(TestRegCoefC):
 
     Parameters
     ----------
-    model: Instance of KernelReg class
+    model : Instance of KernelReg class
         This is the nonparametric regression model whose elements
         are tested for significance.
-    test_vars: tuple, list of one element
+    test_vars : tuple, list of one element
         index of position of the discrete variable to be tested
         for significance. E.g. (3) tests variable at
         position 3 for significance.
-    nboot: int
+    nboot : int
         Number of bootstrap samples used to determine the distribution
         of the test statistic in a finite sample. Default is 400
 
     Attributes
     ----------
-    sig: str
+    sig : str
         The significance level of the variable(s) tested
         "Not Significant": Not significant at the 90% confidence level
                             Fails to reject the null
@@ -845,7 +881,7 @@ class TestRegCoefD(TestRegCoefC):
 
     Notes
     -----
-    This class currently doesn't allow joint hypothesis.
+    This class currently does not allow joint hypothesis.
     Only one variable can be tested at a time
 
     References
@@ -866,15 +902,15 @@ class TestRegCoefD(TestRegCoefC):
 
         m0 = model.fit(data_predict=X1)[0]
         m0 = np.reshape(m0, (n, 1))
-        I = np.zeros((n, 1))
+        zvec = np.zeros((n, 1))  # noqa:E741
         for i in dom_x[1:] :
             X1[:, self.test_vars] = i
             m1 = model.fit(data_predict=X1)[0]
             m1 = np.reshape(m1, (n, 1))
-            I += (m1 - m0) ** 2
+            zvec += (m1 - m0) ** 2  # noqa:E741
 
-        I = I.sum(axis=0) / float(n)
-        return I
+        avg = zvec.sum(axis=0) / float(n)
+        return avg
 
     def _compute_sig(self):
         """Calculates the significance level of the variable tested"""
@@ -925,4 +961,3 @@ class TestRegCoefD(TestRegCoefC):
         m = m / float(len(self.dom_x))
         m = np.reshape(m, (np.shape(self.exog)[0], 1))
         return m
-

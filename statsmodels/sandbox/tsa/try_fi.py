@@ -1,4 +1,3 @@
-
 '''
 using lfilter to get fractional integration polynomial (1-L)^d, d<1
 `ri` is (1-L)^(-d), d<1
@@ -8,20 +7,12 @@ second part in here is ar2arma
 only examples left
 
 '''
-from __future__ import print_function
 import numpy as np
-#from numpy.testing import assert_array_almost_equal
-from scipy.special import gamma, gammaln
+from scipy.special import gamma
 from scipy import signal
 
-#from statsmodels.sandbox import tsa
-from statsmodels.tsa.arima_process import arma_impulse_response
-
-#--------------------
-# functions have been moved to arima_process
-from statsmodels.tsa.arima_process import (lpol_fiar, lpol_fima, lpol_sdiff,
-                                                   ar2arma)
-#-----------------------------------
+from statsmodels.tsa.arima_process import (lpol_fiar, lpol_fima,
+                                           ar2arma, arma_impulse_response)
 
 
 
@@ -30,7 +21,6 @@ if __name__ == '__main__':
     n = 1000
     j = np.arange(n*10)
     ri0 = gamma(d+j)/(gamma(j+1)*gamma(d))
-    #ri = np.exp(gammaln(d+j) - gammaln(j+1) - gammaln(d))   (d not -d)
     ri = lpol_fima(d, n=n)  # get_ficoefs(d, n=n) old naming?
     riinv = signal.lfilter([1], ri, [1]+[0]*(n-1))#[[5,10,20,25]]
     '''
@@ -75,6 +65,3 @@ if __name__ == '__main__':
         print(ar_app, ma_app)
         ar_app, ma_app, res = ar2arma(ar_desired, 10, 10, n=100, mse='ar')#, start = [-0.1, 0.1])
         print(ar_app, ma_app)
-
-
-

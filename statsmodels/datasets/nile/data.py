@@ -1,4 +1,7 @@
 """Nile River Flows."""
+import pandas as pd
+
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -27,11 +30,6 @@ NOTE        = """::
         volumne - the discharge at Aswan in 10^8, m^3
 """
 
-from numpy import recfromtxt, array
-from pandas import Series, DataFrame
-
-from statsmodels.datasets.utils import Dataset
-from os.path import dirname, abspath
 
 def load():
     """
@@ -39,28 +37,19 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    data = _get_data()
-    names = list(data.dtype.names)
-    endog_name = 'volume'
-    endog = array(data[endog_name], dtype=float)
-    dataset = Dataset(data=data, names=[endog_name], endog=endog,
-                      endog_name=endog_name)
-    return dataset
+    return load_pandas()
+
 
 def load_pandas():
-    data = DataFrame(_get_data())
+    data = _get_data()
     # TODO: time series
-    endog = Series(data['volume'], index=data['year'].astype(int))
-    dataset = Dataset(data=data, names=list(data.columns),
-                      endog=endog, endog_name='volume')
+    endog = pd.Series(data['volume'], index=data['year'].astype(int))
+    dataset = du.Dataset(data=data, names=list(data.columns), endog=endog, endog_name='volume')
     return dataset
 
+
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    with open(filepath + '/nile.csv', 'rb') as f:
-        data = recfromtxt(f, delimiter=",",
-                          names=True, dtype=float)
-    return data
+    return du.load_csv(__file__, 'nile.csv').astype(float)

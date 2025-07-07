@@ -4,11 +4,12 @@ from numpy.testing import assert_allclose, assert_equal
 import pytest
 
 import statsmodels.api as sm
+
 nparam = sm.nonparametric
 
 
-class KDETestBase(object):
-    def setup(self):
+class KDETestBase:
+    def setup_method(self):
         nobs = 60
         np.random.seed(123456)
         self.o = np.random.binomial(2, 0.7, size=(nobs, 1))
@@ -114,6 +115,21 @@ class TestKDEUnivariate(KDETestBase):
         npt.assert_allclose(kde_vals0, kde_expected,
                             atol=1e-6)
 
+    def test_all_samples_same_location_bw(self):
+        x = np.ones(100)
+        kde = nparam.KDEUnivariate(x)
+        with pytest.raises(RuntimeError, match="Selected KDE bandwidth is 0"):
+            kde.fit()
+
+    def test_int(self, reset_randomstate):
+        x = np.random.randint(0, 100, size=1000)
+        kde = nparam.KDEUnivariate(x)
+        kde.fit()
+
+        kde_double = nparam.KDEUnivariate(x.astype("double"))
+        kde_double.fit()
+
+        assert_allclose(kde.bw, kde_double.bw)
 
 
 class TestKDEMultivariate(KDETestBase):
@@ -126,17 +142,18 @@ class TestKDEMultivariate(KDETestBase):
 
         # Matches R to 3 decimals; results seem more stable than with R.
         # Can be checked with following code:
-        ## import rpy2.robjects as robjects
-        ## from rpy2.robjects.packages import importr
-        ## NP = importr('np')
-        ## r = robjects.r
-        ## D = {"S1": robjects.FloatVector(c1), "S2":robjects.FloatVector(c2),
-        ##      "S3":robjects.FloatVector(c3), "S4":robjects.FactorVector(o),
-        ##      "S5":robjects.FactorVector(o2)}
-        ## df = robjects.DataFrame(D)
-        ## formula = r('~S1+ordered(S4)+ordered(S5)')
-        ## r_bw = NP.npudensbw(formula, data=df, bwmethod='cv.ls')
+        # import rpy2.robjects as robjects
+        # from rpy2.robjects.packages import importr
+        # NP = importr('np')
+        # r = robjects.r
+        # D = {"S1": robjects.FloatVector(c1), "S2":robjects.FloatVector(c2),
+        #      "S3":robjects.FloatVector(c3), "S4":robjects.FactorVector(o),
+        #      "S5":robjects.FactorVector(o2)}
+        # df = robjects.DataFrame(D)
+        # formula = r('~S1+ordered(S4)+ordered(S5)')
+        # r_bw = NP.npudensbw(formula, data=df, bwmethod='cv.ls')
 
+    @pytest.mark.slow
     def test_pdf_mixeddata_LS_vs_ML(self):
         dens_ls = nparam.KDEMultivariate(data=[self.c1, self.o, self.o2],
                                          var_type='coo', bw='cv_ls')
@@ -282,7 +299,7 @@ class TestKDEMultivariateConditional(KDETestBase):
 
     @pytest.mark.slow
     def test_unordered_CV_LS(self):
-        dens_ls = nparam.KDEMultivariateConditional(endog=[self.oecd],
+        nparam.KDEMultivariateConditional(endog=[self.oecd],
                                                     exog=[self.growth],
                                                     dep_type='u',
                                                     indep_type='c', bw='cv_ls')
@@ -368,13 +385,13 @@ class TestKDEMultivariateConditional(KDETestBase):
     def test_continuous_cvml_efficient(self):
         nobs = 500
         np.random.seed(12345)
-        O = np.random.binomial(2, 0.5, size=(nobs, ))
+        ovals = np.random.binomial(2, 0.5, size=(nobs, ))
         C1 = np.random.normal(size=(nobs, ))
         noise = np.random.normal(size=(nobs, ))
         b0 = 3
         b1 = 1.2
         b2 = 3.7  # regression coefficients
-        Y = b0+ b1 * C1 + b2*O  + noise
+        Y = b0+ b1 * C1 + b2*ovals  + noise
 
         dens_efficient = nparam.KDEMultivariateConditional(endog=[Y],
             exog=[C1], dep_type='c', indep_type='c', bw='cv_ml',
@@ -399,6 +416,12 @@ class TestKDEMultivariateConditional(KDETestBase):
                                                           n_sub=100))
         npt.assert_equal(dens.bw, bw_user)
 
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__, '-vvs', '-x', '--pdb'])
+
+@pytest.mark.parametrize("kernel", ["biw", "cos", "epa", "gau",
+                                    "tri", "triw", "uni"])
+def test_all_kernels(kernel, reset_randomstate):
+    data = np.random.normal(size=200)
+    x_grid = np.linspace(min(data), max(data), 200)
+    density = sm.nonparametric.KDEUnivariate(data)
+    density.fit(kernel="gau", fft=False)
+    assert isinstance(density.evaluate(x_grid), np.ndarray)

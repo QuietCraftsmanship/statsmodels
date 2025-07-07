@@ -10,15 +10,14 @@ multigroup:
     rest. It allows to test if the variables in the group are significantly
     more significant than outside the group.
 """
-
-from statsmodels.compat.pandas import sort_values
-from statsmodels.compat.python import iteritems, string_types
-from patsy import dmatrix
-import pandas as pd
-from statsmodels.api import OLS
-from statsmodels.api import stats
-import numpy as np
 import logging
+
+import numpy as np
+import pandas as pd
+
+from statsmodels.api import OLS, stats
+from statsmodels.formula._manager import FormulaManager
+
 
 def _model2dataframe(model_endog, model_exog, model_type=OLS, **kwargs):
     """return a series containing the summary of a linear model
@@ -27,24 +26,37 @@ def _model2dataframe(model_endog, model_exog, model_type=OLS, **kwargs):
     """
     # create the linear model and perform the fit
     model_result = model_type(model_endog, model_exog, **kwargs).fit()
+
     # keeps track of some global statistics
-    statistics = pd.Series({'r2': model_result.rsquared,
-                  'adj_r2': model_result.rsquared_adj})
+    statistics = pd.Series(
+        {"r2": model_result.rsquared, "adj_r2": model_result.rsquared_adj}
+    )
+
     # put them togher with the result for each term
-    result_df = pd.DataFrame({'params': model_result.params,
-                              'pvals': model_result.pvalues,
-                              'std': model_result.bse,
-                              'statistics': statistics})
+    result_df = pd.DataFrame(
+        {
+            "params": model_result.params,
+            "pvals": model_result.pvalues,
+            "std": model_result.bse,
+            "statistics": statistics,
+        }
+    )
+
     # add the complexive results for f-value and the total p-value
-    fisher_df = pd.DataFrame({'params': {'_f_test': model_result.fvalue},
-                              'pvals': {'_f_test': model_result.f_pvalue}})
+    fisher_df = pd.DataFrame(
+        {
+            "params": {"_f_test": model_result.fvalue},
+            "pvals": {"_f_test": model_result.f_pvalue},
+        }
+    )
+
     # merge them and unstack to obtain a hierarchically indexed series
     res_series = pd.concat([result_df, fisher_df]).unstack()
     return res_series.dropna()
 
 
 def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
-    alpha=0.05, subset=None, model_type=OLS, **kwargs):
+             alpha=0.05, subset=None, model_type=OLS, **kwargs):
     """apply a linear model to several endogenous variables on a dataframe
 
     Take a linear model definition via formula and a dataframe that will be
@@ -54,18 +66,18 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
 
     Parameters
     ----------
-    model : string
+    model : str
         formula description of the model
     dataframe : pandas.dataframe
         dataframe where the model will be evaluated
-    column_list : list of strings, optional
+    column_list : list[str], optional
         Names of the columns to analyze with the model.
         If None (Default) it will perform the function on all the
         eligible columns (numerical type and not in the model definition)
     model_type : model class, optional
         The type of model to be used. The default is the linear model.
         Can be any linear model (OLS, WLS, GLS, etc..)
-    method: string, optional
+    method : str, optional
         the method used to perform the pvalue correction for multiple testing.
         default is the Benjamini/Hochberg, other available methods are:
 
@@ -78,9 +90,9 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
             `fdr_bh` : Benjamini/Hochberg
             `fdr_by` : Benjamini/Yekutieli
 
-    alpha: float, optional
+    alpha : float, optional
         the significance level used for the pvalue correction (default 0.05)
-    subset: boolean array
+    subset : bool array
         the selected rows to be used in the regression
 
     all the other parameters will be directed to the model creation.
@@ -91,7 +103,7 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
         a dataframe containing an extract from the summary of the model
         obtained for each columns. It will give the model complexive f test
         result and p-value, and the regression value and standard deviarion
-        for each of the regressors. The Dataframe has a hierachical column
+        for each of the regressors. The DataFrame has a hierachical column
         structure, divided as:
 
             - params: contains the parameters resulting from the models. Has
@@ -143,13 +155,17 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
     >>> multiOLS('GNP + 0', df, 'GNPDEFL')
     """
     # data normalization
-    # if None take all the numerical columns that aren't present in the model
+    # if None take all the numerical columns that are not present in the model
     # it's not waterproof but is a good enough criterion for everyday use
     if column_list is None:
-        column_list = [name for name in dataframe.columns
-                      if dataframe[name].dtype != object and name not in model]
+        column_list = [
+            name
+            for name in dataframe.columns
+            if dataframe[name].dtype != object and name not in model
+        ]
+
     # if it's a single string transform it in a single element list
-    if isinstance(column_list, string_types):
+    if isinstance(column_list, str):
         column_list = [column_list]
     if subset is not None:
         dataframe = dataframe.loc[subset]
@@ -157,7 +173,9 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
     col_results = {}
     # as the model will use always the same endogenous variables
     # we can create them once and reuse
-    model_exog = dmatrix(model, data=dataframe, return_type="dataframe")
+
+    mgr = FormulaManager()
+    model_exog = mgr.get_matrices(model, dataframe, pandas=True)
     for col_name in column_list:
         # it will try to interpret the column name as a valid dataframe
         # index as it can be several times faster. If it fails it
@@ -165,14 +183,16 @@ def multiOLS(model, dataframe, column_list=None, method='fdr_bh',
         try:
             model_endog = dataframe[col_name]
         except KeyError:
-            model_endog = dmatrix(col_name + ' + 0', data=dataframe)
+            model_endog = mgr.get_matrices(
+                col_name + " + 0", data=dataframe, pandas=True
+            )
         # retrieve the result and store them
         res = _model2dataframe(model_endog, model_exog, model_type, **kwargs)
         col_results[col_name] = res
     # mangle them togheter and sort by complexive p-value
     summary = pd.DataFrame(col_results)
     # order by the p-value: the most useful model first!
-    summary = sort_values(summary.T, [('pvals', '_f_test')])
+    summary = summary.T.sort_values([('pvals', '_f_test')])
     summary.index.name = 'endogenous vars'
     # implementing the pvalue correction method
     smt = stats.multipletests
@@ -193,7 +213,7 @@ def _test_group(pvalues, group_name, group, exact=True):
     The test is performed on the pvalues set (ad a pandas series) over
     the group specified via a fisher exact test.
     """
-    from scipy.stats import fisher_exact, chi2_contingency
+    from scipy.stats import chi2_contingency, fisher_exact
 
     totals = 1.0 * len(pvalues)
     total_significant = 1.0 * np.sum(pvalues)
@@ -217,7 +237,7 @@ def _test_group(pvalues, group_name, group, exact=True):
     pvalue = test(np.array(table))[1]
     # is the group more represented or less?
     part = group_sign, group_nonsign, extern_sign, extern_nonsign
-    #increase = (group_sign / group_total) > (total_significant / totals)
+    # increase = (group_sign / group_total) > (total_significant / totals)
     increase = np.log((totals * group_sign)
                       / (total_significant * group_total))
     return pvalue, increase, part
@@ -233,21 +253,21 @@ def multigroup(pvals, groups, exact=True, keep_all=True, alpha=0.05):
 
     Parameters
     ----------
-    pvals: pandas series of boolean
+    pvals : pandas series of boolean
         the significativity of the variables under analysis
-    groups: dict of list
+    groups : dict of list
         the name of each category of variables under exam.
         each one is a list of the variables included
-    exact: boolean, optional
+    exact : bool, optional
         If True (default) use the fisher exact test, otherwise
         use the chi squared test for contingencies tables.
         For high number of elements in the array the fisher test can
         be significantly slower than the chi squared.
-    keep_all: boolean, optional
+    keep_all : bool, optional
         if False it will drop those groups where the fraction
         of positive is below the expected result. If True (default)
          it will keep all the significant results.
-    alpha: float, optional
+    alpha : float, optional
         the significativity level for the pvalue correction
         on the whole set of groups (not inside the groups themselves).
 
@@ -281,11 +301,11 @@ def multigroup(pvals, groups, exact=True, keep_all=True, alpha=0.05):
     Examples
     --------
     A toy example on a real dataset, the Guerry dataset from R
-    >>> url = "http://vincentarelbundock.github.com/"
+    >>> url = "https://raw.githubusercontent.com/vincentarelbundock/"
     >>> url = url + "Rdatasets/csv/HistData/Guerry.csv"
     >>> df = pd.read_csv(url, index_col='dept')
 
-    evaluate the relationship between the variuos paramenters whith the Wealth
+    evaluate the relationship between the various paramenters whith the Wealth
     >>> pvals = multiOLS('Wealth', df)['adj_pvals', '_f_test']
 
     define the groups
@@ -299,17 +319,19 @@ def multigroup(pvals, groups, exact=True, keep_all=True, alpha=0.05):
     >>> multigroup(pvals < 0.05, groups)
     """
     pvals = pd.Series(pvals)
-    if not (set(pvals.unique()) <= set([False, True])):
+    if not (set(pvals.unique()) <= {False, True}):
         raise ValueError("the series should be binary")
-    if hasattr(pvals.index, 'is_unique') and not pvals.index.is_unique:
+    if hasattr(pvals.index, "is_unique") and not pvals.index.is_unique:
         raise ValueError("series with duplicated index is not accepted")
-    results = {'pvals': {},
-        'increase': {},
-        '_in_sign': {},
-        '_in_non': {},
-        '_out_sign': {},
-        '_out_non': {}}
-    for group_name, group_list in iteritems(groups):
+    results = {
+        "pvals": {},
+        "increase": {},
+        "_in_sign": {},
+        "_in_non": {},
+        "_out_sign": {},
+        "_out_non": {},
+    }
+    for group_name, group_list in groups.items():
         res = _test_group(pvals, group_name, group_list, exact)
         results['pvals'][group_name] = res[0]
         results['increase'][group_name] = res[1]
@@ -317,7 +339,7 @@ def multigroup(pvals, groups, exact=True, keep_all=True, alpha=0.05):
         results['_in_non'][group_name] = res[2][1]
         results['_out_sign'][group_name] = res[2][2]
         results['_out_non'][group_name] = res[2][3]
-    result_df = sort_values(pd.DataFrame(results), 'pvals')
+    result_df = pd.DataFrame(results).sort_values('pvals')
     if not keep_all:
         result_df = result_df[result_df.increase]
     smt = stats.multipletests

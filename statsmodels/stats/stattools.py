@@ -3,7 +3,7 @@ Statistical tests to be used in conjunction with the models
 
 Notes
 -----
-These functions haven't been formally tested.
+These functions have not been formally tested.
 """
 
 from scipy import stats
@@ -11,25 +11,28 @@ import numpy as np
 from statsmodels.tools.sm_exceptions import ValueWarning
 
 
-# TODO: these are pretty straightforward but they should be tested
 def durbin_watson(resids, axis=0):
-    """
-    Calculates the Durbin-Watson statistic
+    r"""
+    Calculates the Durbin-Watson statistic.
 
     Parameters
-    -----------
-    resids : array-like
+    ----------
+    resids : array_like
+        Data for which to compute the Durbin-Watson statistic. Usually
+        regression model residuals.
+    axis : int, optional
+        Axis to use if data has more than 1 dimension. Default is 0.
 
     Returns
-    --------
-    dw : float, array-like
-
-    The Durbin-Watson statistic.
+    -------
+    dw : float, array_like
+        The Durbin-Watson statistic.
 
     Notes
     -----
-    The null hypothesis of the test is that there is no serial correlation.
-    The Durbin-Watson test statistics is defined as:
+    The null hypothesis of the test is that there is no serial correlation
+    in the residuals.
+    The Durbin-Watson test statistic is defined as:
 
     .. math::
 
@@ -53,8 +56,8 @@ def omni_normtest(resids, axis=0):
     Omnibus test for normality
 
     Parameters
-    -----------
-    resid : array-like
+    ----------
+    resid : array_like
     axis : int, optional
         Default is 0
 
@@ -62,8 +65,8 @@ def omni_normtest(resids, axis=0):
     -------
     Chi^2 score, two-tail probability
     """
-    #TODO: change to exception in summary branch and catch in summary()
-    #behavior changed between scipy 0.9 and 0.10
+    # TODO: change to exception in summary branch and catch in summary()
+    #   behavior changed between scipy 0.9 and 0.10
     resids = np.asarray(resids)
     n = resids.shape[axis]
     if n < 8:
@@ -77,30 +80,30 @@ def omni_normtest(resids, axis=0):
 
 def jarque_bera(resids, axis=0):
     r"""
-    Calculates the Jarque-Bera test for normality
+    The Jarque-Bera test of normality.
 
     Parameters
-    -----------
-    data : array-like
-        Data to test for normality
+    ----------
+    resids : array_like
+        Data to test for normality. Usually regression model residuals that
+        are mean 0.
     axis : int, optional
-        Axis to use if data has more than 1 dimension. Default is 0
+        Axis to use if data has more than 1 dimension. Default is 0.
 
     Returns
     -------
-    JB : float or array
-        The Jarque-Bera test statistic
-    JBpv : float or array
-        The pvalue of the test statistic
-    skew : float or array
-        Estimated skewness of the data
-    kurtosis : float or array
-        Estimated kurtosis of the data
+    JB : {float, ndarray}
+        The Jarque-Bera test statistic.
+    JBpv : {float, ndarray}
+        The pvalue of the test statistic.
+    skew : {float, ndarray}
+        Estimated skewness of the data.
+    kurtosis : {float, ndarray}
+        Estimated kurtosis of the data.
 
     Notes
     -----
     Each output returned has 1 dimension fewer than data
-
 
     The Jarque-Bera test statistic tests the null that the data is normally
     distributed against an alternative that the data follow some other
@@ -115,7 +118,9 @@ def jarque_bera(resids, axis=0):
     where n is the number of data points, S is the sample skewness, and K is
     the sample kurtosis of the data.
     """
-    resids = np.asarray(resids)
+    resids = np.atleast_1d(np.asarray(resids, dtype=float))
+    if resids.size < 2:
+        raise ValueError("resids must contain at least 2 elements")
     # Calculate residual skewness and kurtosis
     skew = stats.skew(resids, axis=axis)
     kurtosis = 3 + stats.kurtosis(resids, axis=axis)
@@ -134,8 +139,8 @@ def robust_skewness(y, axis=0):
 
     Parameters
     ----------
-    y : array-like
-
+    y : array_like
+        Data to compute use in the estimator.
     axis : int or None, optional
         Axis along which the skewness measures are computed.  If `None`, the
         entire array is used.
@@ -194,7 +199,7 @@ def robust_skewness(y, axis=0):
     mu_b = np.reshape(mu, shape)
     q2_b = np.reshape(q2, shape)
 
-    sigma = np.mean(((y - mu_b)**2), axis)
+    sigma = np.sqrt(np.mean(((y - mu_b)**2), axis))
 
     sk1 = stats.skew(y, axis=axis)
     sk2 = (q1 + q3 - 2.0 * q2) / (q3 - q1)
@@ -210,7 +215,8 @@ def _kr3(y, alpha=5.0, beta=50.0):
 
     Parameters
     ----------
-    y : array-like, 1-d
+    y : array_like, 1-d
+        Data to compute use in the estimator.
     alpha : float, optional
         Lower cut-off for measuring expectation in tail.
     beta :  float, optional
@@ -246,18 +252,18 @@ def expected_robust_kurtosis(ab=(5.0, 50.0), dg=(2.5, 25.0)):
 
     Parameters
     ----------
-    ab: iterable, optional
+    ab : iterable, optional
         Contains 100*(alpha, beta) in the kr3 measure where alpha is the tail
         quantile cut-off for measuring the extreme tail and beta is the central
         quantile cutoff for the standardization of the measure
-    db: iterable, optional
+    db : iterable, optional
         Contains 100*(delta, gamma) in the kr4 measure where delta is the tail
         quantile for measuring extreme values and gamma is the central quantile
         used in the the standardization of the measure
 
     Returns
     -------
-    ekr: array, 4-element
+    ekr : ndarray, 4-element
         Contains the expected values of the 4 robust kurtosis measures
 
     Notes
@@ -290,15 +296,16 @@ def robust_kurtosis(y, axis=0, ab=(5.0, 50.0), dg=(2.5, 25.0), excess=True):
 
     Parameters
     ----------
-    y : array-like
+    y : array_like
+        Data to compute use in the estimator.
     axis : int or None, optional
-        Axis along which the kurtoses are computed.  If `None`, the
+        Axis along which the kurtosis are computed.  If `None`, the
         entire array is used.
-    ab: iterable, optional
+    a iterable, optional
         Contains 100*(alpha, beta) in the kr3 measure where alpha is the tail
         quantile cut-off for measuring the extreme tail and beta is the central
         quantile cutoff for the standardization of the measure
-    db: iterable, optional
+    db : iterable, optional
         Contains 100*(delta, gamma) in the kr4 measure where delta is the tail
         quantile for measuring extreme values and gamma is the central quantile
         used in the the standardization of the measure
@@ -313,7 +320,7 @@ def robust_kurtosis(y, axis=0, ab=(5.0, 50.0), dg=(2.5, 25.0), excess=True):
     kr2 : ndarray
           Kurtosis estimator based on octiles.
     kr3 : ndarray
-          Kurtosis estimators based on exceedence expectations.
+          Kurtosis estimators based on exceedance expectations.
     kr4 : ndarray
           Kurtosis measure based on the spread between high and low quantiles.
 
@@ -358,7 +365,8 @@ def robust_kurtosis(y, axis=0, ab=(5.0, 50.0), dg=(2.5, 25.0), excess=True):
     e1, e2, e3, e5, e6, e7, fd, f1md, fg, f1mg = np.percentile(y, perc,
                                                                axis=axis)
 
-    expected_value = expected_robust_kurtosis(ab, dg) if excess else np.zeros(4)
+    expected_value = (expected_robust_kurtosis(ab, dg)
+                      if excess else np.zeros(4))
 
     kr1 = stats.kurtosis(y, axis, False) - expected_value[0]
     kr2 = ((e7 - e5) + (e3 - e1)) / (e6 - e2) - expected_value[1]
@@ -377,7 +385,8 @@ def _medcouple_1d(y):
 
     Parameters
     ----------
-    y : array-like, 1-d
+    y : array_like, 1-d
+        Data to compute use in the estimator.
 
     Returns
     -------
@@ -389,7 +398,7 @@ def _medcouple_1d(y):
     The current algorithm requires a O(N**2) memory allocations, and so may
     not work for very large arrays (N>10000).
 
-    .. [*] M. Huberta and E. Vandervierenb, "An adjusted boxplot for skewed
+    .. [*] M. Hubert and E. Vandervieren, "An adjusted boxplot for skewed
        distributions" Computational Statistics & Data Analysis, vol. 52, pp.
        5186-5201, August 2008.
     """
@@ -416,17 +425,31 @@ def _medcouple_1d(y):
     is_zero = np.logical_and(lower == 0.0, upper == 0.0)
     standardization[is_zero] = np.inf
     spread = upper + lower
-    return np.median(spread / standardization)
+    h = spread / standardization
+    # GH5395
+    num_ties = np.sum(lower == 0.0)
+    if num_ties:
+        # Replacements has -1 above the anti-diagonal, 0 on the anti-diagonal,
+        # and 1 below the anti-diagonal
+        replacements = np.ones((num_ties, num_ties)) - np.eye(num_ties)
+        replacements -= 2 * np.triu(replacements)
+        # Convert diagonal to anti-diagonal
+        replacements = np.fliplr(replacements)
+        # Always replace upper right block
+        h[:num_ties, -num_ties:] = replacements
+
+    return np.median(h)
 
 
 def medcouple(y, axis=0):
     """
-    Calculates the medcouple robust measure of skew.
+    Calculate the medcouple robust measure of skew.
 
     Parameters
     ----------
-    y : array-like
-    axis : int or None, optional
+    y : array_like
+        Data to compute use in the estimator.
+    axis : {int, None}
         Axis along which the medcouple statistic is computed.  If `None`, the
         entire array is used.
 
@@ -441,7 +464,7 @@ def medcouple(y, axis=0):
     The current algorithm requires a O(N**2) memory allocations, and so may
     not work for very large arrays (N>10000).
 
-    .. [*] M. Huberta and E. Vandervierenb, "An adjusted boxplot for skewed
+    .. [*] M. Hubert and E. Vandervieren, "An adjusted boxplot for skewed
        distributions" Computational Statistics & Data Analysis, vol. 52, pp.
        5186-5201, August 2008.
     """

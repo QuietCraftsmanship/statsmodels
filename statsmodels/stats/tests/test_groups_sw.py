@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Test for a helper function for PanelHAC robust covariance
 
 the functions should be rewritten to make it more efficient
@@ -10,9 +9,10 @@ Author: Josef Perktold
 import numpy as np
 from numpy.testing import assert_equal, assert_raises
 import statsmodels.stats.sandwich_covariance as sw
-from statsmodels.tools.grouputils import Group, GroupSorted
+from statsmodels.tools.grouputils import GroupSorted
 
-class CheckPanelLagMixin(object):
+
+class CheckPanelLagMixin:
 
     @classmethod
     def calculate(cls):
@@ -75,7 +75,3 @@ class TestUnBalanced(CheckPanelLagMixin):
             5 : np.array([[113, 114, 115, 116, 117]]),
             }
         cls.calculate()
-
-if __name__ == '__main__':
-    import pytest
-    pytest.main([__file__, '-vvs', '-x', '--pdb'])

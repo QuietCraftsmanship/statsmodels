@@ -1,11 +1,8 @@
-
-from __future__ import print_function
 import numpy as np
-from statsmodels.regression.linear_model import OLS, GLSAR
-from statsmodels.tools.tools import add_constant
-from statsmodels.datasets import macrodata
-import statsmodels.regression.tests.results.results_macro_ols_robust as res
 
+from statsmodels.datasets import macrodata
+from statsmodels.regression.linear_model import OLS
+from statsmodels.tools.tools import add_constant
 
 d2 = macrodata.load().data
 g_gdp = 400*np.diff(np.log(d2['realgdp']))

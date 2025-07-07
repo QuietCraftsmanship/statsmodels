@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Mon Mar 18 15:48:23 2013
@@ -10,9 +9,10 @@ TODO:
   - rewrite core loop to use for...except instead of while.
 
 """
-from __future__ import print_function
 import numpy as np
 from scipy import optimize
+
+from statsmodels.tools.testing import Holder
 
 DEBUG = False
 
@@ -119,26 +119,24 @@ def brentq_expanding(func, low=None, upp=None, args=(), xtol=1e-5,
 
     # increasing or not ?
     if ((low is None) or (upp is None)) and increasing is None:
-        assert sl < su  # check during developement
+        assert sl < su  # check during development
         f_low = func(sl, *args)
         f_upp = func(su, *args)
 
         # special case for F-distribution (symmetric around zero for effect
         # size)
-        # chisquare also takes an indefinite time (didn't wait see if it
+        # chisquare also takes an indefinite time (did not wait see if it
         # returns)
         if np.max(np.abs(f_upp - f_low)) < 1e-15 and sl == -1 and su == 1:
             sl = 1e-8
             f_low = func(sl, *args)
             increasing = (f_low < f_upp)
-            if DEBUG:
-                print('symm', sl, su, f_low, f_upp)
 
         # possibly func returns nan
         delta = su - sl
         if np.isnan(f_low):
             # try just 3 points to find ``increasing``
-            # don't change sl because brentq can handle one nan bound
+            # do not change sl because brentq can handle one nan bound
             for fraction in [0.25, 0.5, 0.75]:
                 sl_ = sl + fraction * delta
                 f_low = func(sl_, *args)
@@ -162,11 +160,6 @@ def brentq_expanding(func, low=None, upp=None, args=(), xtol=1e-5,
                                  'bounds')
 
         increasing = (f_low < f_upp)
-
-    if DEBUG:
-        print('low, upp', low, upp, func(sl, *args), func(su, *args))
-        print('increasing', increasing)
-        print('sl, su', sl, su)
 
     if not increasing:
         sl, su = su, sl
@@ -210,11 +203,19 @@ def brentq_expanding(func, low=None, upp=None, args=(), xtol=1e-5,
                           full_output=full_output)
     if full_output:
         val = res[0]
-        info = res[1]
-        info.iterations_expand = n_it
-        info.start_bounds = (sl, su)
-        info.brentq_bounds = (left, right)
-        info.increasing = increasing
+        info = Holder(
+            # from brentq
+            root=res[1].root,
+            iterations=res[1].iterations,
+            function_calls=res[1].function_calls,
+            converged=res[1].converged,
+            flag=res[1].flag,
+            # ours:
+            iterations_expand=n_it,
+            start_bounds=(sl, su),
+            brentq_bounds=(left, right),
+            increasing=increasing,
+            )
         return val, info
     else:
         return res

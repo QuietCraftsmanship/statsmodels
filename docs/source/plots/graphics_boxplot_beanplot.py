@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Fri May 04 00:22:40 2012
@@ -7,9 +6,11 @@ Author: Ralf Gommers
 
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 import statsmodels.api as sm
+
 data = sm.datasets.anes96.load_pandas()
 party_ID = np.arange(7)
 labels = ["Strong Democrat", "Weak Democrat", "Independent-Democrat",

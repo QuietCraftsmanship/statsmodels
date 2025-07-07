@@ -4,7 +4,7 @@ These examples are mainly for developers.
 
 # example 1: OLS using LM
 # example 2: GLM with binomial family
-    The second results isn't exactly correct since it assumes that each
+    The second results is not exactly correct since it assumes that each
     obvervation has the same number of trials see datasets/longley for an R script
     with the correct syntax.
 
@@ -17,12 +17,9 @@ There are also R scripts included with most of the datasets to run
 some basic models for comparisons of results to statsmodels.
 '''
 
-from __future__ import print_function
-from statsmodels.compat.python import iterkeys
 from rpy import r
-import numpy as np
-import statsmodels.api as sm
 
+import statsmodels.api as sm
 
 examples = [1, 2]
 
@@ -33,13 +30,12 @@ if 1 in examples:
     formula = r('y~%s-1' % '+'.join(des_cols))
     frame = r.data_frame(y=y, x=x)
     results = r.lm(formula, data=frame)
-    print(list(iterkeys(results)))
+    print(list(results.keys()))
     print(results['coefficients'])
 
 if 2 in examples:
     data2 = sm.datasets.star98.load()
     y2,x2 = data2.endog, sm.add_constant(data2.exog, prepend=False)
-    import rpy
     y2 = y2[:,0]/y2.sum(axis=1)
     des_cols2 = ['x.%d' % (i+1) for i in range(x2.shape[1])]
     formula2 = r('y~%s-1' % '+'.join(des_cols2))
@@ -49,4 +45,3 @@ if 2 in examples:
                     in sorted(results2['coefficients'])]
     print(params_est)
     print(', '.join(['%13.10f']*21) % tuple(params_est))
-

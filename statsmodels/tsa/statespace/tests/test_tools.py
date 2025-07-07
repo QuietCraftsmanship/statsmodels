@@ -4,46 +4,47 @@ Tests for tools
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
+import pytest
 import numpy as np
+from numpy.testing import (assert_allclose, assert_equal, assert_array_less,
+                           assert_array_equal, assert_almost_equal)
 import pandas as pd
-
 from scipy.linalg import solve_discrete_lyapunov
-from statsmodels.tsa.statespace import tools
-from statsmodels.tsa.api import acovf
-# from .results import results_sarimax
-from numpy.testing import (
-    assert_allclose, assert_equal, assert_array_equal, assert_almost_equal,
-    assert_raises
-)
 
-class TestCompanionMatrix(object):
+from statsmodels.tsa.statespace import tools
+from statsmodels.tsa.stattools import acovf
+
+
+class TestCompanionMatrix:
 
     cases = [
-        (2, np.array([[0,1],[0,0]])),
-        ([1,-1,-2], np.array([[1,1],
-                              [2,0]])),
-        ([1,-1,-2,-3], np.array([[1,1,0],
-                                 [2,0,1],
-                                 [3,0,0]])),
-        ([1,-np.array([[1,2],[3,4]]),-np.array([[5,6],[7,8]])],
-         np.array([[1,2,5,6],
-                   [3,4,7,8],
-                   [1,0,0,0],
-                   [0,1,0,0]]).T)
+        (2, np.array([[0, 1], [0, 0]])),
+        ([1, -1, -2], np.array([[1, 1],
+                                [2, 0]])),
+        ([1, -1, -2, -3], np.array([[1, 1, 0],
+                                    [2, 0, 1],
+                                    [3, 0, 0]])),
+        ([1, -np.array([[1, 2], [3, 4]]), -np.array([[5, 6], [7, 8]])],
+         np.array([[1, 2, 5, 6],
+                   [3, 4, 7, 8],
+                   [1, 0, 0, 0],
+                   [0, 1, 0, 0]]).T),
+        # GH 5570
+        (np.int64(2), np.array([[0, 1], [0, 0]]))
     ]
 
     def test_cases(self):
         for polynomial, result in self.cases:
             assert_equal(tools.companion_matrix(polynomial), result)
 
-class TestDiff(object):
+
+class TestDiff:
 
     x = np.arange(10)
     cases = [
         # diff = 1
-        ([1,2,3], 1, None, 1, [1, 1]),
+        ([1, 2, 3], 1, None, 1, [1, 1]),
         # diff = 2
         (x, 2, None, 1, [0]*8),
         # diff = 1, seasonal_diff=1, seasonal_periods=4
@@ -57,10 +58,12 @@ class TestDiff(object):
         (x**4, 1, 2, 2, [240, 336, 432, 528, 624]),
     ]
 
+    # TODO: use pytest.mark.parametrize?
     def test_cases(self):
         # Basic cases
-        for series, diff, seasonal_diff, seasonal_periods, result in self.cases:
-            
+        for series, diff, seas_diff, seasonal_periods, result in self.cases:
+            seasonal_diff = seas_diff
+
             # Test numpy array
             x = tools.diff(series, diff, seasonal_diff, seasonal_periods)
             assert_almost_equal(x, result)
@@ -76,12 +79,13 @@ class TestDiff(object):
             x = tools.diff(series, diff, seasonal_diff, seasonal_periods)
             assert_almost_equal(x, result)
 
-            # Test as Pandas Dataframe
+            # Test as Pandas DataFrame
             series = pd.DataFrame(series)
             x = tools.diff(series, diff, seasonal_diff, seasonal_periods)
             assert_almost_equal(x, result)
 
-class TestSolveDiscreteLyapunov(object):
+
+class TestSolveDiscreteLyapunov:
 
     def solve_dicrete_lyapunov_direct(self, a, q, complex_step=False):
         # This is the discrete Lyapunov solver as "real function of real
@@ -147,24 +151,27 @@ class TestSolveDiscreteLyapunov(object):
         desired = self.solve_dicrete_lyapunov_direct(a, q, complex_step=True)
         assert_allclose(actual, desired)
 
-class TestConcat(object):
+
+class TestConcat:
 
     x = np.arange(10)
-    
+
     valid = [
-        (((1,2,3),(4,)), (1,2,3,4)),
-        (((1,2,3),[4]), (1,2,3,4)),
-        (([1,2,3],np.r_[4]), (1,2,3,4)),
-        ((np.r_[1,2,3],pd.Series([4])), 0, True, (1,2,3,4)),
-        ((pd.Series([1,2,3]),pd.Series([4])), 0, True, (1,2,3,4)),
-        ((np.c_[x[:2],x[:2]], np.c_[x[2:3],x[2:3]]), np.c_[x[:3],x[:3]]),
-        ((np.c_[x[:2],x[:2]].T, np.c_[x[2:3],x[2:3]].T), 1, np.c_[x[:3],x[:3]].T),
-        ((pd.DataFrame(np.c_[x[:2],x[:2]]), np.c_[x[2:3],x[2:3]]), 0, True, np.c_[x[:3],x[:3]]),
+        (((1, 2, 3), (4,)), (1, 2, 3, 4)),
+        (((1, 2, 3), [4]), (1, 2, 3, 4)),
+        (([1, 2, 3], np.r_[4]), (1, 2, 3, 4)),
+        ((np.r_[1, 2, 3], pd.Series([4])), 0, True, (1, 2, 3, 4)),
+        ((pd.Series([1, 2, 3]), pd.Series([4])), 0, True, (1, 2, 3, 4)),
+        ((np.c_[x[:2], x[:2]], np.c_[x[2:3], x[2:3]]), np.c_[x[:3], x[:3]]),
+        ((np.c_[x[:2], x[:2]].T, np.c_[x[2:3], x[2:3]].T),
+         1, np.c_[x[:3], x[:3]].T),
+        ((pd.DataFrame(np.c_[x[:2], x[:2]]), np.c_[x[2:3], x[2:3]]),
+         0, True, np.c_[x[:3], x[:3]]),
     ]
 
     invalid = [
-        (((1,2,3), pd.Series([4])), ValueError),
-        (((1,2,3), np.array([[1,2]])), ValueError)
+        (((1, 2, 3), pd.Series([4])), ValueError),
+        (((1, 2, 3), np.array([[1, 2]])), ValueError)
     ]
 
     def test_valid(self):
@@ -173,24 +180,27 @@ class TestConcat(object):
 
     def test_invalid(self):
         for args in self.invalid:
-            assert_raises(args[-1], tools.concat, *args[:-1])
+            with pytest.raises(args[-1]):
+                tools.concat(*args[:-1])
 
-class TestIsInvertible(object):
+
+class TestIsInvertible:
 
     cases = [
         ([1, -0.5], True),
         ([1, 1-1e-9], True),
         ([1, 1], False),
-        ([1, 0.9,0.1], True),
-        (np.array([1,0.9,0.1]), True),
-        (pd.Series([1,0.9,0.1]), True)
+        ([1, 0.9, 0.1], True),
+        (np.array([1, 0.9, 0.1]), True),
+        (pd.Series([1, 0.9, 0.1]), True)
     ]
 
     def test_cases(self):
         for polynomial, invertible in self.cases:
             assert_equal(tools.is_invertible(polynomial), invertible)
 
-class TestConstrainStationaryUnivariate(object):
+
+class TestConstrainStationaryUnivariate:
 
     cases = [
         (np.array([2.]), -2./((1+2.**2)**0.5))
@@ -201,7 +211,8 @@ class TestConstrainStationaryUnivariate(object):
             result = tools.constrain_stationary_univariate(unconstrained)
             assert_equal(result, constrained)
 
-class TestUnconstrainStationaryUnivariate(object):
+
+class TestUnconstrainStationaryUnivariate:
 
     cases = [
         (np.array([-2./((1+2.**2)**0.5)]), np.array([2.]))
@@ -212,8 +223,9 @@ class TestUnconstrainStationaryUnivariate(object):
             result = tools.unconstrain_stationary_univariate(constrained)
             assert_allclose(result, unconstrained)
 
-class TestStationaryUnivariate(object):
-    # Test that the constraint and unconstraint functions are inverses
+
+class TestStationaryUnivariate:
+    # Test that the constraint and unconstrained functions are inverses
 
     constrained_cases = [
         np.array([0]), np.array([0.1]), np.array([-0.5]), np.array([0.999])]
@@ -222,29 +234,30 @@ class TestStationaryUnivariate(object):
 
     def test_cases(self):
         for constrained in self.constrained_cases:
-            unconstrained = tools.unconstrain_stationary_univariate(constrained)
-            reconstrained = tools.constrain_stationary_univariate(unconstrained)
+            unconstrained = tools.unconstrain_stationary_univariate(constrained)  # noqa:E501
+            reconstrained = tools.constrain_stationary_univariate(unconstrained)  # noqa:E501
             assert_allclose(reconstrained, constrained)
 
         for unconstrained in self.unconstrained_cases:
             constrained = tools.constrain_stationary_univariate(unconstrained)
-            reunconstrained = tools.unconstrain_stationary_univariate(constrained)
+            reunconstrained = tools.unconstrain_stationary_univariate(constrained)  # noqa:E501
             assert_allclose(reunconstrained, unconstrained)
 
-class TestValidateMatrixShape(object):
+
+class TestValidateMatrixShape:
     # name, shape, nrows, ncols, nobs
     valid = [
-        ('TEST', (5,2), 5, 2, None),
-        ('TEST', (5,2), 5, 2, 10),
-        ('TEST', (5,2,10), 5, 2, 10),
+        ('TEST', (5, 2), 5, 2, None),
+        ('TEST', (5, 2), 5, 2, 10),
+        ('TEST', (5, 2, 10), 5, 2, 10),
     ]
     invalid = [
         ('TEST', (5,), 5, None, None),
-        ('TEST', (5,1,1,1), 5, 1, None),
-        ('TEST', (5,2), 10, 2, None),
-        ('TEST', (5,2), 5, 1, None),
-        ('TEST', (5,2,10), 5, 2, None),
-        ('TEST', (5,2,10), 5, 2, 5),
+        ('TEST', (5, 1, 1, 1), 5, 1, None),
+        ('TEST', (5, 2), 10, 2, None),
+        ('TEST', (5, 2), 5, 1, None),
+        ('TEST', (5, 2, 10), 5, 2, None),
+        ('TEST', (5, 2, 10), 5, 2, 5),
     ]
 
     def test_valid_cases(self):
@@ -254,22 +267,22 @@ class TestValidateMatrixShape(object):
 
     def test_invalid_cases(self):
         for args in self.invalid:
-            assert_raises(
-                ValueError, tools.validate_matrix_shape, *args
-            )
+            with pytest.raises(ValueError):
+                tools.validate_matrix_shape(*args)
 
-class TestValidateVectorShape(object):
+
+class TestValidateVectorShape:
     # name, shape, nrows, ncols, nobs
     valid = [
         ('TEST', (5,), 5, None),
         ('TEST', (5,), 5, 10),
-        ('TEST', (5,10), 5, 10),
+        ('TEST', (5, 10), 5, 10),
     ]
     invalid = [
-        ('TEST', (5,2,10), 5, 10),
+        ('TEST', (5, 2, 10), 5, 10),
         ('TEST', (5,), 10, None),
-        ('TEST', (5,10), 5, None),
-        ('TEST', (5,10), 5, 5),
+        ('TEST', (5, 10), 5, None),
+        ('TEST', (5, 10), 5, 5),
     ]
 
     def test_valid_cases(self):
@@ -279,9 +292,9 @@ class TestValidateVectorShape(object):
 
     def test_invalid_cases(self):
         for args in self.invalid:
-            assert_raises(
-                ValueError, tools.validate_vector_shape, *args
-            )
+            with pytest.raises(ValueError):
+                tools.validate_vector_shape(*args)
+
 
 def test_multivariate_acovf():
     _acovf = tools._compute_multivariate_acovf_from_coefficients
@@ -340,7 +353,7 @@ def test_multivariate_acovf():
     x = np.arange(20)*1.0
     assert_allclose(
         np.squeeze(tools._compute_multivariate_sample_acovf(x, maxlag=4)),
-        acovf(x)[:5])
+        acovf(x, fft=False)[:5])
 
 
 def test_multivariate_pacf():
@@ -353,7 +366,8 @@ def test_multivariate_pacf():
         tools._compute_multivariate_sample_pacf(np.c_[x, y], maxlag=1)[0],
         np.diag([1, 0]), atol=1e-2)
 
-class TestConstrainStationaryMultivariate(object):
+
+class TestConstrainStationaryMultivariate:
 
     cases = [
         # This is the same test as the univariate case above, except notice
@@ -379,18 +393,19 @@ class TestConstrainStationaryMultivariate(object):
         # Test that the constrained results correspond to companion matrices
         # with eigenvalues less than 1 in modulus
         for unconstrained in self.eigval_cases:
-            if type(unconstrained) == list:
+            if type(unconstrained) is list:
                 cov = np.eye(unconstrained[0].shape[0])
             else:
                 cov = np.eye(unconstrained.shape[0])
-            constrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)
+            constrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)  # noqa:E501
             companion = tools.companion_matrix(
-                [1] + [-constrained[i] for i in range(len(constrained))]
+                [1] + [-np.squeeze(constrained[i])
+                       for i in range(len(constrained))]
             ).T
-            assert_equal(np.max(np.abs(np.linalg.eigvals(companion))) < 1, True)
+            assert_array_less(np.abs(np.linalg.eigvals(companion)), 1)
 
 
-class TestUnconstrainStationaryMultivariate(object):
+class TestUnconstrainStationaryMultivariate:
 
     cases = [
         # This is the same test as the univariate case above, except notice
@@ -407,15 +422,17 @@ class TestUnconstrainStationaryMultivariate(object):
             assert_allclose(result[0], unconstrained)
 
 
-class TestStationaryMultivariate(object):
-    # Test that the constraint and unconstraint functions are inverses
+class TestStationaryMultivariate:
+    # Test that the constraint and unconstrained functions are inverses
 
     constrained_cases = [
-        np.array([[0]]), np.array([[0.1]]), np.array([[-0.5]]), np.array([[0.999]]),
+        np.array([[0]]), np.array([[0.1]]),
+        np.array([[-0.5]]), np.array([[0.999]]),
         [np.array([[0]])],
         np.array([[0.8, -0.2]]),
         [np.array([[0.8]]), np.array([[-0.2]])],
-        [np.array([[0.3, 0.01], [-0.23, 0.15]]), np.array([[0.1, 0.03], [0.05, -0.3]])],
+        [np.array([[0.3, 0.01], [-0.23, 0.15]]),
+         np.array([[0.1, 0.03], [0.05, -0.3]])],
         np.array([[0.3, 0.01, 0.1, 0.03], [-0.23, 0.15, 0.05, -0.3]])
     ]
     unconstrained_cases = [
@@ -429,23 +446,23 @@ class TestStationaryMultivariate(object):
 
     def test_cases(self):
         for constrained in self.constrained_cases:
-            if type(constrained) == list:
+            if type(constrained) is list:
                 cov = np.eye(constrained[0].shape[0])
             else:
                 cov = np.eye(constrained.shape[0])
-            unconstrained, _ = tools.unconstrain_stationary_multivariate(constrained, cov)
-            reconstrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)
+            unconstrained, _ = tools.unconstrain_stationary_multivariate(constrained, cov)  # noqa:E501
+            reconstrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)  # noqa:E501
             assert_allclose(reconstrained, constrained)
 
         for unconstrained in self.unconstrained_cases:
-            if type(unconstrained) == list:
+            if type(unconstrained) is list:
                 cov = np.eye(unconstrained[0].shape[0])
             else:
                 cov = np.eye(unconstrained.shape[0])
-            constrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)
-            reunconstrained, _ = tools.unconstrain_stationary_multivariate(constrained, cov)
-            # Note: low tolerance comes from last example in unconstrained_cases,
-            # but is not a real problem
+            constrained, _ = tools.constrain_stationary_multivariate(unconstrained, cov)  # noqa:E501
+            reunconstrained, _ = tools.unconstrain_stationary_multivariate(constrained, cov)  # noqa:E501
+            # Note: low tolerance comes from last example in
+            # unconstrained_cases, but is not a real problem
             assert_allclose(reunconstrained, unconstrained, atol=1e-4)
 
 
@@ -495,7 +512,8 @@ def test_reorder_matrix_rows():
 
     actual = np.asfortranarray(given)
     missing = np.asfortranarray(missing.astype(np.int32))
-    tools.reorder_missing_matrix(actual, missing, True, False, False, inplace=True)
+    tools.reorder_missing_matrix(actual, missing,
+                                 True, False, False, inplace=True)
 
     assert_equal(actual, desired)
 
@@ -546,7 +564,8 @@ def test_reorder_matrix_cols():
 
     actual = np.asfortranarray(given)
     missing = np.asfortranarray(missing.astype(np.int32))
-    tools.reorder_missing_matrix(actual, missing, False, True, False, inplace=True)
+    tools.reorder_missing_matrix(actual, missing,
+                                 False, True, False, inplace=True)
 
     assert_equal(actual[:, :, 4], desired[:, :, 4])
 
@@ -603,7 +622,8 @@ def test_reorder_submatrix():
 
     actual = np.asfortranarray(given)
     missing = np.asfortranarray(missing.astype(np.int32))
-    tools.reorder_missing_matrix(actual, missing, True, True, False, inplace=True)
+    tools.reorder_missing_matrix(actual, missing,
+                                 True, True, False, inplace=True)
 
     assert_equal(actual, desired)
 
@@ -660,11 +680,13 @@ def test_reorder_diagonal_submatrix():
 
     actual = np.asfortranarray(given.copy())
     missing = np.asfortranarray(missing.astype(np.int32))
-    tools.reorder_missing_matrix(actual, missing, True, True, False, inplace=True)
+    tools.reorder_missing_matrix(actual, missing,
+                                 True, True, False, inplace=True)
     assert_equal(actual, desired)
 
     actual = np.asfortranarray(given.copy())
-    tools.reorder_missing_matrix(actual, missing, True, True, True, inplace=True)
+    tools.reorder_missing_matrix(actual, missing,
+                                 True, True, True, inplace=True)
     assert_equal(actual, desired)
 
 

@@ -5,7 +5,7 @@ Only Gaussian models are currently checked.
 
 See the generated file "gee_simulation_check.txt" for results.
 """
-from statsmodels.compat.python import range, lrange, zip
+from statsmodels.compat.python import lrange
 import scipy
 import numpy as np
 from itertools import product
@@ -17,9 +17,9 @@ np.set_printoptions(formatter={'all': lambda x: "%8.3f" % x},
                     suppress=True)
 
 
-OUT = open("gee_simulation_check.txt", "w")
+OUT = open("gee_simulation_check.txt", "w", encoding="utf-8")
 
-class GEE_simulator(object):
+class GEE_simulator:
 
     #
     # Parameters that must be defined
@@ -332,7 +332,7 @@ for gendat in gendats:
     OUT.write(np.array_str(rhs) + "\n")
     OUT.write("Observed p-values   Expected Null p-values\n")
     for q in np.arange(0.1, 0.91, 0.1):
-        OUT.write("%20.3f %20.3f\n" % (pvalues[int(q*len(pvalues))], q))
+        OUT.write(f"{pvalues[int(q*len(pvalues))]:20.3f} {q:20.3f}\n")
 
     OUT.write("=" * 80 + "\n\n")
 

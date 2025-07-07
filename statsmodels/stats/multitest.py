@@ -6,17 +6,20 @@ License: BSD-3
 
 '''
 
-from statsmodels.compat.python import range
-from statsmodels.compat.collections import OrderedDict
-from ._knockoff import RegressionFDR
+
 import numpy as np
 
+from statsmodels.stats._knockoff import RegressionFDR
 
-#==============================================
+__all__ = ['fdrcorrection', 'fdrcorrection_twostage', 'local_fdr',
+           'multipletests', 'NullDistribution', 'RegressionFDR']
+
+# ==============================================
 #
 # Part 1: Multiple Tests and P-Value Correction
 #
-#==============================================
+# ==============================================
+
 
 def _ecdf(x):
     '''no frills empirical cdf used in fdrcorrection
@@ -51,13 +54,15 @@ _alias_list = [['b', 'bonf', 'bonferroni'],
                ]
 
 
-multitest_alias = OrderedDict()
+multitest_alias = {}
 for m in _alias_list:
     multitest_alias[m[0]] = m[0]
     for a in m[1:]:
         multitest_alias[a] = m[0]
 
-def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
+def multipletests(pvals, alpha=0.05, method='hs',
+                  maxiter=1,
+                  is_sorted=False,
                   returnsorted=False):
     """
     Test results and p-value correction for multiple tests
@@ -68,7 +73,7 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
         uncorrected p-values.   Must be 1-dimensional.
     alpha : float
         FWER, family-wise error rate, e.g. 0.1
-    method : string
+    method : str
         Method used for testing and adjustment of pvalues. Can be either the
         full name or initial letters. Available methods are:
 
@@ -83,6 +88,13 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
         - `fdr_tsbh` : two stage fdr correction (non-negative)
         - `fdr_tsbky` : two stage fdr correction (non-negative)
 
+    maxiter : int or bool
+        Maximum number of iterations for two-stage fdr, `fdr_tsbh` and
+        `fdr_tsbky`. It is ignored by all other methods.
+        maxiter=1 (default) corresponds to the two stage method.
+        maxiter=-1 corresponds to full iterations which is maxiter=len(pvals).
+        maxiter=0 uses only a single stage fdr correction using a 'bh' or 'bky'
+        prior fraction of assumed true hypotheses.
     is_sorted : bool
         If False (default), the p_values will be sorted, but the corrected
         pvalues are in the original order. If True, then it assumed that the
@@ -92,13 +104,13 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
 
     Returns
     -------
-    reject : array, boolean
+    reject : ndarray, boolean
         true for hypothesis that can be rejected for given alpha
-    pvals_corrected : array
+    pvals_corrected : ndarray
         p-values corrected for multiple tests
-    alphacSidak: float
+    alphacSidak : float
         corrected alpha for Sidak method
-    alphacBonf: float
+    alphacBonf : float
         corrected alpha for Bonferroni method
 
     Notes
@@ -149,7 +161,7 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
 
     elif method.lower() in ['s', 'sidak']:
         reject = pvals <= alphacSidak
-        pvals_corrected = 1 - np.power((1. - pvals), ntests)
+        pvals_corrected = -np.expm1(ntests * np.log1p(-pvals))
 
     elif method.lower() in ['hs', 'holm-sidak']:
         alphacSidak_all = 1 - np.power((1. - alphaf),
@@ -167,8 +179,11 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
         reject = ~notreject
         del notreject
 
-        pvals_corrected_raw = 1 - np.power((1. - pvals),
-                                           np.arange(ntests, 0, -1))
+        # It's eqivalent to 1 - np.power((1. - pvals),
+        #                           np.arange(ntests, 0, -1))
+        # but prevents the issue of the floating point precision
+        pvals_corrected_raw = -np.expm1(np.arange(ntests, 0, -1) *
+                                        np.log1p(-pvals))
         pvals_corrected = np.maximum.accumulate(pvals_corrected_raw)
         del pvals_corrected_raw
 
@@ -222,11 +237,13 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
         # delegate, call with sorted pvals
         reject, pvals_corrected = fdrcorrection_twostage(pvals, alpha=alpha,
                                                          method='bky',
+                                                         maxiter=maxiter,
                                                          is_sorted=True)[:2]
     elif method.lower() in ['fdr_tsbh', 'fdr_2sbh']:
         # delegate, call with sorted pvals
         reject, pvals_corrected = fdrcorrection_twostage(pvals, alpha=alpha,
                                                          method='bh',
+                                                         maxiter=maxiter,
                                                          is_sorted=True)[:2]
 
     elif method.lower() in ['fdr_gbs']:
@@ -247,7 +264,7 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
     else:
         raise ValueError('method not recognized')
 
-    if not pvals_corrected is None: #not necessary anymore
+    if pvals_corrected is not None: #not necessary anymore
         pvals_corrected[pvals_corrected>1] = 1
     if is_sorted or returnsorted:
         return reject, pvals_corrected, alphacSidak, alphacBonf
@@ -261,45 +278,58 @@ def multipletests(pvals, alpha=0.05, method='hs', is_sorted=False,
 
 
 def fdrcorrection(pvals, alpha=0.05, method='indep', is_sorted=False):
-    '''pvalue correction for false discovery rate
+    '''
+    pvalue correction for false discovery rate.
 
     This covers Benjamini/Hochberg for independent or positively correlated and
-    Benjamini/Yekutieli for general or negatively correlated tests. Both are
-    available in the function multipletests, as method=`fdr_bh`, resp. `fdr_by`.
+    Benjamini/Yekutieli for general or negatively correlated tests.
 
     Parameters
     ----------
-    pvals : array_like
-        set of p-values of the individual tests.
-    alpha : float
-        error rate
-    method : {'indep', 'negcorr')
+    pvals : array_like, 1d
+        Set of p-values of the individual tests.
+    alpha : float, optional
+        Family-wise error rate. Defaults to ``0.05``.
+    method : {'i', 'indep', 'p', 'poscorr', 'n', 'negcorr'}, optional
+        Which method to use for FDR correction.
+        ``{'i', 'indep', 'p', 'poscorr'}`` all refer to ``fdr_bh``
+        (Benjamini/Hochberg for independent or positively
+        correlated tests). ``{'n', 'negcorr'}`` both refer to ``fdr_by``
+        (Benjamini/Yekutieli for general or negatively correlated tests).
+        Defaults to ``'indep'``.
+    is_sorted : bool, optional
+        If False (default), the p_values will be sorted, but the corrected
+        pvalues are in the original order. If True, then it assumed that the
+        pvalues are already sorted in ascending order.
 
     Returns
     -------
-    rejected : array, bool
+    rejected : ndarray, bool
         True if a hypothesis is rejected, False if not
-    pvalue-corrected : array
+    pvalue-corrected : ndarray
         pvalues adjusted for multiple hypothesis testing to limit FDR
 
     Notes
     -----
-
     If there is prior information on the fraction of true hypothesis, then alpha
-    should be set to alpha * m/m_0 where m is the number of tests,
+    should be set to ``alpha * m/m_0`` where m is the number of tests,
     given by the p-values, and m_0 is an estimate of the true hypothesis.
     (see Benjamini, Krieger and Yekuteli)
 
     The two-step method of Benjamini, Krieger and Yekutiel that estimates the number
     of false hypotheses will be available (soon).
 
-    Method names can be abbreviated to first letter, 'i' or 'p' for fdr_bh and 'n' for
-    fdr_by.
+    Both methods exposed via this function (Benjamini/Hochberg, Benjamini/Yekutieli)
+    are also available in the function ``multipletests``, as ``method="fdr_bh"`` and
+    ``method="fdr_by"``, respectively.
 
-
+    See also
+    --------
+    multipletests
 
     '''
     pvals = np.asarray(pvals)
+    assert pvals.ndim == 1, "pvals must be 1-dimensional, that is of shape (n,)"
 
     if not is_sorted:
         pvals_sortind = np.argsort(pvals)
@@ -337,7 +367,9 @@ def fdrcorrection(pvals, alpha=0.05, method='indep', is_sorted=False):
         return reject, pvals_corrected
 
 
-def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
+def fdrcorrection_twostage(pvals, alpha=0.05, method='bky',
+                           maxiter=1,
+                           iter=None,
                            is_sorted=False):
     '''(iterated) two stage linear step-up procedure with estimation of number of true
     hypotheses
@@ -357,16 +389,40 @@ def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
            and Yekuteli 2006
         * 'bh' - the two stage method of Benjamini and Hochberg
 
+    maxiter : int or bool
+        Maximum number of iterations.
+        maxiter=1 (default) corresponds to the two stage method.
+        maxiter=-1 corresponds to full iterations which is maxiter=len(pvals).
+        maxiter=0 uses only a single stage fdr correction using a 'bh' or 'bky'
+        prior fraction of assumed true hypotheses.
+        Boolean maxiter is allowed for backwards compatibility with the
+        deprecated ``iter`` keyword.
+        maxiter=False is two-stage fdr (maxiter=1)
+        maxiter=True is full iteration (maxiter=-1 or maxiter=len(pvals))
+
+        .. versionadded:: 0.14
+
+            Replacement for ``iter`` with additional features.
+
     iter : bool
+        ``iter`` is deprecated use ``maxiter`` instead.
+        If iter is True, then only one iteration step is used, this is the
+        two-step method.
+        If iter is False, then iterations are stopped at convergence which
+        occurs in a finite number of steps (at most len(pvals) steps).
+
+        .. deprecated:: 0.14
+
+            Use ``maxiter`` instead of ``iter``.
 
     Returns
     -------
-    rejected : array, bool
+    rejected : ndarray, bool
         True if a hypothesis is rejected, False if not
-    pvalue-corrected : array
+    pvalue-corrected : ndarray
         pvalues adjusted for multiple hypotheses testing to limit FDR
     m0 : int
-        ntest - rej, estimated number of true hypotheses
+        ntest - rej, estimated number of true (not rejected) hypotheses
     alpha_stages : list of floats
         A list of alphas that have been used at each stage
 
@@ -379,7 +435,7 @@ def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
     linear step-up procedure (fdrcorrection0 with method='indep') corrected
     for the estimated fraction of true hypotheses.
     This means that the rejection decision can be obtained with
-    ``pval_corrected <= alpha``, where ``alpha`` is the origianal significance
+    ``pval_corrected <= alpha``, where ``alpha`` is the original significance
     level.
     (Note: This has changed from earlier versions (<0.5.0) of statsmodels.)
 
@@ -391,6 +447,18 @@ def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
 
     '''
     pvals = np.asarray(pvals)
+
+    if iter is not None:
+        import warnings
+        msg = "iter keyword is deprecated, use maxiter keyword instead."
+        warnings.warn(msg, FutureWarning)
+
+    if iter is False:
+        maxiter = 1
+    elif iter is True or maxiter in [-1, None] :
+        maxiter = len(pvals)
+    # otherwise we use maxiter
+
 
     if not is_sorted:
         pvals_sortind = np.argsort(pvals)
@@ -411,30 +479,36 @@ def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
                                    is_sorted=True)
     r1 = rej.sum()
     if (r1 == 0) or (r1 == ntests):
-        return rej, pvalscorr * fact, ntests - r1, alpha_stages
-    ri_old = r1
+        # return rej, pvalscorr * fact, ntests - r1, alpha_stages
+        reject = rej
+        pvalscorr *= fact
+        ri = r1
+    else:
+        ri_old = ri = r1
+        ntests0 = ntests # needed if maxiter=0
+        # while True:
+        for it in range(maxiter):
+            ntests0 = 1.0 * ntests - ri_old
+            alpha_star = alpha_prime * ntests / ntests0
+            alpha_stages.append(alpha_star)
+            #print ntests0, alpha_star
+            rej, pvalscorr = fdrcorrection(pvals, alpha=alpha_star, method='indep',
+                                           is_sorted=True)
+            ri = rej.sum()
+            if (it >= maxiter - 1) or ri == ri_old:
+                break
+            elif ri < ri_old:
+                # prevent cycles and endless loops
+                raise RuntimeError(" oops - should not be here")
+            ri_old = ri
 
-    while True:
-        ntests0 = 1.0 * ntests - ri_old
-        alpha_star = alpha_prime * ntests / ntests0
-        alpha_stages.append(alpha_star)
-        #print ntests0, alpha_star
-        rej, pvalscorr = fdrcorrection(pvals, alpha=alpha_star, method='indep',
-                                       is_sorted=True)
-        ri = rej.sum()
-        if (not iter) or ri == ri_old:
-            break
-        elif ri < ri_old:
-            # prevent cycles and endless loops
-            raise RuntimeError(" oops - shouldn't be here")
-        ri_old = ri
+        # make adjustment to pvalscorr to reflect estimated number of Non-Null cases
+        # decision is then pvalscorr < alpha  (or <=)
+        pvalscorr *= ntests0 * 1.0 /  ntests
+        if method == 'bky':
+            pvalscorr *= (1. + alpha)
 
-    # make adjustment to pvalscorr to reflect estimated number of Non-Null cases
-    # decision is then pvalscorr < alpha  (or <=)
-    pvalscorr *= ntests0 * 1.0 /  ntests
-    if method == 'bky':
-        pvalscorr *= (1. + alpha)
-
+    pvalscorr[pvalscorr>1] = 1
     if not is_sorted:
         pvalscorr_ = np.empty_like(pvalscorr)
         pvalscorr_[pvals_sortind] = pvalscorr
@@ -447,28 +521,31 @@ def fdrcorrection_twostage(pvals, alpha=0.05, method='bky', iter=False,
 
 
 def local_fdr(zscores, null_proportion=1.0, null_pdf=None, deg=7,
-              nbins=30):
+              nbins=30, alpha=0):
     """
     Calculate local FDR values for a list of Z-scores.
 
     Parameters
     ----------
-    zscores : array-like
+    zscores : array_like
         A vector of Z-scores
     null_proportion : float
         The assumed proportion of true null hypotheses
     null_pdf : function mapping reals to positive reals
         The density of null Z-scores; if None, use standard normal
-    deg : integer
+    deg : int
         The maximum exponent in the polynomial expansion of the
         density of non-null Z-scores
-    nbins : integer
+    nbins : int
         The number of bins for estimating the marginal density
         of Z-scores.
+    alpha : float
+        Use Poisson ridge regression with parameter alpha to estimate
+        the density of non-null Z-scores.
 
     Returns
     -------
-    fdr : array-like
+    fdr : array_like
         A vector of FDR values
 
     References
@@ -509,14 +586,22 @@ def local_fdr(zscores, null_proportion=1.0, null_pdf=None, deg=7,
     # The design matrix at bin centers
     dmat = np.vander(zbins, deg + 1)
 
-    # Use this to get starting values for Poisson regression
-    md = OLS(np.log(1 + zhist), dmat).fit()
+    # Rescale the design matrix
+    sd = dmat.std(0)
+    ii = sd >1e-8
+    dmat[:, ii] /= sd[ii]
+
+    start = OLS(np.log(1 + zhist), dmat).fit().params
 
     # Poisson regression
-    md = GLM(zhist, dmat, family=families.Poisson()).fit(start_params=md.params)
+    if alpha > 0:
+        md = GLM(zhist, dmat, family=families.Poisson()).fit_regularized(L1_wt=0, alpha=alpha, start_params=start)
+    else:
+        md = GLM(zhist, dmat, family=families.Poisson()).fit(start_params=start)
 
     # The design matrix for all Z-scores
     dmat_full = np.vander(zscores, deg + 1)
+    dmat_full[:, ii] /= sd[ii]
 
     # The height of the estimated marginal density of Z-scores,
     # evaluated at every observed Z-score.
@@ -536,7 +621,7 @@ def local_fdr(zscores, null_proportion=1.0, null_pdf=None, deg=7,
     return fdr
 
 
-class NullDistribution(object):
+class NullDistribution:
     """
     Estimate a Gaussian distribution for the null Z-scores.
 
@@ -546,7 +631,7 @@ class NullDistribution(object):
 
     Parameters
     ----------
-    zscores : array-like
+    zscores : array_like
         The observed Z-scores.
     null_lb : float
         Z-scores between `null_lb` and `null_ub` are all considered to be
@@ -668,11 +753,11 @@ class NullDistribution(object):
     # The fitted null density function
     def pdf(self, zscores):
         """
-        Evaluates the fitted emirical null Z-score density.
+        Evaluates the fitted empirical null Z-score density.
 
         Parameters
         ----------
-        zscores : scalar or array-like
+        zscores : scalar or array_like
             The point or points at which the density is to be
             evaluated.
 

@@ -4,10 +4,8 @@ Kalman Smoother
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
 import numpy as np
-import warnings
 
 SMOOTHER_STATE = 0x01          # Durbin and Koopman (2012), Chapter 4.4.2
 SMOOTHER_STATE_COV = 0x02      # ibid., Chapter 4.4.3
@@ -19,7 +17,7 @@ SMOOTHER_ALL = (
 )
 
 
-class _KalmanSmoother(object):
+class _KalmanSmoother:
 
     def __init__(self, model, kfilter, smoother_output):
         # Save values

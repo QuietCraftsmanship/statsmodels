@@ -1,5 +1,5 @@
 import numpy as np
-from statsmodels.compat import range
+
 from . import utils
 
 
@@ -11,8 +11,10 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
              fmt_left_name=None, fmt_right_name=None,
              show_section_titles=None, ax=None):
     """
+    Dot plotting (also known as forest and blobbogram).
+
     Produce a dotplot similar in style to those in Cleveland's
-    "Visualizing Data" book.  These are also known as "forest plots".
+    "Visualizing Data" book ([1]_).  These are also known as "forest plots".
 
     Parameters
     ----------
@@ -46,7 +48,7 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
         arguments to `plot` when plotting interval lines.  Useful
         keyword arguments are "color", "linestyle", "solid_capstyle",
         and "linewidth".
-    split_names : string
+    split_names : str
         If not None, this is used to split the values of `lines` into
         substrings that are drawn in the left and right margins,
         respectively.  If None, the values of `lines` are drawn in the
@@ -57,29 +59,29 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
     line_order : array_like
         The line labels in the order in which they appear in the
         dotplot.
-    stacked : boolean
+    stacked : bool
         If True, when multiple points or intervals are drawn on the
         same line, they are offset from each other.
     styles_order : array_like
         If stacked=True, this is the order in which the point styles
         on a given line are drawn from top to bottom (if horizontal
-        is True) or from left to right (if horiontal is False).  If
+        is True) or from left to right (if horizontal is False).  If
         None (default), the order is lexical.
-    striped : boolean
+    striped : bool
         If True, every other line is enclosed in a shaded box.
-    horizontal : boolean
+    horizontal : bool
         If True (default), the lines are drawn horizontally, otherwise
         they are drawn vertically.
-    show_names : string
+    show_names : str
         Determines whether labels (names) are shown in the left and/or
         right margins (top/bottom margins if `horizontal` is True).
         If `both`, labels are drawn in both margins, if 'left', labels
         are drawn in the left or top margin.  If `right`, labels are
         drawn in the right or bottom margin.
-    fmt_left_name : function
+    fmt_left_name : callable
         The left/top margin names are passed through this function
         before drawing on the plot.
-    fmt_right_name : function
+    fmt_right_name : callable
         The right/bottom marginnames are passed through this function
         before drawing on the plot.
     show_section_titles : bool or None
@@ -100,23 +102,24 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
     `points`, `intervals`, `lines`, `sections`, `styles` must all have
     the same length whenever present.
 
+    References
+    ----------
+    .. [1] Cleveland, William S. (1993). "Visualizing Data". Hobart Press.
+    .. [2] Jacoby, William G. (2006) "The Dot Plot: A Graphical Display
+       for Labeled Quantitative Values." The Political Methodologist
+       14(1): 6-14.
+
     Examples
     --------
     This is a simple dotplot with one point per line:
+
     >>> dot_plot(points=point_values)
 
     This dotplot has labels on the lines (if elements in
     `label_values` are repeated, the corresponding points appear on
     the same line):
-    >>> dot_plot(points=point_values, lines=label_values)
 
-    References
-    ----------
-      * Cleveland, William S. (1993). "Visualizing Data". Hobart
-        Press.
-      * Jacoby, William G. (2006) "The Dot Plot: A Graphical Display
-        for Labeled Quantitative Values." The Political Methodologist
-        14(1): 6-14.
+    >>> dot_plot(points=point_values, lines=label_values)
     """
 
     import matplotlib.transforms as transforms
@@ -125,7 +128,10 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
 
     # Convert to numpy arrays if that is not what we are given.
     points = np.asarray(points)
-    asarray_or_none = lambda x : None if x is None else np.asarray(x)
+
+    def asarray_or_none(x):
+        return None if x is None else np.asarray(x)
+
     intervals = asarray_or_none(intervals)
     lines = asarray_or_none(lines)
     sections = asarray_or_none(sections)
@@ -155,10 +161,10 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
         nsect = len(set(section_order))
 
     # The number of section titles
-    if show_section_titles == False:
+    if show_section_titles is False:
         draw_section_titles = False
         nsect_title = 0
-    elif show_section_titles == True:
+    elif show_section_titles is True:
         draw_section_titles = True
         nsect_title = nsect
     else:
@@ -166,7 +172,8 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
         nsect_title = nsect if nsect > 1 else 0
 
     # The total vertical space devoted to section titles.
-    section_space_total = section_title_space * nsect_title
+    # Unused, commented out
+    # section_title_space * nsect_title
 
     # Add a bit of room so that points that fall at the axis limits
     # are not cut in half.
@@ -247,16 +254,12 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
         stackd = 0.
 
     # Map from style code to its integer position
-    #style_codes_map = {x: style_codes.index(x) for x in style_codes}
-    # python 2.6 compat version:
-    style_codes_map = dict((x, style_codes.index(x)) for x in style_codes)
+    style_codes_map = {x: style_codes.index(x) for x in style_codes}
 
     # Setup default marker styles
     colors = ["r", "g", "b", "y", "k", "purple", "orange"]
     if marker_props is None:
-        #marker_props = {x: {} for x in style_codes}
-        # python 2.6 compat version:
-        marker_props = dict((x, {}) for x in style_codes)
+        marker_props = {x: {} for x in style_codes}
     for j in range(nval):
         sc = style_codes[j]
         if "color" not in marker_props[sc]:
@@ -268,9 +271,7 @@ def dot_plot(points, intervals=None, lines=None, sections=None,
 
     # Setup default line styles
     if line_props is None:
-        #line_props = {x: {} for x in style_codes}
-        # python 2.6 compat version:
-        line_props = dict((x, {}) for x in style_codes)
+        line_props = {x: {} for x in style_codes}
     for j in range(nval):
         sc = style_codes[j]
         if "color" not in line_props[sc]:

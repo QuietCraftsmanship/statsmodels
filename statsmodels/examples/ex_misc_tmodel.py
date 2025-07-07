@@ -1,10 +1,9 @@
-
-from __future__ import print_function
 import numpy as np
 
-from scipy import stats, special, optimize
+from scipy import stats
 import statsmodels.api as sm
 from statsmodels.miscmodels import TLinearModel
+from statsmodels.tools.numdiff import approx_hess
 
 #Example:
 #np.random.seed(98765678)
@@ -69,7 +68,6 @@ print('using Newton')
 print(resp2.params)
 print(resp2.bse)
 
-from statsmodels.tools.numdiff import approx_fprime, approx_hess
 
 hb=-approx_hess(modp.start_params, modp.loglike, epsilon=-1e-4)
 tmp = modp.loglike(modp.start_params)
@@ -81,5 +79,3 @@ print(np.linalg.eigh(np.linalg.inv(hb))[0])
 ##pp=np.array(store_params)
 ##print pp.min(0)
 ##print pp.max(0)
-
-

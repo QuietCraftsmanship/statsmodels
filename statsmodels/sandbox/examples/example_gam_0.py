@@ -8,22 +8,24 @@ and estimated.
 Note: uncomment plt.show() to display graphs
 '''
 
-example = 2 #3  # 1,2 or 3
+import time
 
-import numpy as np
-from statsmodels.compat.python import zip
-import numpy.random as R
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.random as R
+import scipy.stats
 
-from statsmodels.sandbox.gam import AdditiveModel
-from statsmodels.sandbox.gam import Model as GAM #?
 from statsmodels.genmod import families
-from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.sandbox.gam import AdditiveModel, Model as GAM  # ?
+
+example = 2 #3  # 1,2 or 3
 
 #np.random.seed(987654)
 
-standardize = lambda x: (x - x.mean()) / x.std()
-demean = lambda x: (x - x.mean())
+def standardize(x):
+    return (x - x.mean()) / x.std()
+def demean(x):
+    return x - x.mean()
 nobs = 500
 lb, ub = -1., 1. #for Poisson
 #lb, ub = -0.75, 2 #0.75 #for Binomial
@@ -38,8 +40,10 @@ x2 = x2 + np.exp(x2/2.)
 #x2 = np.log(x2-x2.min()+0.1)
 y = 0.5 * R.uniform(lb, ub, nobs)   #R.standard_normal((nobs,))
 
-f1 = lambda x1: (2*x1 - 0.5 * x1**2  - 0.75 * x1**3) # + 0.1 * np.exp(-x1/4.))
-f2 = lambda x2: (x2 - 1* x2**2) # - 0.75 * np.exp(x2))
+def f1(x1):
+    return 2 * x1 - 0.5 * x1 ** 2 - 0.75 * x1 ** 3 # + 0.1 * np.exp(-x1/4.))
+def f2(x2):
+    return x2 - 1 * x2 ** 2 # - 0.75 * np.exp(x2))
 z = standardize(f1(x1)) + standardize(f2(x2))
 z = standardize(z) + 1 # 0.1
 #try this
@@ -48,7 +52,7 @@ z = f1(x1) + f2(x2)
 z -= np.median(z)
 print('z.std()', z.std())
 #z = standardize(z) + 0.2
-# with standardize I get better values, but I don't know what the true params are
+# with standardize I get better values, but I do not know what the true params are
 print(z.mean(), z.min(), z.max())
 
 #y += z  #noise
@@ -65,7 +69,6 @@ if example == 1:
 
     print(m)
 
-import scipy.stats, time
 
 if example == 2:
     print("binomial")
@@ -89,8 +92,8 @@ if example == 3:
     f = families.Poisson()
     #y = y/y.max() * 3
     yp = f.link.inverse(z)
-    #p = np.asarray([scipy.stats.poisson.rvs(p) for p in f.link.inverse(y)], float)
-    p = np.asarray([scipy.stats.poisson.rvs(p) for p in f.link.inverse(z)], float)
+    p = np.asarray([scipy.stats.poisson.rvs(val) for val in f.link.inverse(z)],
+                   float)
     p.shape = y.shape
     m = GAM(p, d, family=f)
     toc = time.time()
@@ -166,4 +169,3 @@ plt.plot(x2, standardize(f2(x2)), linewidth=2)
 ##     pylab.plot(x2, standardize(m.smoothers[1](x2)), 'b')
 ##     pylab.plot(x2, standardize(f2(x2)), linewidth=2)
 ##     pylab.show()
-

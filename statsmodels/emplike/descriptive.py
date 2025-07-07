@@ -15,13 +15,13 @@ General References:
 Owen, A. (2001). "Empirical Likelihood." Chapman and Hall
 
 """
-from __future__ import division
+import itertools
 
 import numpy as np
 from scipy import optimize
-from scipy.stats import chi2, skew, kurtosis
+from scipy.stats import chi2, kurtosis, skew
+
 from statsmodels.base.optimizer import _fit_newton
-import itertools
 from statsmodels.graphics import utils
 
 
@@ -48,7 +48,7 @@ def DescStat(endog):
         return DescStatMV(endog)
 
 
-class _OptFuncts(object):
+class _OptFuncts:
     """
     A class that holds functions that are optimized/solved.
 
@@ -64,7 +64,6 @@ class _OptFuncts(object):
     Any method starting with _ci_limits calculates the log likelihood
     ratio for a specific value of a parameter and then subtracts a
     pre-specified critical value.  This is solved so that llr - crit = 0.
-
     """
 
     def __init__(self, endog):
@@ -88,7 +87,7 @@ class _OptFuncts(object):
 
         Returns
         ------
-        data_star : array
+        data_star : ndarray
             The weighted logstar of the estimting equations
 
         Notes
@@ -187,9 +186,15 @@ class _OptFuncts(object):
             Lagrange multiplier that maximizes the log-likelihood
         """
         nobs = len(est_vect)
-        f = lambda x0: - np.sum(self._log_star(x0, est_vect, weights, nobs))
-        grad = lambda x0: - self._grad(x0, est_vect, weights, nobs)
-        hess = lambda x0: - self._hess(x0, est_vect, weights, nobs)
+
+        def f(x0):
+            return -np.sum(self._log_star(x0, est_vect, weights, nobs))
+
+        def grad(x0):
+            return -self._grad(x0, est_vect, weights, nobs)
+
+        def hess(x0):
+            return -self._hess(x0, est_vect, weights, nobs)
         kwds = {'tol': 1e-8}
         eta = eta.squeeze()
         res = _fit_newton(f, grad, eta, (), kwds, hess=hess, maxiter=50, \
@@ -288,7 +293,7 @@ class _OptFuncts(object):
             return chi2.sf(-2 * llr, 1)
         return -2 * llr
 
-    def  _ci_limits_var(self, var):
+    def _ci_limits_var(self, var):
         """
         Used to determine the confidence intervals for the variance.
         It calls test_var and when called by an optimizer,
@@ -327,8 +332,8 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        skew_data = ((((endog - nuis_params[0]) ** 3) /
-                    (nuis_params[1] ** 1.5))) - self.skew0
+        skew_data = (((endog - nuis_params[0]) ** 3) /
+                    (nuis_params[1] ** 1.5)) - self.skew0
         est_vect = np.column_stack((mu_data, sig_data, skew_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -359,8 +364,8 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        kurt_data = (((((endog - nuis_params[0]) ** 4) / \
-                    (nuis_params[1] ** 2))) - 3) - self.kurt0
+        kurt_data = ((((endog - nuis_params[0]) ** 4) / \
+                    (nuis_params[1] ** 2)) - 3) - self.kurt0
         est_vect = np.column_stack((mu_data, sig_data, kurt_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -377,7 +382,7 @@ class _OptFuncts(object):
         nuisance parameters mu and sigma
 
         Parameters
-        -----------
+        ----------
         nuis_params : 1darray
             An array with a nuisance mean and variance parameter
 
@@ -391,10 +396,10 @@ class _OptFuncts(object):
         nobs = self.nobs
         mu_data = endog - nuis_params[0]
         sig_data = ((endog - nuis_params[0]) ** 2) - nuis_params[1]
-        skew_data = ((((endog - nuis_params[0]) ** 3) / \
-                    (nuis_params[1] ** 1.5))) - self.skew0
-        kurt_data = (((((endog - nuis_params[0]) ** 4) / \
-                    (nuis_params[1] ** 2))) - 3) - self.kurt0
+        skew_data = (((endog - nuis_params[0]) ** 3) / \
+                    (nuis_params[1] ** 1.5)) - self.skew0
+        kurt_data = ((((endog - nuis_params[0]) ** 4) / \
+                    (nuis_params[1] ** 2)) - 3) - self.kurt0
         est_vect = np.column_stack((mu_data, sig_data, skew_data, kurt_data))
         eta_star = self._modif_newton(np.array([1. / nobs,
                                                1. / nobs,
@@ -424,7 +429,7 @@ class _OptFuncts(object):
     def _ci_limits_kurt(self, kurt):
         """
         Parameters
-        ---------
+        ----------
         skew0 : float
             Hypothesized value of kurtosis
 
@@ -500,7 +505,7 @@ class DescStatUV(_OptFuncts):
             Mean value to be tested
 
         return_weights : bool
-            If return_weights is True the funtion returns
+            If return_weights is True the function returns
             the weights of the observations under the null hypothesis.
             Default is False
 
@@ -540,7 +545,7 @@ class DescStatUV(_OptFuncts):
             Lagrange (see Owen pg 22) and then determine the weights.
 
             'nested brent' uses brents method to find the confidence
-            intervals but must maximize the likelihhod ratio on every
+            intervals but must maximize the likelihood ratio on every
             iteration.
 
             gamma is generally much faster.  If the optimizations does not
@@ -567,7 +572,7 @@ class DescStatUV(_OptFuncts):
 
             When using 'gamma', amount to decrease (increase) the
             minimum (maximum) by to start the search for gamma.
-            If fucntion returns f(a) and f(b) must have differnt signs,
+            If function returns f(a) and f(b) must have different signs,
             consider lowering epsilon.
 
         Returns
@@ -586,7 +591,7 @@ class DescStatUV(_OptFuncts):
                 max(endog) - epsilon_u)
             llim = optimize.brentq(self._ci_limits_mu, middle,
                 min(endog) + epsilon_l)
-            return  llim, ulim
+            return llim, ulim
 
         if method == 'gamma':
             self.r0 = chi2.ppf(sig, 1)
@@ -604,7 +609,7 @@ class DescStatUV(_OptFuncts):
 
     def test_var(self, sig2_0, return_weights=False):
         """
-        Returns  -2 x log-likelihoog ratio and the p-value for the
+        Returns  -2 x log-likelihood ratio and the p-value for the
         hypothesized variance
 
         Parameters
@@ -617,7 +622,7 @@ class DescStatUV(_OptFuncts):
             likelihood of observing sig2_0. Default is False
 
         Returns
-        --------
+        -------
         test_results : tuple
             The  log-likelihood ratio and the p_value  of sig2_0
 
@@ -638,7 +643,7 @@ class DescStatUV(_OptFuncts):
         if return_weights:
             return llr, p_val, self.new_weights.T
         else:
-            return  llr, p_val
+            return llr, p_val
 
     def ci_var(self, lower_bound=None, upper_bound=None, sig=.05):
         """
@@ -662,7 +667,7 @@ class DescStatUV(_OptFuncts):
             The significance level. Default is .05
 
         Returns
-        --------
+        -------
         Interval : tuple
             Confidence interval for the variance
 
@@ -728,7 +733,7 @@ class DescStatUV(_OptFuncts):
 
         Returns
         -------
-        fig : matplotlib figure instance
+        Figure
             The contour plot
         """
         fig, ax = utils.create_mpl_ax()
@@ -760,7 +765,7 @@ class DescStatUV(_OptFuncts):
             maximize the likelihood ratio. Default is False.
 
         Returns
-        --------
+        -------
         test_results : tuple
             The log-likelihood ratio and p_value of skew0
         """
@@ -802,7 +807,7 @@ class DescStatUV(_OptFuncts):
                                      full_output=1, disp=0)[1]
         p_val = chi2.sf(llr, 1)
         if return_weights:
-            return  llr, p_val, self.new_weights.T
+            return llr, p_val, self.new_weights.T
         return llr, p_val
 
     def test_joint_skew_kurt(self, skew0, kurt0, return_weights=False):
@@ -880,7 +885,7 @@ class DescStatUV(_OptFuncts):
         self.r0 = chi2.ppf(1 - sig, 1)
         llim = optimize.brentq(self._ci_limits_skew, lower_bound, skew(endog))
         ulim = optimize.brentq(self._ci_limits_skew, skew(endog), upper_bound)
-        return   llim, ulim
+        return llim, ulim
 
     def ci_kurt(self, sig=.05, upper_bound=None, lower_bound=None):
         """
@@ -901,7 +906,7 @@ class DescStatUV(_OptFuncts):
             Default is .99 confidence limit assuming normality.
 
         Returns
-        --------
+        -------
         Interval : tuple
             Lower and upper confidence limit
 
@@ -935,7 +940,7 @@ class DescStatUV(_OptFuncts):
                              kurtosis(endog))
         ulim = optimize.brentq(self._ci_limits_kurt, kurtosis(endog), \
                              upper_bound)
-        return   llim, ulim
+        return llim, ulim
 
 
 class DescStatMV(_OptFuncts):
@@ -954,7 +959,6 @@ class DescStatMV(_OptFuncts):
 
     nobs : float
         Number of observations
-
     """
 
     def __init__(self, endog):
@@ -984,8 +988,8 @@ class DescStatMV(_OptFuncts):
         endog = self.endog
         nobs = self.nobs
         if len(mu_array) != endog.shape[1]:
-            raise Exception('mu_array must have the same number of \
-                           elements as the columns of the data.')
+            raise ValueError('mu_array must have the same number of '
+                             'elements as the columns of the data.')
         mu_array = mu_array.reshape(1, endog.shape[1])
         means = np.ones((endog.shape[0], endog.shape[1]))
         means = mu_array * means
@@ -1050,7 +1054,7 @@ class DescStatMV(_OptFuncts):
         >>> contourp.show()
         """
         if self.endog.shape[1] != 2:
-            raise Exception('Data must contain exactly two variables')
+            raise ValueError('Data must contain exactly two variables')
         fig, ax = utils.create_mpl_ax()
         if var2_name is None:
             ax.set_ylabel('Variable 2')
@@ -1091,7 +1095,7 @@ class DescStatMV(_OptFuncts):
         nobs = self.nobs
         endog = self.endog
         if endog.shape[1] != 2:
-            raise Exception('Correlation matrix not yet implemented')
+            raise NotImplementedError('Correlation matrix not yet implemented')
         nuis0 = np.array([endog[:, 0].mean(),
                               endog[:, 0].var(),
                               endog[:, 1].mean(),
@@ -1121,14 +1125,13 @@ class DescStatMV(_OptFuncts):
             Default is  99% confidence limit assuming normality.
 
         lower_bound : float
-            Minimum value the lower condidence limit can be.
+            Minimum value the lower confidence limit can be.
             Default is 99% confidence limit assuming normality.
 
         Returns
         -------
         interval : tuple
             Confidence interval for the correlation
-
         """
         endog = self.endog
         nobs = self.nobs

@@ -1,40 +1,41 @@
-import re
-import os
-from io import open
-
 import itertools
+import os
+import re
+
 import numpy as np
 
 debug_mode = False
 
+here = os.path.dirname(os.path.realpath(__file__))
+
 
 def print_debug_output(results, dt):
-        print("\n\n\nDETERMINISTIC TERMS: " + dt)
-        alpha = results["est"]["alpha"]
-        print("alpha:")
-        print(str(type(alpha)) + str(alpha.shape))
-        print(alpha)
+    print("\n\n\nDETERMINISTIC TERMS: " + dt)
+    alpha = results["est"]["alpha"]
+    print("alpha:")
+    print(str(type(alpha)) + str(alpha.shape))
+    print(alpha)
+    print("se: ")
+    print(results["se"]["alpha"])
+    print("t: ")
+    print(results["t"]["alpha"])
+    print("p: ")
+    print(results["p"]["alpha"])
+    beta = results["est"]["beta"]
+    print("beta:")
+    print(str(type(beta)) + str(beta.shape))
+    print(beta)
+    gamma = results["est"]["Gamma"]
+    print("Gamma:")
+    print(str(type(gamma)) + str(gamma.shape))
+    print(gamma)
+    if "co" in dt or "s" in dt or "lo" in dt:
+        c = results["est"]["C"]
+        print("C:")
+        print(str(type(c)) + str(c.shape))
+        print(c)
         print("se: ")
-        print(results["se"]["alpha"])
-        print("t: ")
-        print(results["t"]["alpha"])
-        print("p: ")
-        print(results["p"]["alpha"])
-        beta = results["est"]["beta"]
-        print("beta:")
-        print(str(type(beta)) + str(beta.shape))
-        print(beta)
-        gamma = results["est"]["Gamma"]
-        print("Gamma:")
-        print(str(type(gamma)) + str(gamma.shape))
-        print(gamma)
-        if "co" in dt or "s" in dt or "lo" in dt:
-            c = results["est"]["C"]
-            print("C:")
-            print(str(type(c)) + str(c.shape))
-            print(c)
-            print("se: ")
-            print(results["se"]["C"])
+        print(results["se"]["C"])
 
 
 def dt_s_tup_to_string(dt_s_tup):
@@ -78,7 +79,7 @@ def sublists(lst, min_elmts=0, max_elmts=None):
     result = itertools.chain.from_iterable(
                 itertools.combinations(lst, sublist_len)
                 for sublist_len in range(min_elmts, max_elmts+1))
-    if type(result) != list:
+    if type(result) is not list:
         result = list(result)
     return result
 
@@ -88,12 +89,12 @@ def stringify_var_names(var_list, delimiter=""):
 
     Parameters
     ----------
-    var_list : list of strings
+    var_list : list[str]
         Each list element is the name of a variable.
 
     Returns
     -------
-    result : string
+    result : str
         Concatenated variable names.
     """
     result = var_list[0]
@@ -127,12 +128,11 @@ def load_results_jmulti(dataset):
     source = "jmulti"
 
     results_dict_per_det_terms = dict.fromkeys(dataset.dt_s_list)
-        
+
     for dt_s in dataset.dt_s_list:
         dt_string = dt_s_tup_to_string(dt_s)
         params_file = "vecm_"+dataset.__str__()+"_"+source+"_"+dt_string+".txt"
-        params_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                   params_file)
+        params_file = os.path.join(here, params_file)
         # sections in jmulti output:
         section_header = ["Lagged endogenous term",  # Gamma
                           "Deterministic term",      # co, s, lo
@@ -158,12 +158,12 @@ def load_results_jmulti(dataset):
         if "co" not in dt_string and "lo" not in dt_string \
                 and "s" not in dt_string:
             # JMulTi: no deterministic terms section in VEC representation
-            del(section_header[1])
-            del(sections[1])
+            del section_header[1]
+            del sections[1]
             if "ci" not in dt_string and "li" not in dt_string:
                 # JMulTi: no deterministic section in VAR repr.
-                del(section_header[-1])
-                del(sections[-1])
+                del section_header[-1]
+                del sections[-1]
         results = dict()
         results["est"] = dict.fromkeys(sections)
         results["se"] = dict.fromkeys(sections)
@@ -182,7 +182,7 @@ def load_results_jmulti(dataset):
         # ---------------------------------------------------------------------
         # parse information about \alpha, \beta, \Gamma, deterministic of VECM
         # and A_i and deterministic of corresponding VAR:
-        params_file = open(params_file)
+        params_file = open(params_file, encoding="latin_1")
         for line in params_file:
             if section == -1 and section_header[section+1] not in line:
                 continue
@@ -213,17 +213,17 @@ def load_results_jmulti(dataset):
                     result_p = []
                     started_reading_section = False
                     continue
-                str_number = "-?\d+\.\d{3}"
-                regex_est = re.compile(str_number + "[^\)\]\}]")
+                str_number = r"-?\d+\.\d{3}"
+                regex_est = re.compile(str_number + r"[^\)\]\}]")
                 est_col = re.findall(regex_est, line)
                 # standard errors in parantheses in JMulTi output:
-                regex_se = re.compile("\(" + str_number + "\)")
+                regex_se = re.compile(r"\(" + str_number + r"\)")
                 se_col = re.findall(regex_se, line)
                 # t-values in brackets in JMulTi output:
-                regex_t_value = re.compile("\[" + str_number + "\]")
+                regex_t_value = re.compile(r"\[" + str_number + r"\]")
                 t_col = re.findall(regex_t_value, line)
                 # p-values in braces in JMulTi output:
-                regex_p_value = re.compile("\{" + str_number + "\}")
+                regex_p_value = re.compile(r"\{" + str_number + r"\}")
                 p_col = re.findall(regex_p_value, line)
                 if result == [] and est_col != []:
                     rows = len(est_col)
@@ -274,13 +274,12 @@ def load_results_jmulti(dataset):
         # parse information regarding \Sigma_u
         sigmau_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                       dt_string + "_Sigmau" + ".txt"
-        sigmau_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                   sigmau_file)
+        sigmau_file = os.path.join(here, sigmau_file)
         rows_to_parse = 0
         # all numbers of Sigma_u in notation with e (e.g. 2.283862e-05)
-        regex_est = re.compile("\s+\S+e\S+")
+        regex_est = re.compile(r"\s+\S+e\S+")
         sigmau_section_reached = False
-        sigmau_file = open(sigmau_file)
+        sigmau_file = open(sigmau_file, encoding="latin_1")
         for line in sigmau_file:
             if line.startswith("Log Likelihood:"):
                 line = line.split("Log Likelihood:")[1]
@@ -304,12 +303,11 @@ def load_results_jmulti(dataset):
         # parse forecast related output:
         fc_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                   dt_string + "_fc5" + ".txt"
-        fc_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               fc_file)
+        fc_file = os.path.join(here, fc_file)
         fc, lower, upper, plu_min = [], [], [], []
         fc_file = open(fc_file, encoding='latin_1')
         for line in fc_file:
-            str_number = "(\s+-?\d+\.\d{4}\s*?)"
+            str_number = r"(\s+-?\d+\.\d{4}\s*?)"
             regex_number = re.compile(str_number)
             numbers = re.findall(regex_number, line)
             if numbers == []:
@@ -344,12 +342,11 @@ def load_results_jmulti(dataset):
                 + dt_string + "_granger_causality_" \
                 + stringify_var_names(causing) + "_" \
                 + stringify_var_names(caused) + ".txt"
-            granger_file = os.path.join(os.path.dirname(
-                    os.path.realpath(__file__)), granger_file)
-            granger_file = open(granger_file)
+            granger_file = os.path.join(here, granger_file)
+            granger_file = open(granger_file, encoding="latin_1")
             granger_results = []
             for line in granger_file:
-                str_number = "\d+\.\d{4}"
+                str_number = r"\d+\.\d{4}"
                 regex_number = re.compile(str_number)
                 number = re.search(regex_number, line)
                 if number is None:
@@ -384,12 +381,11 @@ def load_results_jmulti(dataset):
                 + dt_string + "_inst_causality_" \
                 + stringify_var_names(causing) + "_" \
                 + stringify_var_names(caused) + ".txt"
-            inst_file = os.path.join(os.path.dirname(
-                    os.path.realpath(__file__)), inst_file)
-            inst_file = open(inst_file)
+            inst_file = os.path.join(here, inst_file)
+            inst_file = open(inst_file, encoding="latin_1")
             inst_results = []
             for line in inst_file:
-                str_number = "\d+\.\d{4}"
+                str_number = r"\d+\.\d{4}"
                 regex_number = re.compile(str_number)
                 number = re.search(regex_number, line)
                 if number is None:
@@ -402,19 +398,17 @@ def load_results_jmulti(dataset):
             results["inst_caus"]["p"][(causing, caused)] = \
                 inst_results[3]
 
-
         # ---------------------------------------------------------------------
         # parse output related to impulse-response analysis:
         ir_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                   dt_string + "_ir" + ".txt"
-        ir_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               ir_file)
+        ir_file = os.path.join(here, ir_file)
         ir_file = open(ir_file, encoding='latin_1')
         causing = None
         caused = None
         data = None
-        regex_vars = re.compile("\w+")
-        regex_vals = re.compile("-?\d+\.\d{4}")
+        regex_vars = re.compile(r"\w+")
+        regex_vals = re.compile(r"-?\d+\.\d{4}")
         line_start_causing = "time"
         data_line_indicator = "point estimate"
         data_rows_read = 0
@@ -444,8 +438,7 @@ def load_results_jmulti(dataset):
         # parse output related to lag order selection:
         lagorder_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                         dt_string + "_lagorder" + ".txt"
-        lagorder_file = os.path.join(os.path.dirname(
-            os.path.realpath(__file__)), lagorder_file)
+        lagorder_file = os.path.join(here, lagorder_file)
         lagorder_file = open(lagorder_file, encoding='latin_1')
         results["lagorder"] = dict()
         aic_start = "Akaike Info Criterion:"
@@ -462,13 +455,12 @@ def load_results_jmulti(dataset):
             elif line.startswith(bic_start):
                 results["lagorder"]["bic"] = int(line[len(bic_start):])
         lagorder_file.close()
-        
+
         # ---------------------------------------------------------------------
         # parse output related to non-normality-test:
         test_norm_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                          dt_string + "_diag" + ".txt"
-        test_norm_file = os.path.join(os.path.dirname(
-            os.path.realpath(__file__)), test_norm_file)
+        test_norm_file = os.path.join(here, test_norm_file)
         test_norm_file = open(test_norm_file, encoding='latin_1')
         results["test_norm"] = dict()
         reading_values = False
@@ -493,8 +485,7 @@ def load_results_jmulti(dataset):
         # parse output related to testing the whiteness of the residuals:
         whiteness_file = "vecm_" + dataset.__str__() + "_" + source + "_" + \
                          dt_string + "_diag" + ".txt"
-        whiteness_file = os.path.join(os.path.dirname(
-            os.path.realpath(__file__)), whiteness_file)
+        whiteness_file = os.path.join(here, whiteness_file)
         whiteness_file = open(whiteness_file, encoding='latin_1')
         results["whiteness"] = dict()
         section_start_marker = "PORTMANTEAU TEST"

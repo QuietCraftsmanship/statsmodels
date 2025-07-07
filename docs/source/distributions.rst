@@ -24,8 +24,61 @@ Empirical Distributions
    :toctree: generated/
 
    ECDF
+   ECDFDiscrete
    StepFunction
    monotone_fn_inverter
+
+Count Distributions
+-------------------
+
+The `discrete` module contains classes for count distributions that are based
+on discretizing a continuous distribution, and specific count distributions
+that are not available in scipy.distributions like generalized poisson and
+zero-inflated count models.
+
+The latter are mainly in support of the corresponding models in
+`statsmodels.discrete`. Some methods are not specifically implemented and will
+use potentially slow inherited generic methods.
+
+.. module:: statsmodels.distributions.discrete
+   :synopsis: Support for count distributions
+
+.. currentmodule:: statsmodels.distributions.discrete
+
+.. autosummary::
+   :toctree: generated/
+
+   DiscretizedCount
+   DiscretizedModel
+   genpoisson_p
+   zigenpoisson
+   zinegbin
+   zipoisson
+
+Copula
+------
+
+The `copula` sub-module provides classes to model the dependence between
+parameters. Copulae are used to construct a multivariate joint distribution and
+provide a set of functions like sampling, PDF, CDF.
+
+.. module:: statsmodels.distributions.copula.api
+   :synopsis: Copula for modeling parameter dependence
+
+.. currentmodule:: statsmodels.distributions.copula.api
+
+.. autosummary::
+   :toctree: generated/
+
+   CopulaDistribution
+   ArchimedeanCopula
+   FrankCopula
+   ClaytonCopula
+   GumbelCopula
+   GaussianCopula
+   StudentTCopula
+   ExtremeValueCopula
+   IndependenceCopula
 
 Distribution Extras
 -------------------
@@ -98,3 +151,17 @@ special cases.
 
    squarenormalg
    squaretg
+
+
+Helper Functions
+----------------
+
+.. module:: statsmodels.tools.rng_qrng
+   :synopsis: Tools for working with random variable generation
+
+.. currentmodule:: statsmodels.tools.rng_qrng
+
+.. autosummary::
+   :toctree: generated/
+
+   check_random_state

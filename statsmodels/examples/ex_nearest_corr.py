@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Find near positive definite correlation and covariance matrices
 
 Created on Sun Aug 19 15:25:07 2012
@@ -16,10 +15,9 @@ the sum of squared differences (Frobenious norm without taking the square root)
 
 """
 
-from __future__ import print_function
 import numpy as np
 from statsmodels.stats.correlation_tools import (
-                 corr_nearest, corr_clipped, cov_nearest)
+                 corr_nearest, corr_clipped)
 
 examples = ['all']
 

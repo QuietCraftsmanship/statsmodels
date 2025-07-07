@@ -30,34 +30,37 @@ R. Davidson and J.G. MacKinnon.  "Econometric Theory and Methods," Oxford,
 
 W. Green.  "Econometric Analysis," 5th ed., Pearson, 2003.
 """
+from __future__ import annotations
 
-from __future__ import print_function
+from statsmodels.compat.pandas import Appender
+from statsmodels.compat.python import lrange, lzip
 
-from statsmodels.compat.python import lrange, lzip, range
+from typing import Literal
+from collections.abc import Sequence
+import warnings
 
 import numpy as np
-from scipy.linalg import toeplitz
-from scipy import stats
-from scipy import optimize
+from scipy import optimize, stats
+from scipy.linalg import cholesky, toeplitz
+from scipy.linalg.lapack import dtrtri
 
-from statsmodels.compat.numpy import np_matrix_rank
-from statsmodels.tools.tools import add_constant, chain_dot, pinv_extended
-from statsmodels.tools.decorators import (resettable_cache,
-                                          cache_readonly,
-                                          cache_writable)
 import statsmodels.base.model as base
 import statsmodels.base.wrapper as wrap
 from statsmodels.emplike.elregress import _ELRegOpts
-import warnings
-from statsmodels.tools.sm_exceptions import InvalidTestWarning
-
 # need import in module instead of lazily to copy `__doc__`
 from statsmodels.regression._prediction import PredictionResults
+from statsmodels.tools.decorators import cache_readonly, cache_writable
+from statsmodels.tools.sm_exceptions import InvalidTestWarning, ValueWarning
+from statsmodels.tools.tools import pinv_extended
+from statsmodels.tools.typing import Float64Array
+from statsmodels.tools.validation import bool_like, float_like, string_like
+
 from . import _prediction as pred
 
 __docformat__ = 'restructuredtext en'
 
-__all__ = ['GLS', 'WLS', 'OLS', 'GLSAR', 'PredictionResults']
+__all__ = ['GLS', 'WLS', 'OLS', 'GLSAR', 'PredictionResults',
+           'RegressionResultsWrapper']
 
 
 _fit_regularized_doc =\
@@ -66,18 +69,18 @@ _fit_regularized_doc =\
 
         Parameters
         ----------
-        method : string
-            Only the 'elastic_net' approach is currently implemented.
-        alpha : scalar or array-like
+        method : str
+            Either 'elastic_net' or 'sqrt_lasso'.
+        alpha : scalar or array_like
             The penalty weight.  If a scalar, the same penalty weight
             applies to all variables in the model.  If a vector, it
             must have the same length as `params`, and contains a
             penalty weight for each coefficient.
-        L1_wt: scalar
+        L1_wt : scalar
             The fraction of the penalty given to the L1 penalty term.
             Must be between 0 and 1 (inclusive).  If 0, the fit is a
             ridge fit, if 1 it is a lasso fit.
-        start_params : array-like
+        start_params : array_like
             Starting values for ``params``.
         profile_scale : bool
             If True the penalized fit is computed using the profile
@@ -87,29 +90,19 @@ _fit_regularized_doc =\
             If True, the model is refit using only the variables that
             have non-zero coefficients in the regularized fit.  The
             refitted model is not regularized.
-        distributed : bool
-            If True, the model uses distributed methods for fitting,
-            will raise an error if True and partitions is None.
-        generator : function
-            generator used to partition the model, allows for handling
-            of out of memory/parallel computing.
-        partitions : scalar
-            The number of partitions desired for the distributed
-            estimation.
-        threshold : scalar or array-like
-            The threshold below which coefficients are zeroed out,
-            only used for distributed estimation
+        **kwargs
+            Additional keyword arguments that contain information used when
+            constructing a model using the formula interface.
 
         Returns
         -------
-        A RegularizedResults instance.
+        statsmodels.base.elastic_net.RegularizedResults
+            The regularized results.
 
         Notes
         -----
-
-        The elastic net approach closely follows that implemented in
-        the glmnet package in R.  The penalty is a combination of L1
-        and L2 penalties.
+        The elastic net uses a combination of L1 and L2 penalties.
+        The implementation closely follows the glmnet package in R.
 
         The function that is minimized is:
 
@@ -136,11 +129,33 @@ _fit_regularized_doc =\
         zero_tol : float
             Coefficients below this threshold are treated as zero.
 
+        The square root lasso approach is a variation of the Lasso
+        that is largely self-tuning (the optimal tuning parameter
+        does not depend on the standard deviation of the regression
+        errors).  If the errors are Gaussian, the tuning parameter
+        can be taken to be
+
+        alpha = 1.1 * np.sqrt(n) * norm.ppf(1 - 0.05 / (2 * p))
+
+        where n is the sample size and p is the number of predictors.
+
+        The square root lasso uses the following keyword arguments:
+
+        zero_tol : float
+            Coefficients below this threshold are treated as zero.
+
+        The cvxopt module is required to estimate model using the square root
+        lasso.
+
         References
         ----------
-        Friedman, Hastie, Tibshirani (2008).  Regularization paths for
-        generalized linear models via coordinate descent.  Journal of
-        Statistical Software 33(1), 1-22 Feb 2010.
+        .. [*] Friedman, Hastie, Tibshirani (2008).  Regularization paths for
+           generalized linear models via coordinate descent.  Journal of
+           Statistical Software 33(1), 1-22 Feb 2010.
+
+        .. [*] A Belloni, V Chernozhukov, L Wang (2011).  Square-root Lasso:
+           pivotal recovery of sparse signals via conic programming.
+           Biometrika 98(4), 791-806. https://arxiv.org/pdf/1009.5689.pdf
         """
 
 
@@ -165,7 +180,13 @@ def _get_sigma(sigma, nobs):
         if sigma.shape != (nobs, nobs):
             raise ValueError("Sigma must be a scalar, 1d of length %s or a 2d "
                              "array of shape %s x %s" % (nobs, nobs, nobs))
-        cholsigmainv = np.linalg.cholesky(np.linalg.inv(sigma)).T
+        cholsigmainv, info = dtrtri(cholesky(sigma, lower=True),
+                                    lower=True, overwrite_c=True)
+        if info > 0:
+            raise np.linalg.LinAlgError('Cholesky decomposition of sigma '
+                                        'yields a singular matrix')
+        elif info < 0:
+            raise ValueError('Invalid input to dtrtri (info = %d)' % info)
     return sigma, cholsigmainv
 
 
@@ -176,10 +197,12 @@ class RegressionModel(base.LikelihoodModel):
     Intended for subclassing.
     """
     def __init__(self, endog, exog, **kwargs):
-        super(RegressionModel, self).__init__(endog, exog, **kwargs)
+        super().__init__(endog, exog, **kwargs)
+        self.pinv_wexog: Float64Array | None = None
         self._data_attr.extend(['pinv_wexog', 'wendog', 'wexog', 'weights'])
 
     def initialize(self):
+        """Initialize model components."""
         self.wexog = self.whiten(self.exog)
         self.wendog = self.whiten(self.endog)
         # overwrite nobs from class Model:
@@ -192,12 +215,14 @@ class RegressionModel(base.LikelihoodModel):
     @property
     def df_model(self):
         """
-        The model degree of freedom, defined as the rank of the regressor
-        matrix minus 1 if a constant is included.
+        The model degree of freedom.
+
+        The dof is defined as the rank of the regressor matrix minus 1 if a
+        constant is included.
         """
         if self._df_model is None:
             if self.rank is None:
-                self.rank = np_matrix_rank(self.exog)
+                self.rank = np.linalg.matrix_rank(self.exog)
             self._df_model = float(self.rank - self.k_constant)
         return self._df_model
 
@@ -208,13 +233,15 @@ class RegressionModel(base.LikelihoodModel):
     @property
     def df_resid(self):
         """
-        The residual degree of freedom, defined as the number of observations
-        minus the rank of the regressor matrix.
+        The residual degree of freedom.
+
+        The dof is defined as the number of observations minus the rank of
+        the regressor matrix.
         """
 
         if self._df_resid is None:
             if self.rank is None:
-                self.rank = np_matrix_rank(self.exog)
+                self.rank = np.linalg.matrix_rank(self.exog)
             self._df_resid = self.nobs - self.rank
         return self._df_resid
 
@@ -222,11 +249,36 @@ class RegressionModel(base.LikelihoodModel):
     def df_resid(self, value):
         self._df_resid = value
 
-    def whiten(self, X):
-        raise NotImplementedError("Subclasses should implement.")
+    def whiten(self, x):
+        """
+        Whiten method that must be overwritten by individual models.
 
-    def fit(self, method="pinv", cov_type='nonrobust', cov_kwds=None,
-            use_t=None, **kwargs):
+        Parameters
+        ----------
+        x : array_like
+            Data to be whitened.
+        """
+        raise NotImplementedError("Subclasses must implement.")
+
+    def fit(
+            self,
+            method: Literal["pinv", "qr"] = "pinv",
+            cov_type: Literal[
+                "nonrobust",
+                "fixed scale",
+                "HC0",
+                "HC1",
+                "HC2",
+                "HC3",
+                "HAC",
+                "hac-panel",
+                "hac-groupsum",
+                "cluster",
+            ] = "nonrobust",
+            cov_kwds=None,
+            use_t: bool | None = None,
+            **kwargs
+    ):
         """
         Full fit of the model.
 
@@ -241,24 +293,32 @@ class RegressionModel(base.LikelihoodModel):
             factorization.
         cov_type : str, optional
             See `regression.linear_model.RegressionResults` for a description
-            of the available covariance estimators
+            of the available covariance estimators.
         cov_kwds : list or None, optional
             See `linear_model.RegressionResults.get_robustcov_results` for a
-            description required keywords for alternative covariance estimators
+            description required keywords for alternative covariance
+            estimators.
         use_t : bool, optional
             Flag indicating to use the Student's t distribution when computing
             p-values.  Default behavior depends on cov_type. See
             `linear_model.RegressionResults.get_robustcov_results` for
             implementation details.
+        **kwargs
+            Additional keyword arguments that contain information used when
+            constructing a model using the formula interface.
 
         Returns
         -------
-        A RegressionResults class instance.
+        RegressionResults
+            The model estimation results.
 
         See Also
-        ---------
-        regression.linear_model.RegressionResults
-        regression.linear_model.RegressionResults.get_robustcov_results
+        --------
+        RegressionResults
+            The results container.
+        RegressionResults.get_robustcov_results
+            A method to change the covariance estimator used when fitting the
+            model.
 
         Notes
         -----
@@ -276,7 +336,7 @@ class RegressionModel(base.LikelihoodModel):
 
                 # Cache these singular values for use later.
                 self.wexog_singular_values = singular_values
-                self.rank = np_matrix_rank(np.diag(singular_values))
+                self.rank = np.linalg.matrix_rank(np.diag(singular_values))
 
             beta = np.dot(self.pinv_wexog, self.wendog)
 
@@ -291,13 +351,16 @@ class RegressionModel(base.LikelihoodModel):
 
                 # Cache singular values from R.
                 self.wexog_singular_values = np.linalg.svd(R, 0, 0)
-                self.rank = np_matrix_rank(R)
+                self.rank = np.linalg.matrix_rank(R)
             else:
                 Q, R = self.exog_Q, self.exog_R
-
+            # Needed for some covariance estimators, see GH #8157
+            self.pinv_wexog = np.linalg.pinv(self.wexog)
             # used in ANOVA
             self.effects = effects = np.dot(Q.T, self.wendog)
             beta = np.linalg.solve(R, effects)
+        else:
+            raise ValueError('method has to be "pinv" or "qr"')
 
         if self._df_model is None:
             self._df_model = float(self.rank - self.k_constant)
@@ -323,20 +386,21 @@ class RegressionModel(base.LikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
-            Parameters of a linear model
-        exog : array-like, optional.
+        params : array_like
+            Parameters of a linear model.
+        exog : array_like, optional
             Design / exogenous data. Model exog is used if None.
 
         Returns
         -------
-        An array of fitted values
+        array_like
+            An array of fitted values.
 
         Notes
         -----
         If the model has not yet been fit, params is not optional.
         """
-        # JP: this doesn't look correct for GLMAR
+        # JP: this does not look correct for GLMAR
         # SS: it needs its own predict method
 
         if exog is None:
@@ -346,20 +410,20 @@ class RegressionModel(base.LikelihoodModel):
 
     def get_distribution(self, params, scale, exog=None, dist_class=None):
         """
-        Returns a random number generator for the predictive distribution.
+        Construct a random number generator for the predictive distribution.
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The model parameters (regression coefficients).
         scale : scalar
             The variance parameter.
-        exog : array-like
+        exog : array_like
             The predictor variable matrix.
         dist_class : class
             A random number generator class.  Must take 'loc' and 'scale'
             as arguments and return a random number generator implementing
-            an ``rvs`` method for simulating random values. Defaults to Gaussian.
+            an ``rvs`` method for simulating random values. Defaults to normal.
 
         Returns
         -------
@@ -386,24 +450,24 @@ class RegressionModel(base.LikelihoodModel):
 
 class GLS(RegressionModel):
     __doc__ = r"""
-    Generalized least squares model with a general covariance structure.
+    Generalized Least Squares
 
-    %(params)s
+    {params}
     sigma : scalar or array
-        `sigma` is the weighting matrix of the covariance.
+        The array or scalar `sigma` is the weighting matrix of the covariance.
         The default is None for no scaling.  If `sigma` is a scalar, it is
         assumed that `sigma` is an n x n diagonal matrix with the given
         scalar, `sigma` as the value of each diagonal element.  If `sigma`
         is an n-length vector, then `sigma` is assumed to be a diagonal
         matrix with the given `sigma` on the diagonal.  This should be the
         same as WLS.
-    %(extra_params)s
+    {extra_params}
 
-    **Attributes**
-
-    pinv_wexog : array
+    Attributes
+    ----------
+    pinv_wexog : ndarray
         `pinv_wexog` is the p x n Moore-Penrose pseudoinverse of `wexog`.
-    cholsimgainv : array
+    cholsimgainv : ndarray
         The transpose of the Cholesky decomposition of the pseudoinverse.
     df_model : float
         p - 1, where p is the number of regressors including the intercept.
@@ -414,26 +478,29 @@ class GLS(RegressionModel):
         The value of the likelihood function of the fitted model.
     nobs : float
         The number of observations n.
-    normalized_cov_params : array
-        p x p array :math:`(X^{T}\Sigma^{-1}X)^{-1}`
+    normalized_cov_params : ndarray
+        p x p array :math:`(X^{{T}}\Sigma^{{-1}}X)^{{-1}}`
     results : RegressionResults instance
         A property that returns the RegressionResults class if fit.
-    sigma : array
+    sigma : ndarray
         `sigma` is the n x n covariance structure of the error terms.
-    wexog : array
+    wexog : ndarray
         Design matrix whitened by `cholsigmainv`
-    wendog : array
+    wendog : ndarray
         Response variable whitened by `cholsigmainv`
+
+    See Also
+    --------
+    WLS : Fit a linear model using Weighted Least Squares.
+    OLS : Fit a linear model using Ordinary Least Squares.
 
     Notes
     -----
     If sigma is a function of the data making one of the regressors
     a constant, then the current postestimation statistics will not be correct.
 
-
     Examples
     --------
-    >>> import numpy as np
     >>> import statsmodels.api as sm
     >>> data = sm.datasets.longley.load()
     >>> data.exog = sm.add_constant(data.exog)
@@ -455,77 +522,80 @@ class GLS(RegressionModel):
     >>> gls_model = sm.GLS(data.endog, data.exog, sigma=sigma)
     >>> gls_results = gls_model.fit()
     >>> print(gls_results.summary())
-
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + base._extra_param_doc}
+    """.format(params=base._model_params_doc,
+           extra_params=base._missing_param_doc + base._extra_param_doc)
 
     def __init__(self, endog, exog, sigma=None, missing='none', hasconst=None,
                  **kwargs):
+        if type(self) is GLS:
+            self._check_kwargs(kwargs)
         # TODO: add options igls, for iterative fgls if sigma is None
         # TODO: default if sigma is none should be two-step GLS
         sigma, cholsigmainv = _get_sigma(sigma, len(endog))
 
-        super(GLS, self).__init__(endog, exog, missing=missing,
+        super().__init__(endog, exog, missing=missing,
                                   hasconst=hasconst, sigma=sigma,
                                   cholsigmainv=cholsigmainv, **kwargs)
 
         # store attribute names for data arrays
         self._data_attr.extend(['sigma', 'cholsigmainv'])
 
-    def whiten(self, X):
+    def whiten(self, x):
         """
         GLS whiten method.
 
         Parameters
-        -----------
-        X : array-like
+        ----------
+        x : array_like
             Data to be whitened.
 
         Returns
         -------
-        np.dot(cholsigmainv,X)
+        ndarray
+            The value np.dot(cholsigmainv,X).
 
         See Also
         --------
-        regression.GLS
+        GLS : Fit a linear model using Generalized Least Squares.
         """
-        X = np.asarray(X)
+        x = np.asarray(x)
         if self.sigma is None or self.sigma.shape == ():
-            return X
+            return x
         elif self.sigma.ndim == 1:
-            if X.ndim == 1:
-                return X * self.cholsigmainv
+            if x.ndim == 1:
+                return x * self.cholsigmainv
             else:
-                return X * self.cholsigmainv[:, None]
+                return x * self.cholsigmainv[:, None]
         else:
-            return np.dot(self.cholsigmainv, X)
+            return np.dot(self.cholsigmainv, x)
 
     def loglike(self, params):
-        """
-        Returns the value of the Gaussian log-likelihood function at params.
+        r"""
+        Compute the value of the Gaussian log-likelihood function at params.
 
         Given the whitened design matrix, the log-likelihood is evaluated
         at the parameter vector `params` for the dependent variable `endog`.
 
         Parameters
         ----------
-        params : array-like
-            The parameter estimates
+        params : array_like
+            The model parameters.
 
         Returns
         -------
-        loglike : float
+        float
             The value of the log-likelihood function for a GLS Model.
-
 
         Notes
         -----
         The log-likelihood function for the normal distribution is
 
-        .. math:: -\\frac{n}{2}\\log\\left(\\left(Y-\\hat{Y}\\right)^{\\prime}\\left(Y-\\hat{Y}\\right)\\right)-\\frac{n}{2}\\left(1+\\log\\left(\\frac{2\\pi}{n}\\right)\\right)-\\frac{1}{2}\\log\\left(\\left|\\Sigma\\right|\\right)
+        .. math:: -\frac{n}{2}\log\left(\left(Y-\hat{Y}\right)^{\prime}
+                   \left(Y-\hat{Y}\right)\right)
+                  -\frac{n}{2}\left(1+\log\left(\frac{2\pi}{n}\right)\right)
+                  -\frac{1}{2}\log\left(\left|\Sigma\right|\right)
 
         Y and Y-hat are whitened.
-
         """
         # TODO: combine this with OLS/WLS loglike and add _det_sigma argument
         nobs2 = self.nobs / 2.0
@@ -543,12 +613,13 @@ class GLS(RegressionModel):
         return llf
 
     def hessian_factor(self, params, scale=None, observed=True):
-        """Weights for calculating Hessian
+        """
+        Compute weights for calculating Hessian.
 
         Parameters
         ----------
         params : ndarray
-            parameter at which Hessian is evaluated
+            The parameter at which Hessian is evaluated.
         scale : None or float
             If scale is None, then the default scale will be calculated.
             Default scale is defined by `self.scaletype` and set in fit.
@@ -559,9 +630,9 @@ class GLS(RegressionModel):
 
         Returns
         -------
-        hessian_factor : ndarray, 1d
+        ndarray
             A 1d weight vector used in the calculation of the Hessian.
-            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`
+            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`.
         """
 
         if self.sigma is None or self.sigma.shape == ():
@@ -571,15 +642,23 @@ class GLS(RegressionModel):
         else:
             return np.diag(self.cholsigmainv)
 
+    @Appender(_fit_regularized_doc)
     def fit_regularized(self, method="elastic_net", alpha=0.,
                         L1_wt=1., start_params=None, profile_scale=False,
                         refit=False, **kwargs):
-        # Docstring attached below
-
+        if not np.isscalar(alpha):
+            alpha = np.asarray(alpha)
         # Need to adjust since RSS/n term in elastic net uses nominal
         # n in denominator
         if self.sigma is not None:
-            alpha = alpha * np.sum(1 / np.diag(self.sigma)) / len(self.endog)
+            if self.sigma.ndim == 2:
+                var_obs = np.diag(self.sigma)
+            elif self.sigma.ndim == 1:
+                var_obs = self.sigma
+            else:
+                raise ValueError("sigma should be 1-dim or 2-dim")
+
+            alpha = alpha * np.sum(1 / var_obs) / len(self.endog)
 
         rslt = OLS(self.wendog, self.wexog).fit_regularized(
             method=method, alpha=alpha,
@@ -589,38 +668,46 @@ class GLS(RegressionModel):
             refit=refit, **kwargs)
 
         from statsmodels.base.elastic_net import (
-            RegularizedResults, RegularizedResultsWrapper)
+            RegularizedResults,
+            RegularizedResultsWrapper,
+        )
         rrslt = RegularizedResults(self, rslt.params)
         return RegularizedResultsWrapper(rrslt)
-
-    fit_regularized.__doc__ = _fit_regularized_doc
 
 
 class WLS(RegressionModel):
     __doc__ = """
-    A regression model with diagonal but non-identity covariance structure.
+    Weighted Least Squares
 
     The weights are presumed to be (proportional to) the inverse of
     the variance of the observations.  That is, if the variables are
     to be transformed by 1/sqrt(W) you must supply weights = 1/W.
 
-    %(params)s
-    weights : array-like, optional
-        1d array of weights.  If you supply 1/W then the variables are
+    {params}
+    weights : array_like, optional
+        A 1d array of weights.  If you supply 1/W then the variables are
         pre- multiplied by 1/sqrt(W).  If no weights are supplied the
         default value is 1 and WLS results are the same as OLS.
-    %(extra_params)s
+    {extra_params}
 
     Attributes
     ----------
-    weights : array
+    weights : ndarray
         The stored weights supplied as an argument.
 
-    See regression.GLS
+    See Also
+    --------
+    GLS : Fit a linear model using Generalized Least Squares.
+    OLS : Fit a linear model using Ordinary Least Squares.
+
+    Notes
+    -----
+    If the weights are a function of the data, then the post estimation
+    statistics such as fvalue and mse_model might not be correct, as the
+    package does not yet support no-constant regression.
 
     Examples
-    ---------
-    >>> import numpy as np
+    --------
     >>> import statsmodels.api as sm
     >>> Y = [1,3,4,5,2,3,4]
     >>> X = range(1,8)
@@ -632,20 +719,17 @@ class WLS(RegressionModel):
     >>> results.tvalues
     array([ 2.0652652 ,  0.35684428])
     >>> print(results.t_test([1, 0]))
-    <T test: effect=array([ 2.91666667]), sd=array([[ 1.41224801]]), t=array([[ 2.0652652]]), p=array([[ 0.04690139]]), df_denom=5>
+    <T test: effect=array([ 2.91666667]), sd=array([[ 1.41224801]]),
+     t=array([[ 2.0652652]]), p=array([[ 0.04690139]]), df_denom=5>
     >>> print(results.f_test([0, 1]))
     <F test: F=array([[ 0.12733784]]), p=[[ 0.73577409]], df_denom=5, df_num=1>
-
-    Notes
-    -----
-    If the weights are a function of the data, then the post estimation
-    statistics such as fvalue and mse_model might not be correct, as the
-    package does not yet support no-constant regression.
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + base._extra_param_doc}
+    """.format(params=base._model_params_doc,
+           extra_params=base._missing_param_doc + base._extra_param_doc)
 
     def __init__(self, endog, exog, weights=1., missing='none', hasconst=None,
                  **kwargs):
+        if type(self) is WLS:
+            self._check_kwargs(kwargs)
         weights = np.array(weights)
         if weights.shape == ():
             if (missing == 'drop' and 'missing_idx' in kwargs and
@@ -659,58 +743,61 @@ class WLS(RegressionModel):
             weights = np.array([weights.squeeze()])
         else:
             weights = weights.squeeze()
-        super(WLS, self).__init__(endog, exog, missing=missing,
+        super().__init__(endog, exog, missing=missing,
                                   weights=weights, hasconst=hasconst, **kwargs)
         nobs = self.exog.shape[0]
         weights = self.weights
-        # Experimental normalization of weights
-        weights = weights / np.sum(weights) * nobs
         if weights.size != nobs and weights.shape[0] != nobs:
             raise ValueError('Weights must be scalar or same length as design')
 
-    def whiten(self, X):
+    def whiten(self, x):
         """
-        Whitener for WLS model, multiplies each column by sqrt(self.weights)
+        Whitener for WLS model, multiplies each column by sqrt(self.weights).
 
         Parameters
         ----------
-        X : array-like
-            Data to be whitened
+        x : array_like
+            Data to be whitened.
 
         Returns
         -------
-        whitened : array-like
-            sqrt(weights)*X
+        array_like
+            The whitened values sqrt(weights)*X.
         """
 
-        X = np.asarray(X)
-        if X.ndim == 1:
-            return X * np.sqrt(self.weights)
-        elif X.ndim == 2:
-            return np.sqrt(self.weights)[:, None]*X
+        x = np.asarray(x)
+        if x.ndim == 1:
+            return x * np.sqrt(self.weights)
+        elif x.ndim == 2:
+            return np.sqrt(self.weights)[:, None] * x
 
     def loglike(self, params):
-        """
-        Returns the value of the gaussian log-likelihood function at params.
+        r"""
+        Compute the value of the gaussian log-likelihood function at params.
 
         Given the whitened design matrix, the log-likelihood is evaluated
         at the parameter vector `params` for the dependent variable `Y`.
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameter estimates.
 
         Returns
         -------
-        llf : float
+        float
             The value of the log-likelihood function for a WLS Model.
 
         Notes
-        --------
-        .. math:: -\\frac{n}{2}\\log\\left(Y-\\hat{Y}\\right)-\\frac{n}{2}\\left(1+\\log\\left(\\frac{2\\pi}{n}\\right)\\right)-\\frac{1}{2}log\\left(\\left|W\\right|\\right)
+        -----
+        .. math:: -\frac{n}{2}\log SSR
+                  -\frac{n}{2}\left(1+\log\left(\frac{2\pi}{n}\right)\right)
+                  +\frac{1}{2}\log\left(\left|W\right|\right)
 
-        where :math:`W` is a diagonal matrix
+        where :math:`W` is a diagonal weight matrix matrix,
+        :math:`\left|W\right|` is its determinant, and
+        :math:`SSR=\left(Y-\hat{Y}\right)^\prime W \left(Y-\hat{Y}\right)` is
+        the sum of the squared weighted residuals.
         """
         nobs2 = self.nobs / 2.0
         SSR = np.sum((self.wendog - np.dot(self.wexog, params))**2, axis=0)
@@ -720,12 +807,13 @@ class WLS(RegressionModel):
         return llf
 
     def hessian_factor(self, params, scale=None, observed=True):
-        """Weights for calculating Hessian
+        """
+        Compute the weights for calculating the Hessian.
 
         Parameters
         ----------
         params : ndarray
-            parameter at which Hessian is evaluated
+            The parameter at which Hessian is evaluated.
         scale : None or float
             If scale is None, then the default scale will be calculated.
             Default scale is defined by `self.scaletype` and set in fit.
@@ -736,18 +824,20 @@ class WLS(RegressionModel):
 
         Returns
         -------
-        hessian_factor : ndarray, 1d
+        ndarray
             A 1d weight vector used in the calculation of the Hessian.
-            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`
+            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`.
         """
 
         return self.weights
 
+    @Appender(_fit_regularized_doc)
     def fit_regularized(self, method="elastic_net", alpha=0.,
                         L1_wt=1., start_params=None, profile_scale=False,
                         refit=False, **kwargs):
         # Docstring attached below
-
+        if not np.isscalar(alpha):
+            alpha = np.asarray(alpha)
         # Need to adjust since RSS/n in elastic net uses nominal n in
         # denominator
         alpha = alpha * np.sum(self.weights) / len(self.weights)
@@ -760,19 +850,19 @@ class WLS(RegressionModel):
             refit=refit, **kwargs)
 
         from statsmodels.base.elastic_net import (
-            RegularizedResults, RegularizedResultsWrapper)
+            RegularizedResults,
+            RegularizedResultsWrapper,
+        )
         rrslt = RegularizedResults(self, rslt.params)
         return RegularizedResultsWrapper(rrslt)
-
-    fit_regularized.__doc__ = _fit_regularized_doc
 
 
 class OLS(WLS):
     __doc__ = """
-    A simple ordinary least squares model.
+    Ordinary Least Squares
 
-    %(params)s
-    %(extra_params)s
+    {params}
+    {extra_params}
 
     Attributes
     ----------
@@ -781,42 +871,60 @@ class OLS(WLS):
 
     See Also
     --------
-    GLS
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>>
-    >>> import statsmodels.api as sm
-    >>>
-    >>> Y = [1,3,4,5,2,3,4]
-    >>> X = range(1,8)
-    >>> X = sm.add_constant(X)
-    >>>
-    >>> model = sm.OLS(Y,X)
-    >>> results = model.fit()
-    >>> results.params
-    array([ 2.14285714,  0.25      ])
-    >>> results.tvalues
-    array([ 1.87867287,  0.98019606])
-    >>> print(results.t_test([1, 0]))
-    <T test: effect=array([ 2.14285714]), sd=array([[ 1.14062282]]), t=array([[ 1.87867287]]), p=array([[ 0.05953974]]), df_denom=5>
-    >>> print(results.f_test(np.identity(2)))
-    <F test: F=array([[ 19.46078431]]), p=[[ 0.00437251]], df_denom=5, df_num=2>
+    WLS : Fit a linear model using Weighted Least Squares.
+    GLS : Fit a linear model using Generalized Least Squares.
 
     Notes
     -----
     No constant is added by the model unless you are using formulas.
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + base._extra_param_doc}
 
-    # TODO: change example to use datasets.  This was the point of datasets!
+    Examples
+    --------
+    >>> import statsmodels.api as sm
+    >>> import numpy as np
+    >>> duncan_prestige = sm.datasets.get_rdataset("Duncan", "carData")
+    >>> Y = duncan_prestige.data['income']
+    >>> X = duncan_prestige.data['education']
+    >>> X = sm.add_constant(X)
+    >>> model = sm.OLS(Y,X)
+    >>> results = model.fit()
+    >>> results.params
+    const        10.603498
+    education     0.594859
+    dtype: float64
+
+    >>> results.tvalues
+    const        2.039813
+    education    6.892802
+    dtype: float64
+
+    >>> print(results.t_test([1, 0]))
+                                 Test for Constraints
+    ==============================================================================
+                     coef    std err          t      P>|t|      [0.025      0.975]
+    ------------------------------------------------------------------------------
+    c0            10.6035      5.198      2.040      0.048       0.120      21.087
+    ==============================================================================
+
+    >>> print(results.f_test(np.identity(2)))
+    <F test: F=array([[159.63031026]]), p=1.2607168903696672e-20,
+     df_denom=43, df_num=2>
+    """.format(params=base._model_params_doc,
+           extra_params=base._missing_param_doc + base._extra_param_doc)
+
     def __init__(self, endog, exog=None, missing='none', hasconst=None,
                  **kwargs):
-        super(OLS, self).__init__(endog, exog, missing=missing,
+        if "weights" in kwargs:
+            msg = ("Weights are not supported in OLS and will be ignored"
+                   "An exception will be raised in the next version.")
+            warnings.warn(msg, ValueWarning)
+        super().__init__(endog, exog, missing=missing,
                                   hasconst=hasconst, **kwargs)
         if "weights" in self._init_keys:
             self._init_keys.remove("weights")
+
+        if type(self) is OLS:
+            self._check_kwargs(kwargs, ["offset"])
 
     def loglike(self, params, scale=None):
         """
@@ -824,7 +932,7 @@ class OLS(WLS):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The coefficients with which to estimate the log-likelihood.
         scale : float or None
             If None, return the profile (concentrated) log likelihood
@@ -833,7 +941,8 @@ class OLS(WLS):
 
         Returns
         -------
-        The likelihood function evaluated at params.
+        float
+            The likelihood function evaluated at params.
         """
         nobs2 = self.nobs / 2.0
         nobs = float(self.nobs)
@@ -849,11 +958,25 @@ class OLS(WLS):
             llf = -nobs2 * np.log(2 * np.pi * scale) - ssr / (2*scale)
         return llf
 
-    def whiten(self, Y):
+    def whiten(self, x):
         """
-        OLS model whitener does nothing: returns Y.
+        OLS model whitener does nothing.
+
+        Parameters
+        ----------
+        x : array_like
+            Data to be whitened.
+
+        Returns
+        -------
+        array_like
+            The input array unmodified.
+
+        See Also
+        --------
+        OLS : Fit a linear model using Ordinary Least Squares.
         """
-        return Y
+        return x
 
     def score(self, params, scale=None):
         """
@@ -865,7 +988,7 @@ class OLS(WLS):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameter vector at which the score function is
             computed.
         scale : float or None
@@ -875,7 +998,8 @@ class OLS(WLS):
 
         Returns
         -------
-        The score vector.
+        ndarray
+            The score vector.
         """
 
         if not hasattr(self, "_wexog_xprod"):
@@ -906,7 +1030,7 @@ class OLS(WLS):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameter vector at which the Hessian is computed.
         scale : float or None
             If None, return the profile (concentrated) log likelihood
@@ -915,7 +1039,8 @@ class OLS(WLS):
 
         Returns
         -------
-        The Hessian matrix.
+        ndarray
+            The Hessian matrix.
         """
 
         if not hasattr(self, "_wexog_xprod"):
@@ -934,12 +1059,13 @@ class OLS(WLS):
             return -self._wexog_xprod / scale
 
     def hessian_factor(self, params, scale=None, observed=True):
-        """Weights for calculating Hessian
+        """
+        Calculate the weights for the Hessian.
 
         Parameters
         ----------
         params : ndarray
-            parameter at which Hessian is evaluated
+            The parameter at which Hessian is evaluated.
         scale : None or float
             If scale is None, then the default scale will be calculated.
             Default scale is defined by `self.scaletype` and set in fit.
@@ -950,31 +1076,41 @@ class OLS(WLS):
 
         Returns
         -------
-        hessian_factor : ndarray, 1d
+        ndarray
             A 1d weight vector used in the calculation of the Hessian.
-            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`
+            The hessian is obtained by `(exog.T * hessian_factor).dot(exog)`.
         """
 
         return np.ones(self.exog.shape[0])
 
+    @Appender(_fit_regularized_doc)
     def fit_regularized(self, method="elastic_net", alpha=0.,
                         L1_wt=1., start_params=None, profile_scale=False,
                         refit=False, **kwargs):
-        # Docstring attached below
+
+        # In the future we could add support for other penalties, e.g. SCAD.
+        if method not in ("elastic_net", "sqrt_lasso"):
+            msg = "Unknown method '%s' for fit_regularized" % method
+            raise ValueError(msg)
+
+        # Set default parameters.
+        defaults = {"maxiter":  50, "cnvrg_tol": 1e-10,
+                    "zero_tol": 1e-8}
+        defaults.update(kwargs)
+
+        if method == "sqrt_lasso":
+            from statsmodels.base.elastic_net import (
+                RegularizedResults,
+                RegularizedResultsWrapper,
+            )
+            params = self._sqrt_lasso(alpha, refit, defaults["zero_tol"])
+            results = RegularizedResults(self, params)
+            return RegularizedResultsWrapper(results)
 
         from statsmodels.base.elastic_net import fit_elasticnet
 
         if L1_wt == 0:
             return self._fit_ridge(alpha)
-
-        # In the future we could add support for other penalties, e.g. SCAD.
-        if method != "elastic_net":
-            raise ValueError("method for fit_regularized must be elastic_net")
-
-        # Set default parameters.
-        defaults = {"maxiter":  50, "cnvrg_tol": 1e-10,
-                    "zero_tol": 1e-10}
-        defaults.update(kwargs)
 
         # If a scale parameter is passed in, the non-profile
         # likelihood (residual sum of squares divided by -2) is used,
@@ -999,7 +1135,50 @@ class OLS(WLS):
                               check_step=False,
                               **defaults)
 
-    fit_regularized.__doc__ = _fit_regularized_doc
+    def _sqrt_lasso(self, alpha, refit, zero_tol):
+
+        try:
+            import cvxopt
+        except ImportError:
+            msg = 'sqrt_lasso fitting requires the cvxopt module'
+            raise ValueError(msg)
+
+        n = len(self.endog)
+        p = self.exog.shape[1]
+
+        h0 = cvxopt.matrix(0., (2*p+1, 1))
+        h1 = cvxopt.matrix(0., (n+1, 1))
+        h1[1:, 0] = cvxopt.matrix(self.endog, (n, 1))
+
+        G0 = cvxopt.spmatrix([], [], [], (2*p+1, 2*p+1))
+        for i in range(1, 2*p+1):
+            G0[i, i] = -1
+        G1 = cvxopt.matrix(0., (n+1, 2*p+1))
+        G1[0, 0] = -1
+        G1[1:, 1:p+1] = self.exog
+        G1[1:, p+1:] = -self.exog
+
+        c = cvxopt.matrix(alpha / n, (2*p + 1, 1))
+        c[0] = 1 / np.sqrt(n)
+
+        from cvxopt import solvers
+        solvers.options["show_progress"] = False
+
+        rslt = solvers.socp(c, Gl=G0, hl=h0, Gq=[G1], hq=[h1])
+        x = np.asarray(rslt['x']).flat
+        bp = x[1:p+1]
+        bn = x[p+1:]
+        params = bp - bn
+
+        if not refit:
+            return params
+
+        ii = np.flatnonzero(np.abs(params) > zero_tol)
+        rfr = OLS(self.endog, self.exog[:, ii]).fit()
+        params *= 0
+        params[ii] = rfr.params
+
+        return params
 
     def _fit_ridge(self, alpha):
         """
@@ -1007,7 +1186,7 @@ class OLS(WLS):
 
         Parameters
         ----------
-        alpha : scalar or array-like
+        alpha : scalar or array_like
             The penalty weight.  If a scalar, the same penalty weight
             applies to all variables in the model.  If a vector, it
             must have the same length as `params`, and contains a
@@ -1028,6 +1207,7 @@ class OLS(WLS):
             params = q / sd
             params = np.dot(v, params)
         else:
+            alpha = np.asarray(alpha)
             vtav = self.nobs * np.dot(vt, alpha[:, None] * v)
             d = np.diag(vtav) + s2
             np.fill_diagonal(vtav, d)
@@ -1040,12 +1220,18 @@ class OLS(WLS):
 
 class GLSAR(GLS):
     __doc__ = """
-    A regression model with an AR(p) covariance structure.
+    Generalized Least Squares with AR covariance structure
 
-    %(params)s
+    {params}
     rho : int
-        Order of the autoregressive covariance
-    %(extra_params)s
+        The order of the autoregressive covariance.
+    {extra_params}
+
+    Notes
+    -----
+    GLSAR is considered to be experimental.
+    The linear autoregressive process of order p--AR(p)--is defined as:
+    TODO
 
     Examples
     --------
@@ -1056,7 +1242,7 @@ class GLSAR(GLS):
     >>> model = sm.GLSAR(Y, X, rho=2)
     >>> for i in range(6):
     ...     results = model.fit()
-    ...     print("AR coefficients: {0}".format(model.rho))
+    ...     print("AR coefficients: {{0}}".format(model.rho))
     ...     rho, sigma = sm.regression.yule_walker(results.resid,
     ...                                            order=model.order)
     ...     model = sm.GLSAR(Y, X, rho)
@@ -1072,9 +1258,11 @@ class GLSAR(GLS):
     >>> results.tvalues
     array([ -2.10304127,  21.8047269 ])
     >>> print(results.t_test([1, 0]))
-    <T test: effect=array([-0.66661205]), sd=array([[ 0.31697526]]), t=array([[-2.10304127]]), p=array([[ 0.06309969]]), df_denom=3>
+    <T test: effect=array([-0.66661205]), sd=array([[ 0.31697526]]),
+     t=array([[-2.10304127]]), p=array([[ 0.06309969]]), df_denom=3>
     >>> print(results.f_test(np.identity(2)))
-    <F test: F=array([[ 1815.23061844]]), p=[[ 0.00002372]], df_denom=3, df_num=2>
+    <F test: F=array([[ 1815.23061844]]), p=[[ 0.00002372]],
+     df_denom=3, df_num=2>
 
     Or, equivalently
 
@@ -1082,19 +1270,15 @@ class GLSAR(GLS):
     >>> res = model2.iterative_fit(maxiter=6)
     >>> model2.rho
     array([-0.60479146, -0.85841922])
+    """.format(params=base._model_params_doc,
+           extra_params=base._missing_param_doc + base._extra_param_doc)
+    # TODO: Complete docstring
 
-    Notes
-    -----
-    GLSAR is considered to be experimental.
-    The linear autoregressive process of order p--AR(p)--is defined as:
-    TODO
-    """ % {'params': base._model_params_doc,
-           'extra_params': base._missing_param_doc + base._extra_param_doc}
-
-    def __init__(self, endog, exog=None, rho=1, missing='none', **kwargs):
+    def __init__(self, endog, exog=None, rho=1, missing='none', hasconst=None,
+                 **kwargs):
         # this looks strange, interpreting rho as order if it is int
-        if isinstance(rho, np.int):
-            self.order = rho
+        if isinstance(rho, (int, np.integer)):
+            self.order = int(rho)
             self.rho = np.zeros(self.order, np.float64)
         else:
             self.rho = np.squeeze(np.asarray(rho))
@@ -1107,13 +1291,14 @@ class GLSAR(GLS):
             # JP this looks wrong, should be a regression on constant
             # results for rho estimate now identical to yule-walker on y
             # super(AR, self).__init__(endog, add_constant(endog))
-            super(GLSAR, self).__init__(endog, np.ones((endog.shape[0], 1)),
-                                        missing=missing, **kwargs)
+            super().__init__(endog, np.ones((endog.shape[0], 1)),
+                                        missing=missing, hasconst=None,
+                                        **kwargs)
         else:
-            super(GLSAR, self).__init__(endog, exog, missing=missing,
+            super().__init__(endog, exog, missing=missing,
                                         **kwargs)
 
-    def iterative_fit(self, maxiter=3, rtol=1e-4, **kwds):
+    def iterative_fit(self, maxiter=3, rtol=1e-4, **kwargs):
         """
         Perform an iterative two-stage procedure to estimate a GLS model.
 
@@ -1122,14 +1307,18 @@ class GLSAR(GLS):
 
         Parameters
         ----------
-        maxiter : integer, optional
-            the number of iterations
+        maxiter : int, optional
+            The number of iterations.
         rtol : float, optional
             Relative tolerance between estimated coefficients to stop the
-            estimation.  Stops if
+            estimation.  Stops if max(abs(last - current) / abs(last)) < rtol.
+        **kwargs
+            Additional keyword arguments passed to `fit`.
 
-            max(abs(last - current) / abs(last)) < rtol
-
+        Returns
+        -------
+        RegressionResults
+            The results computed using an iterative fit.
         """
         # TODO: update this after going through example.
         converged = False
@@ -1161,9 +1350,9 @@ class GLSAR(GLS):
                 del self.pinv_wexog
             self.initialize()
 
-        # if converged then this is a duplicate fit, because we didn't
+        # if converged then this is a duplicate fit, because we did not
         # update rho
-        results = self.fit(history=history, **kwds)
+        results = self.fit(history=history, **kwargs)
         results.iter = i + 1
         # add last fit to history, not if duplicate fit
         if not converged:
@@ -1174,54 +1363,51 @@ class GLSAR(GLS):
 
         return results
 
-    def whiten(self, X):
+    def whiten(self, x):
         """
-        Whiten a series of columns according to an AR(p)
-        covariance structure. This drops initial p observations.
+        Whiten a series of columns according to an AR(p) covariance structure.
+
+        Whitening using this method drops the initial p observations.
 
         Parameters
         ----------
-        X : array-like
-            The data to be whitened,
+        x : array_like
+            The data to be whitened.
 
         Returns
         -------
-        whitened array
-
+        ndarray
+            The whitened data.
         """
         # TODO: notation for AR process
-        X = np.asarray(X, np.float64)
-        _X = X.copy()
+        x = np.asarray(x, np.float64)
+        _x = x.copy()
 
         # the following loops over the first axis,  works for 1d and nd
         for i in range(self.order):
-            _X[(i+1):] = _X[(i+1):] - self.rho[i] * X[0:-(i+1)]
-        return _X[self.order:]
+            _x[(i + 1):] = _x[(i + 1):] - self.rho[i] * x[0:-(i + 1)]
+        return _x[self.order:]
 
 
-def yule_walker(X, order=1, method="unbiased", df=None, inv=False,
+def yule_walker(x, order=1, method="adjusted", df=None, inv=False,
                 demean=True):
     """
-    Estimate AR(p) parameters from a sequence X using Yule-Walker equation.
+    Estimate AR(p) parameters from a sequence using the Yule-Walker equations.
 
-    Unbiased or maximum-likelihood estimator (mle)
-
-    See, for example:
-
-    http://en.wikipedia.org/wiki/Autoregressive_moving_average_model
+    Adjusted or maximum-likelihood estimator (mle)
 
     Parameters
     ----------
-    X : array-like
-        1d array
-    order : integer, optional
+    x : array_like
+        A 1d array.
+    order : int, optional
         The order of the autoregressive process.  Default is 1.
-    method : string, optional
-       Method can be 'unbiased' or 'mle' and this determines
+    method : str, optional
+       Method can be 'adjusted' or 'mle' and this determines
        denominator in estimate of autocorrelation function (ACF) at
-       lag k. If 'mle', the denominator is n=X.shape[0], if 'unbiased'
-       the denominator is n-k.  The default is unbiased.
-    df : integer, optional
+       lag k. If 'mle', the denominator is n=X.shape[0], if 'adjusted'
+       the denominator is n-k.  The default is adjusted.
+    df : int, optional
        Specifies the degrees of freedom. If `df` is supplied, then it
        is assumed the X has `df` degrees of freedom rather than `n`.
        Default is None.
@@ -1233,54 +1419,151 @@ def yule_walker(X, order=1, method="unbiased", df=None, inv=False,
 
     Returns
     -------
-    rho
-        The autoregressive coefficients
-    sigma
-        TODO
+    rho : ndarray
+        AR(p) coefficients computed using the Yule-Walker method.
+    sigma : float
+        The estimate of the residual standard deviation.
+
+    See Also
+    --------
+    burg : Burg's AR estimator.
+
+    Notes
+    -----
+    See https://en.wikipedia.org/wiki/Autoregressive_moving_average_model for
+    further details.
 
     Examples
     --------
     >>> import statsmodels.api as sm
     >>> from statsmodels.datasets.sunspots import load
     >>> data = load()
-    >>> rho, sigma = sm.regression.yule_walker(data.endog,
-    ...                                        order=4, method="mle")
+    >>> rho, sigma = sm.regression.yule_walker(data.endog, order=4,
+    ...                                        method="mle")
 
     >>> rho
     array([ 1.28310031, -0.45240924, -0.20770299,  0.04794365])
     >>> sigma
     16.808022730464351
-
     """
     # TODO: define R better, look back at notes and technical notes on YW.
     # First link here is useful
     # http://www-stat.wharton.upenn.edu/~steele/Courses/956/ResourceDetails/YuleWalkerAndMore.htm
-    method = str(method).lower()
-    if method not in ["unbiased", "mle"]:
-        raise ValueError("ACF estimation method must be 'unbiased' or 'MLE'")
-    X = np.array(X, dtype=np.float64)
-    if demean:
-        X -= X.mean()                  # automatically demean's X
-    n = df or X.shape[0]
 
-    if method == "unbiased":        # this is df_resid ie., n - p
-        denom = lambda k: n - k
-    else:
-        denom = lambda k: n
-    if X.ndim > 1 and X.shape[1] != 1:
+    method = string_like(
+        method, "method", options=("adjusted", "unbiased", "mle")
+    )
+    if method == "unbiased":
+        warnings.warn(
+            "unbiased is deprecated in factor of adjusted to reflect that the "
+            "term is adjusting the sample size used in the autocovariance "
+            "calculation rather than estimating an unbiased autocovariance. "
+            "After release 0.13, using 'unbiased' will raise.",
+            FutureWarning,
+        )
+        method = "adjusted"
+
+    if method not in ("adjusted", "mle"):
+        raise ValueError("ACF estimation method must be 'adjusted' or 'MLE'")
+    # TODO: Require??
+    x = np.array(x, dtype=np.float64)
+    if demean:
+        if not x.flags.writeable:
+            x = np.require(x, requirements="W")
+        x -= x.mean()
+    n = df or x.shape[0]
+
+    # this handles df_resid ie., n - p
+    adj_needed = method == "adjusted"
+
+    if x.ndim > 1 and x.shape[1] != 1:
         raise ValueError("expecting a vector to estimate AR parameters")
     r = np.zeros(order+1, np.float64)
-    r[0] = (X**2).sum() / denom(0)
+    r[0] = (x ** 2).sum() / n
     for k in range(1, order+1):
-        r[k] = (X[0:-k] * X[k:]).sum() / denom(k)
+        r[k] = (x[0:-k] * x[k:]).sum() / (n - k * adj_needed)
     R = toeplitz(r[:-1])
 
-    rho = np.linalg.solve(R, r[1:])
+    try:
+        rho = np.linalg.solve(R, r[1:])
+    except np.linalg.LinAlgError as err:
+        if 'Singular matrix' in str(err):
+            warnings.warn("Matrix is singular. Using pinv.", ValueWarning)
+            rho = np.linalg.pinv(R) @ r[1:]
+        else:
+            raise
+
     sigmasq = r[0] - (r[1:]*rho).sum()
-    if inv:
-        return rho, np.sqrt(sigmasq), np.linalg.inv(R)
+    if not np.isnan(sigmasq) and sigmasq > 0:
+        sigma = np.sqrt(sigmasq)
     else:
-        return rho, np.sqrt(sigmasq)
+        sigma = np.nan
+    if inv:
+        return rho, sigma, np.linalg.inv(R)
+    else:
+        return rho, sigma
+
+
+def burg(endog, order=1, demean=True):
+    """
+    Compute Burg's AP(p) parameter estimator.
+
+    Parameters
+    ----------
+    endog : array_like
+        The endogenous variable.
+    order : int, optional
+        Order of the AR.  Default is 1.
+    demean : bool, optional
+        Flag indicating to subtract the mean from endog before estimation.
+
+    Returns
+    -------
+    rho : ndarray
+        The AR(p) coefficients computed using Burg's algorithm.
+    sigma2 : float
+        The estimate of the residual variance.
+
+    See Also
+    --------
+    yule_walker : Estimate AR parameters using the Yule-Walker method.
+
+    Notes
+    -----
+    AR model estimated includes a constant that is estimated using the sample
+    mean (see [1]_). This value is not reported.
+
+    References
+    ----------
+    .. [1] Brockwell, P.J. and Davis, R.A., 2016. Introduction to time series
+        and forecasting. Springer.
+
+    Examples
+    --------
+    >>> import statsmodels.api as sm
+    >>> from statsmodels.datasets.sunspots import load
+    >>> data = load()
+    >>> rho, sigma2 = sm.regression.linear_model.burg(data.endog, order=4)
+
+    >>> rho
+    array([ 1.30934186, -0.48086633, -0.20185982,  0.05501941])
+    >>> sigma2
+    271.2467306963966
+    """
+    # Avoid circular imports
+    from statsmodels.tsa.stattools import levinson_durbin_pacf, pacf_burg
+
+    endog = np.squeeze(np.asarray(endog))
+    if endog.ndim != 1:
+        raise ValueError('endog must be 1-d or squeezable to 1-d.')
+    order = int(order)
+    if order < 1:
+        raise ValueError('order must be an integer larger than 1')
+    if demean:
+        endog = endog - endog.mean()
+    pacf, sigma = pacf_burg(endog, order, demean=demean)
+    ar, _ = levinson_durbin_pacf(pacf)
+    return ar, sigma[-1]
 
 
 class RegressionResults(base.LikelihoodModelResults):
@@ -1289,149 +1572,59 @@ class RegressionResults(base.LikelihoodModelResults):
 
     It handles the output of contrasts, estimates of covariance, etc.
 
-    Returns
-    -------
-    **Attributes**
+    Parameters
+    ----------
+    model : RegressionModel
+        The regression model instance.
+    params : ndarray
+        The estimated parameters.
+    normalized_cov_params : ndarray
+        The normalized covariance parameters.
+    scale : float
+        The estimated scale of the residuals.
+    cov_type : str
+        The covariance estimator used in the results.
+    cov_kwds : dict
+        Additional keywords used in the covariance specification.
+    use_t : bool
+        Flag indicating to use the Student's t in inference.
+    **kwargs
+        Additional keyword arguments used to initialize the results.
 
-    aic
-        Akaike's information criteria. For a model with a constant
-        :math:`-2llf + 2(df\_model + 1)`. For a model without a constant
-        :math:`-2llf + 2(df\_model)`.
-    bic
-        Bayes' information criteria. For a model with a constant
-        :math:`-2llf + \log(n)(df\_model+1)`. For a model without a constant
-        :math:`-2llf + \log(n)(df\_model)`
-    bse
-        The standard errors of the parameter estimates.
+    Attributes
+    ----------
     pinv_wexog
-        See specific model class docstring
-    centered_tss
-        The total (weighted) sum of squares centered about the mean.
-    cov_HC0
-        Heteroscedasticity robust covariance matrix. See HC0_se below.
-    cov_HC1
-        Heteroscedasticity robust covariance matrix. See HC1_se below.
-    cov_HC2
-        Heteroscedasticity robust covariance matrix. See HC2_se below.
-    cov_HC3
-        Heteroscedasticity robust covariance matrix. See HC3_se below.
+        See model class docstring for implementation details.
     cov_type
-        Parameter covariance estimator used for standard errors and t-stats
+        Parameter covariance estimator used for standard errors and t-stats.
     df_model
         Model degrees of freedom. The number of regressors `p`. Does not
-        include the constant if one is present
+        include the constant if one is present.
     df_resid
         Residual degrees of freedom. `n - p - 1`, if a constant is present.
         `n - p` if a constant is not included.
-    ess
-        Explained sum of squares.  If a constant is present, the centered
-        total sum of squares minus the sum of squared residuals. If there is
-        no constant, the uncentered total sum of squares is used.
-    fvalue
-        F-statistic of the fully specified model.  Calculated as the mean
-        squared error of the model divided by the mean squared error of the
-        residuals.
-    f_pvalue
-        p-value of the F-statistic
-    fittedvalues
-        The predicted values for the original (unwhitened) design.
     het_scale
         adjusted squared residuals for heteroscedasticity robust standard
         errors. Is only available after `HC#_se` or `cov_HC#` is called.
         See HC#_se for more information.
     history
-        Estimation history for iterative estimators
-    HC0_se
-        White's (1980) heteroskedasticity robust standard errors.
-        Defined as sqrt(diag(X.T X)^(-1)X.T diag(e_i^(2)) X(X.T X)^(-1)
-        where e_i = resid[i]
-        HC0_se is a cached property.
-        When HC0_se or cov_HC0 is called the RegressionResults instance will
-        then have another attribute `het_scale`, which is in this case is just
-        resid**2.
-    HC1_se
-        MacKinnon and White's (1985) alternative heteroskedasticity robust
-        standard errors.
-        Defined as sqrt(diag(n/(n-p)*HC_0)
-        HC1_see is a cached property.
-        When HC1_se or cov_HC1 is called the RegressionResults instance will
-        then have another attribute `het_scale`, which is in this case is
-        n/(n-p)*resid**2.
-    HC2_se
-        MacKinnon and White's (1985) alternative heteroskedasticity robust
-        standard errors.
-        Defined as (X.T X)^(-1)X.T diag(e_i^(2)/(1-h_ii)) X(X.T X)^(-1)
-        where h_ii = x_i(X.T X)^(-1)x_i.T
-        HC2_see is a cached property.
-        When HC2_se or cov_HC2 is called the RegressionResults instance will
-        then have another attribute `het_scale`, which is in this case is
-        resid^(2)/(1-h_ii).
-    HC3_se
-        MacKinnon and White's (1985) alternative heteroskedasticity robust
-        standard errors.
-        Defined as (X.T X)^(-1)X.T diag(e_i^(2)/(1-h_ii)^(2)) X(X.T X)^(-1)
-        where h_ii = x_i(X.T X)^(-1)x_i.T
-        HC3_see is a cached property.
-        When HC3_se or cov_HC3 is called the RegressionResults instance will
-        then have another attribute `het_scale`, which is in this case is
-        resid^(2)/(1-h_ii)^(2).
+        Estimation history for iterative estimators.
     model
         A pointer to the model instance that called fit() or results.
-    mse_model
-        Mean squared error the model. This is the explained sum of
-        squares divided by the model degrees of freedom.
-    mse_resid
-        Mean squared error of the residuals.  The sum of squared
-        residuals divided by the residual degrees of freedom.
-    mse_total
-        Total mean squared error.  Defined as the uncentered total sum
-        of squares divided by n the number of observations.
-    nobs
-        Number of observations n.
-    normalized_cov_params
-        See specific model class docstring
     params
         The linear coefficients that minimize the least squares
         criterion.  This is usually called Beta for the classical
         linear model.
-    pvalues
-        The two-tailed p values for the t-stats of the params.
-    resid
-        The residuals of the model.
-    resid_pearson
-        `wresid` normalized to have unit variance.
-    rsquared
-        R-squared of a model with an intercept.  This is defined here
-        as 1 - `ssr`/`centered_tss` if the constant is included in the
-        model and 1 - `ssr`/`uncentered_tss` if the constant is
-        omitted.
-    rsquared_adj
-        Adjusted R-squared.  This is defined here as 1 -
-        (`nobs`-1)/`df_resid` * (1-`rsquared`) if a constant is
-        included and 1 - `nobs`/`df_resid` * (1-`rsquared`) if no
-        constant is included.
-    scale
-        A scale factor for the covariance matrix.  Default value is
-        ssr/(n-p).  Note that the square root of `scale` is often
-        called the standard error of the regression.
-    ssr
-        Sum of squared (whitened) residuals.
-    uncentered_tss
-        Uncentered sum of squares.  Sum of the squared values of the
-        (whitened) endogenous response variable.
-    wresid
-        The residuals of the transformed/whitened regressand and
-        regressor(s)
     """
 
     _cache = {}  # needs to be a class attribute for scale setter?
 
     def __init__(self, model, params, normalized_cov_params=None, scale=1.,
                  cov_type='nonrobust', cov_kwds=None, use_t=None, **kwargs):
-        super(RegressionResults, self).__init__(
+        super().__init__(
             model, params, normalized_cov_params, scale)
 
-        self._cache = resettable_cache()
+        self._cache = {}
         if hasattr(model, 'wexog_singular_values'):
             self._wexog_singular_values = model.wexog_singular_values
         else:
@@ -1447,7 +1640,8 @@ class RegressionResults(base.LikelihoodModelResults):
                 'covariance matrix of the errors is correctly ' +
                 'specified.'}
             if use_t is None:
-                self.use_t = True  # TODO: class default
+                use_t = True  # TODO: class default
+            self.use_t = use_t
         else:
             if cov_kwds is None:
                 cov_kwds = {}
@@ -1462,76 +1656,115 @@ class RegressionResults(base.LikelihoodModelResults):
         for key in kwargs:
             setattr(self, key, kwargs[key])
 
-    def __str__(self):
-        self.summary()
-
     def conf_int(self, alpha=.05, cols=None):
         """
-        Returns the confidence interval of the fitted parameters.
+        Compute the confidence interval of the fitted parameters.
 
         Parameters
         ----------
         alpha : float, optional
-            The `alpha` level for the confidence interval.
-            ie., The default `alpha` = .05 returns a 95% confidence interval.
-        cols : array-like, optional
-            `cols` specifies which confidence intervals to return
+            The `alpha` level for the confidence interval. The default
+            `alpha` = .05 returns a 95% confidence interval.
+        cols : array_like, optional
+            Columns to include in returned confidence intervals.
+
+        Returns
+        -------
+        array_like
+            The confidence intervals.
 
         Notes
         -----
         The confidence interval is based on Student's t-distribution.
         """
         # keep method for docstring for now
-        ci = super(RegressionResults, self).conf_int(alpha=alpha, cols=cols)
+        ci = super().conf_int(alpha=alpha, cols=cols)
         return ci
 
     @cache_readonly
     def nobs(self):
+        """Number of observations n."""
         return float(self.model.wexog.shape[0])
 
     @cache_readonly
     def fittedvalues(self):
+        """The predicted values for the original (unwhitened) design."""
         return self.model.predict(self.params, self.model.exog)
 
     @cache_readonly
     def wresid(self):
+        """
+        The residuals of the transformed/whitened regressand and regressor(s).
+        """
         return self.model.wendog - self.model.predict(
             self.params, self.model.wexog)
 
     @cache_readonly
     def resid(self):
+        """The residuals of the model."""
         return self.model.endog - self.model.predict(
             self.params, self.model.exog)
 
     # TODO: fix writable example
     @cache_writable()
     def scale(self):
+        """
+        A scale factor for the covariance matrix.
+
+        The Default value is ssr/(n-p).  Note that the square root of `scale`
+        is often called the standard error of the regression.
+        """
         wresid = self.wresid
         return np.dot(wresid, wresid) / self.df_resid
 
     @cache_readonly
     def ssr(self):
+        """Sum of squared (whitened) residuals."""
         wresid = self.wresid
         return np.dot(wresid, wresid)
 
     @cache_readonly
     def centered_tss(self):
+        """The total (weighted) sum of squares centered about the mean."""
         model = self.model
         weights = getattr(model, 'weights', None)
+        sigma = getattr(model, 'sigma', None)
         if weights is not None:
-            return np.sum(weights * (
-                model.endog - np.average(model.endog, weights=weights))**2)
-        else:  # this is probably broken for GLS
+            mean = np.average(model.endog, weights=weights)
+            return np.sum(weights * (model.endog - mean)**2)
+        elif sigma is not None:
+            # Exactly matches WLS when sigma is diagonal
+            iota = np.ones_like(model.endog)
+            iota = model.whiten(iota)
+            mean = model.wendog.dot(iota) / iota.dot(iota)
+            err = model.endog - mean
+            err = model.whiten(err)
+            return np.sum(err**2)
+        else:
             centered_endog = model.wendog - model.wendog.mean()
             return np.dot(centered_endog, centered_endog)
 
     @cache_readonly
     def uncentered_tss(self):
+        """
+        Uncentered sum of squares.
+
+        The sum of the squared values of the (whitened) endogenous response
+        variable.
+        """
         wendog = self.model.wendog
         return np.dot(wendog, wendog)
 
     @cache_readonly
     def ess(self):
+        """
+        The explained sum of squares.
+
+        If a constant is present, the centered total sum of squares minus the
+        sum of squared residuals. If there is no constant, the uncentered total
+        sum of squares is used.
+        """
+
         if self.k_constant:
             return self.centered_tss - self.ssr
         else:
@@ -1539,6 +1772,13 @@ class RegressionResults(base.LikelihoodModelResults):
 
     @cache_readonly
     def rsquared(self):
+        """
+        R-squared of the model.
+
+        This is defined here as 1 - `ssr`/`centered_tss` if the constant is
+        included in the model and 1 - `ssr`/`uncentered_tss` if the constant is
+        omitted.
+        """
         if self.k_constant:
             return 1 - self.ssr/self.centered_tss
         else:
@@ -1546,19 +1786,49 @@ class RegressionResults(base.LikelihoodModelResults):
 
     @cache_readonly
     def rsquared_adj(self):
+        """
+        Adjusted R-squared.
+
+        This is defined here as 1 - (`nobs`-1)/`df_resid` * (1-`rsquared`)
+        if a constant is included and 1 - `nobs`/`df_resid` * (1-`rsquared`) if
+        no constant is included.
+        """
         return 1 - (np.divide(self.nobs - self.k_constant, self.df_resid)
                     * (1 - self.rsquared))
 
     @cache_readonly
     def mse_model(self):
+        """
+        Mean squared error the model.
+
+        The explained sum of squares divided by the model degrees of freedom.
+        """
+        if np.all(self.df_model == 0.0):
+            return np.full_like(self.ess, np.nan)
         return self.ess/self.df_model
 
     @cache_readonly
     def mse_resid(self):
+        """
+        Mean squared error of the residuals.
+
+        The sum of squared residuals divided by the residual degrees of
+        freedom.
+        """
+        if np.all(self.df_resid == 0.0):
+            return np.full_like(self.ssr, np.nan)
         return self.ssr/self.df_resid
 
     @cache_readonly
     def mse_total(self):
+        """
+        Total mean squared error.
+
+        The uncentered total sum of squares divided by the number of
+        observations.
+        """
+        if np.all(self.df_resid + self.df_model == 0.0):
+            return np.full_like(self.centered_tss, np.nan)
         if self.k_constant:
             return self.centered_tss / (self.df_resid + self.df_model)
         else:
@@ -1566,6 +1836,14 @@ class RegressionResults(base.LikelihoodModelResults):
 
     @cache_readonly
     def fvalue(self):
+        """
+        F-statistic of the fully specified model.
+
+        Calculated as the mean squared error of the model divided by the mean
+        squared error of the residuals if the nonrobust covariance is used.
+        Otherwise computed using a Wald-like quadratic form that tests whether
+        all coefficients (excluding the constant) are zero.
+        """
         if hasattr(self, 'cov_type') and self.cov_type != 'nonrobust':
             # with heteroscedasticity or correlation robustness
             k_params = self.normalized_cov_params.shape[0]
@@ -1587,28 +1865,81 @@ class RegressionResults(base.LikelihoodModelResults):
                     return np.nan
             ft = self.f_test(mat)
             # using backdoor to set another attribute that we already have
-            self._cache['f_pvalue'] = ft.pvalue
-            return ft.fvalue
+            self._cache['f_pvalue'] = float(ft.pvalue)
+            return float(ft.fvalue)
         else:
             # for standard homoscedastic case
             return self.mse_model/self.mse_resid
 
     @cache_readonly
     def f_pvalue(self):
+        """The p-value of the F-statistic."""
+        # Special case for df_model 0
+        if self.df_model == 0:
+            return np.full_like(self.fvalue, np.nan)
         return stats.f.sf(self.fvalue, self.df_model, self.df_resid)
 
     @cache_readonly
     def bse(self):
+        """The standard errors of the parameter estimates."""
         return np.sqrt(np.diag(self.cov_params()))
 
     @cache_readonly
     def aic(self):
-        return -2 * self.llf + 2 * (self.df_model + self.k_constant)
+        r"""
+        Akaike's information criteria.
+
+        For a model with a constant :math:`-2llf + 2(df\_model + 1)`. For a
+        model without a constant :math:`-2llf + 2(df\_model)`.
+        """
+        return self.info_criteria("aic")
 
     @cache_readonly
     def bic(self):
-        return (-2 * self.llf + np.log(self.nobs) * (self.df_model +
-                                                     self.k_constant))
+        r"""
+        Bayes' information criteria.
+
+        For a model with a constant :math:`-2llf + \log(n)(df\_model+1)`.
+        For a model without a constant :math:`-2llf + \log(n)(df\_model)`.
+        """
+        return self.info_criteria("bic")
+
+    def info_criteria(self, crit, dk_params=0):
+        """Return an information criterion for the model.
+
+        Parameters
+        ----------
+        crit : string
+            One of 'aic', 'bic', 'aicc' or 'hqic'.
+        dk_params : int or float
+            Correction to the number of parameters used in the information
+            criterion. By default, only mean parameters are included, the
+            scale parameter is not included in the parameter count.
+            Use ``dk_params=1`` to include scale in the parameter count.
+
+        Returns
+        -------
+        Value of information criterion.
+
+        References
+        ----------
+        Burnham KP, Anderson KR (2002). Model Selection and Multimodel
+        Inference; Springer New York.
+        """
+        crit = crit.lower()
+        k_params = self.df_model + self.k_constant + dk_params
+
+        if crit == "aic":
+            return -2 * self.llf + 2 * k_params
+        elif crit == "bic":
+            bic = -2*self.llf + np.log(self.nobs) * k_params
+            return bic
+        elif crit == "aicc":
+            from statsmodels.tools.eval_measures import aicc
+            return aicc(self.llf, self.nobs, k_params)
+        elif crit == "hqic":
+            from statsmodels.tools.eval_measures import hqic
+            return hqic(self.llf, self.nobs, k_params)
 
     @cache_readonly
     def eigenvals(self):
@@ -1618,8 +1949,8 @@ class RegressionResults(base.LikelihoodModelResults):
         if self._wexog_singular_values is not None:
             eigvals = self._wexog_singular_values ** 2
         else:
-            eigvals = np.linalg.linalg.eigvalsh(np.dot(self.model.wexog.T,
-                                                       self.model.wexog))
+            wx = self.model.wexog
+            eigvals = np.linalg.eigvalsh(wx.T @ wx)
         return np.sort(eigvals)[::-1]
 
     @cache_readonly
@@ -1627,7 +1958,10 @@ class RegressionResults(base.LikelihoodModelResults):
         """
         Return condition number of exogenous matrix.
 
-        Calculated as ratio of largest to smallest eigenvalue.
+        Calculated as ratio of largest to smallest singular value of the
+        exogenous variables. This value is the same as the square root of
+        the ratio of the largest to smallest eigenvalue of the inner-product
+        of the exogenous variables.
         """
         eigvals = self.eigenvals
         return np.sqrt(eigvals[0]/eigvals[-1])
@@ -1638,12 +1972,15 @@ class RegressionResults(base.LikelihoodModelResults):
                    scale[:, None] * self.model.pinv_wexog.T)
         return H
 
+    def _abat_diagonal(self, a, b):
+        # equivalent to np.diag(a @ b @ a.T)
+        return np.einsum('ij,ik,kj->i', a, a, b)
+
     @cache_readonly
     def cov_HC0(self):
         """
-        See statsmodels.RegressionResults
+        Heteroscedasticity robust covariance matrix. See HC0_se.
         """
-
         self.het_scale = self.wresid**2
         cov_HC0 = self._HCCM(self.het_scale)
         return cov_HC0
@@ -1651,9 +1988,8 @@ class RegressionResults(base.LikelihoodModelResults):
     @cache_readonly
     def cov_HC1(self):
         """
-        See statsmodels.RegressionResults
+        Heteroscedasticity robust covariance matrix. See HC1_se.
         """
-
         self.het_scale = self.nobs/(self.df_resid)*(self.wresid**2)
         cov_HC1 = self._HCCM(self.het_scale)
         return cov_HC1
@@ -1661,13 +1997,10 @@ class RegressionResults(base.LikelihoodModelResults):
     @cache_readonly
     def cov_HC2(self):
         """
-        See statsmodels.RegressionResults
+        Heteroscedasticity robust covariance matrix. See HC2_se.
         """
-
-        # probably could be optimized
-        h = np.diag(chain_dot(self.model.wexog,
-                              self.normalized_cov_params,
-                              self.model.wexog.T))
+        wexog = self.model.wexog
+        h = self._abat_diagonal(wexog, self.normalized_cov_params)
         self.het_scale = self.wresid**2/(1-h)
         cov_HC2 = self._HCCM(self.het_scale)
         return cov_HC2
@@ -1675,10 +2008,10 @@ class RegressionResults(base.LikelihoodModelResults):
     @cache_readonly
     def cov_HC3(self):
         """
-        See statsmodels.RegressionResults
+        Heteroscedasticity robust covariance matrix. See HC3_se.
         """
-        h = np.diag(chain_dot(
-            self.model.wexog, self.normalized_cov_params, self.model.wexog.T))
+        wexog = self.model.wexog
+        h = self._abat_diagonal(wexog, self.normalized_cov_params)
         self.het_scale = (self.wresid / (1 - h))**2
         cov_HC3 = self._HCCM(self.het_scale)
         return cov_HC3
@@ -1686,28 +2019,63 @@ class RegressionResults(base.LikelihoodModelResults):
     @cache_readonly
     def HC0_se(self):
         """
-        See statsmodels.RegressionResults
+        White's (1980) heteroskedasticity robust standard errors.
+
+        Notes
+        -----
+        Defined as sqrt(diag(X.T X)^(-1)X.T diag(e_i^(2)) X(X.T X)^(-1)
+        where e_i = resid[i].
+
+        When HC0_se or cov_HC0 is called the RegressionResults instance will
+        then have another attribute `het_scale`, which is in this case is just
+        resid**2.
         """
         return np.sqrt(np.diag(self.cov_HC0))
 
     @cache_readonly
     def HC1_se(self):
         """
-        See statsmodels.RegressionResults
+        MacKinnon and White's (1985) heteroskedasticity robust standard errors.
+
+        Notes
+        -----
+        Defined as sqrt(diag(n/(n-p)*HC_0).
+
+        When HC1_se or cov_HC1 is called the RegressionResults instance will
+        then have another attribute `het_scale`, which is in this case is
+        n/(n-p)*resid**2.
         """
         return np.sqrt(np.diag(self.cov_HC1))
 
     @cache_readonly
     def HC2_se(self):
         """
-        See statsmodels.RegressionResults
+        MacKinnon and White's (1985) heteroskedasticity robust standard errors.
+
+        Notes
+        -----
+        Defined as (X.T X)^(-1)X.T diag(e_i^(2)/(1-h_ii)) X(X.T X)^(-1)
+        where h_ii = x_i(X.T X)^(-1)x_i.T
+
+        When HC2_se or cov_HC2 is called the RegressionResults instance will
+        then have another attribute `het_scale`, which is in this case is
+        resid^(2)/(1-h_ii).
         """
         return np.sqrt(np.diag(self.cov_HC2))
 
     @cache_readonly
     def HC3_se(self):
         """
-        See statsmodels.RegressionResults
+        MacKinnon and White's (1985) heteroskedasticity robust standard errors.
+
+        Notes
+        -----
+        Defined as (X.T X)^(-1)X.T diag(e_i^(2)/(1-h_ii)^(2)) X(X.T X)^(-1)
+        where h_ii = x_i(X.T X)^(-1)x_i.T.
+
+        When HC3_se or cov_HC3 is called the RegressionResults instance will
+        then have another attribute `het_scale`, which is in this case is
+        resid^(2)/(1-h_ii)^(2).
         """
         return np.sqrt(np.diag(self.cov_HC3))
 
@@ -1718,17 +2086,20 @@ class RegressionResults(base.LikelihoodModelResults):
 
         Returns
         -------
-        An array wresid standardized by the sqrt if scale
+        array_like
+            The array `wresid` normalized by the sqrt of the scale to have
+            unit variance.
         """
 
         if not hasattr(self, 'resid'):
             raise ValueError('Method requires residuals.')
         eps = np.finfo(self.wresid.dtype).eps
         if np.sqrt(self.scale) < 10 * eps * self.model.endog.mean():
-            # don't divide if scale is zero close to numerical precision
-            from warnings import warn
-            warn("All residuals are 0, cannot compute normed residuals.",
-                 RuntimeWarning)
+            # do not divide if scale is zero close to numerical precision
+            warnings.warn(
+                "All residuals are 0, cannot compute normed residuals.",
+                RuntimeWarning
+            )
             return self.wresid
         else:
             return self.wresid / np.sqrt(self.scale)
@@ -1773,7 +2144,8 @@ class RegressionResults(base.LikelihoodModelResults):
         return np.allclose(score_l2, 0)
 
     def compare_lm_test(self, restricted, demean=True, use_lr=False):
-        """Use Lagrange Multiplier test to test whether restricted model is correct
+        """
+        Use Lagrange Multiplier test to test a set of linear restrictions.
 
         Parameters
         ----------
@@ -1782,29 +2154,37 @@ class RegressionResults(base.LikelihoodModelResults):
             current model. The result instance of the restricted model
             is required to have two attributes, residual sum of
             squares, `ssr`, residual degrees of freedom, `df_resid`.
-
         demean : bool
             Flag indicating whether the demean the scores based on the
-            residuals from the restricted model.  If True, the
-            covariance of the scores are used and the LM test is
-            identical to the large sample version of the LR test.
+            residuals from the restricted model.  If True, the covariance of
+            the scores are used and the LM test is identical to the large
+            sample version of the LR test.
+        use_lr : bool
+            A flag indicating whether to estimate the covariance of the model
+            scores using the unrestricted model. Setting the to True improves
+            the power of the test.
 
         Returns
         -------
         lm_value : float
-            test statistic, chi2 distributed
+            The test statistic which has a chi2 distributed.
         p_value : float
-            p-value of the test statistic
+            The p-value of the test statistic.
         df_diff : int
-            degrees of freedom of the restriction, i.e. difference in df
-            between models
+            The degrees of freedom of the restriction, i.e. difference in df
+            between models.
 
         Notes
         -----
-        TODO: explain LM text
+        The LM test examines whether the scores from the restricted model are
+        0. If the null is true, and the restrictions are valid, then the
+        parameters of the restricted model should be close to the minimum of
+        the sum of squared errors, and so the scores should be close to zero,
+        on average.
         """
-        import statsmodels.stats.sandwich_covariance as sw
         from numpy.linalg import inv
+
+        import statsmodels.stats.sandwich_covariance as sw
 
         if not self._is_nested(restricted):
             raise ValueError("Restricted model is not nested by full model.")
@@ -1828,33 +2208,34 @@ class RegressionResults(base.LikelihoodModelResults):
         # Form matters here.  If homoskedastics can be sigma^2 (X'X)^-1
         # If Heteroskedastic then the form below is fine
         # If HAC then need to use HAC
-        # If Cluster, shoudl use cluster
+        # If Cluster, should use cluster
 
         cov_type = getattr(self, 'cov_type', 'nonrobust')
         if cov_type == 'nonrobust':
             sigma2 = np.mean(wresid**2)
-            XpX = np.dot(wexog.T, wexog) / n
-            Sinv = inv(sigma2 * XpX)
+            xpx = np.dot(wexog.T, wexog) / n
+            s_inv = inv(sigma2 * xpx)
         elif cov_type in ('HC0', 'HC1', 'HC2', 'HC3'):
-            Sinv = inv(np.dot(scores.T, scores) / n)
+            s_inv = inv(np.dot(scores.T, scores) / n)
         elif cov_type == 'HAC':
             maxlags = self.cov_kwds['maxlags']
-            Sinv = inv(sw.S_hac_simple(scores, maxlags) / n)
+            s_inv = inv(sw.S_hac_simple(scores, maxlags) / n)
         elif cov_type == 'cluster':
             # cluster robust standard errors
             groups = self.cov_kwds['groups']
             # TODO: Might need demean option in S_crosssection by group?
-            Sinv = inv(sw.S_crosssection(scores, groups))
+            s_inv = inv(sw.S_crosssection(scores, groups))
         else:
             raise ValueError('Only nonrobust, HC, HAC and cluster are ' +
                              'currently connected')
 
-        lm_value = n * chain_dot(s, Sinv, s.T)
+        lm_value = n * (s @ s_inv @ s.T)
         p_value = stats.chi2.sf(lm_value, df_diff)
         return lm_value, p_value, df_diff
 
     def compare_f_test(self, restricted):
-        """use F test to test whether restricted model is correct
+        """
+        Use F test to test whether restricted model is correct.
 
         Parameters
         ----------
@@ -1867,12 +2248,12 @@ class RegressionResults(base.LikelihoodModelResults):
         Returns
         -------
         f_value : float
-            test statistic, F distributed
+            The test statistic which has an F distribution.
         p_value : float
-            p-value of the test statistic
+            The p-value of the test statistic.
         df_diff : int
-            degrees of freedom of the restriction, i.e. difference in
-            df between models
+            The degrees of freedom of the restriction, i.e. difference in
+            df between models.
 
         Notes
         -----
@@ -1907,7 +2288,7 @@ class RegressionResults(base.LikelihoodModelResults):
 
     def compare_lr_test(self, restricted, large_sample=False):
         """
-        Likelihood ratio test to test whether restricted model is correct
+        Likelihood ratio test to test whether restricted model is correct.
 
         Parameters
         ----------
@@ -1924,17 +2305,16 @@ class RegressionResults(base.LikelihoodModelResults):
         Returns
         -------
         lr_stat : float
-            likelihood ratio, chisquare distributed with df_diff degrees of
-            freedom
+            The likelihood ratio which is chisquare distributed with df_diff
+            degrees of freedom.
         p_value : float
-            p-value of the test statistic
+            The p-value of the test statistic.
         df_diff : int
-            degrees of freedom of the restriction, i.e. difference in df
-            between models
+            The degrees of freedom of the restriction, i.e. difference in df
+            between models.
 
         Notes
         -----
-
         The exact likelihood ratio is valid for homoskedastic data,
         and is defined as
 
@@ -1981,9 +2361,8 @@ class RegressionResults(base.LikelihoodModelResults):
         scores, :math:`s_{i}`.  The covariance of the scores is
         estimated using the same estimator as in the alternative
         model.
-
-        TODO: put into separate function, needs tests
         """
+        # TODO: put into separate function, needs tests
 
         # See mailing list discussion October 17,
 
@@ -2010,26 +2389,27 @@ class RegressionResults(base.LikelihoodModelResults):
 
         return lrstat, lr_pvalue, lrdf
 
-    def get_robustcov_results(self, cov_type='HC1', use_t=None, **kwds):
-        """create new results instance with robust covariance as default
+    def get_robustcov_results(self, cov_type='HC1', use_t=None, **kwargs):
+        """
+        Create new results instance with robust covariance as default.
 
         Parameters
         ----------
-        cov_type : string
-            the type of robust sandwich estimator to use. see Notes below
+        cov_type : str
+            The type of robust sandwich estimator to use. See Notes below.
         use_t : bool
             If true, then the t distribution is used for inference.
             If false, then the normal distribution is used.
             If `use_t` is None, then an appropriate default is used, which is
-            `true` if the cov_type is nonrobust, and `false` in all other
+            `True` if the cov_type is nonrobust, and `False` in all other
             cases.
-        kwds : depends on cov_type
+        **kwargs
             Required or optional arguments for robust covariance calculation.
-            see Notes below
+            See Notes below.
 
         Returns
         -------
-        results : results instance
+        RegressionResults
             This method creates a new results instance with the
             requested robust covariance as the default covariance of
             the parameters.  Inferential statistics like p-values and
@@ -2040,102 +2420,112 @@ class RegressionResults(base.LikelihoodModelResults):
         The following covariance types and required or optional arguments are
         currently available:
 
-        - 'fixed scale' and optional keyword argument 'scale' which uses
-            a predefined scale estimate with default equal to one.
-        - 'HC0', 'HC1', 'HC2', 'HC3' and no keyword arguments:
-            heteroscedasticity robust covariance
-        - 'HAC' and keywords
+        - 'fixed scale' uses a predefined scale
 
-            - `maxlag` integer (required) : number of lags to use
-            - `kernel` callable or str (optional) : kernel
-                  currently available kernels are ['bartlett', 'uniform'],
-                  default is Bartlett
-            - `use_correction` bool (optional) : If true, use small sample
-                  correction
+          ``scale``: float, optional
+            Argument to set the scale. Default is 1.
 
-        - 'cluster' and required keyword `groups`, integer group indicator
+        - 'HC0', 'HC1', 'HC2', 'HC3': heteroscedasticity robust covariance
 
-            - `groups` array_like, integer (required) :
-                  index of clusters or groups
-            - `use_correction` bool (optional) :
-                  If True the sandwich covariance is calculated with a small
-                  sample correction.
-                  If False the sandwich covariance is calculated without
-                  small sample correction.
-            - `df_correction` bool (optional)
-                  If True (default), then the degrees of freedom for the
-                  inferential statistics and hypothesis tests, such as
-                  pvalues, f_pvalue, conf_int, and t_test and f_test, are
-                  based on the number of groups minus one instead of the
-                  total number of observations minus the number of explanatory
-                  variables. `df_resid` of the results instance is adjusted.
-                  If False, then `df_resid` of the results instance is not
-                  adjusted.
+          - no keyword arguments
 
-        - 'hac-groupsum' Driscoll and Kraay, heteroscedasticity and
-            autocorrelation robust standard errors in panel data
-            keywords
+        - 'HAC': heteroskedasticity-autocorrelation robust covariance
 
-            - `time` array_like (required) : index of time periods
-            - `maxlag` integer (required) : number of lags to use
-            - `kernel` callable or str (optional) : kernel
-                  currently available kernels are ['bartlett', 'uniform'],
-                  default is Bartlett
-            - `use_correction` False or string in ['hac', 'cluster'] (optional) :
-                  If False the the sandwich covariance is calulated without
-                  small sample correction.
-                  If `use_correction = 'cluster'` (default), then the same
-                  small sample correction as in the case of 'covtype='cluster''
-                  is used.
-            - `df_correction` bool (optional)
-                  adjustment to df_resid, see cov_type 'cluster' above
-                  # TODO: we need more options here
+          ``maxlags`` :  integer, required
+            number of lags to use
 
-        - 'hac-panel' heteroscedasticity and autocorrelation robust standard
-            errors in panel data.
-            The data needs to be sorted in this case, the time series
-            for each panel unit or cluster need to be stacked. The
-            membership to a timeseries of an individual or group can
-            be either specified by group indicators or by increasing
-            time periods.
+          ``kernel`` : {callable, str}, optional
+            kernels currently available kernels are ['bartlett', 'uniform'],
+            default is Bartlett
 
-            keywords
+          ``use_correction``: bool, optional
+            If true, use small sample correction
 
-            - either `groups` or `time` : array_like (required)
-              `groups` : indicator for groups
-              `time` : index of time periods
-            - `maxlag` integer (required) : number of lags to use
-            - `kernel` callable or str (optional) : kernel
-                  currently available kernels are ['bartlett', 'uniform'],
-                  default is Bartlett
-            - `use_correction` False or string in ['hac', 'cluster'] (optional) :
-                  If False the sandwich covariance is calculated without
-                  small sample correction.
-            - `df_correction` bool (optional)
-                  adjustment to df_resid, see cov_type 'cluster' above
-                  # TODO: we need more options here
+        - 'cluster': clustered covariance estimator
 
-        Reminder:
-        `use_correction` in "hac-groupsum" and "hac-panel" is not bool,
-        needs to be in [False, 'hac', 'cluster']
+          ``groups`` : array_like[int], required :
+            Integer-valued index of clusters or groups.
 
-        TODO: Currently there is no check for extra or misspelled keywords,
-        except in the case of cov_type `HCx`
+          ``use_correction``: bool, optional
+            If True the sandwich covariance is calculated with a small
+            sample correction.
+            If False the sandwich covariance is calculated without
+            small sample correction.
+
+          ``df_correction``: bool, optional
+            If True (default), then the degrees of freedom for the
+            inferential statistics and hypothesis tests, such as
+            pvalues, f_pvalue, conf_int, and t_test and f_test, are
+            based on the number of groups minus one instead of the
+            total number of observations minus the number of explanatory
+            variables. `df_resid` of the results instance is also
+            adjusted. When `use_t` is also True, then pvalues are
+            computed using the Student's t distribution using the
+            corrected values. These may differ substantially from
+            p-values based on the normal is the number of groups is
+            small.
+            If False, then `df_resid` of the results instance is not
+            adjusted.
+
+        - 'hac-groupsum': Driscoll and Kraay, heteroscedasticity and
+          autocorrelation robust covariance for panel data
+          # TODO: more options needed here
+
+          ``time`` : array_like, required
+            index of time periods
+          ``maxlags`` : integer, required
+            number of lags to use
+          ``kernel`` : {callable, str}, optional
+            The available kernels are ['bartlett', 'uniform']. The default is
+            Bartlett.
+          ``use_correction`` : {False, 'hac', 'cluster'}, optional
+            If False the the sandwich covariance is calculated without small
+            sample correction. If `use_correction = 'cluster'` (default),
+            then the same small sample correction as in the case of
+            `covtype='cluster'` is used.
+          ``df_correction`` : bool, optional
+            The adjustment to df_resid, see cov_type 'cluster' above
+
+        - 'hac-panel': heteroscedasticity and autocorrelation robust standard
+          errors in panel data. The data needs to be sorted in this case, the
+          time series for each panel unit or cluster need to be stacked. The
+          membership to a time series of an individual or group can be either
+          specified by group indicators or by increasing time periods. One of
+          ``groups`` or ``time`` is required. # TODO: we need more options here
+
+          ``groups`` : array_like[int]
+            indicator for groups
+          ``time`` : array_like[int]
+            index of time periods
+          ``maxlags`` : int, required
+            number of lags to use
+          ``kernel`` : {callable, str}, optional
+            Available kernels are ['bartlett', 'uniform'], default
+            is Bartlett
+          ``use_correction`` : {False, 'hac', 'cluster'}, optional
+            If False the sandwich covariance is calculated without
+            small sample correction.
+          ``df_correction`` : bool, optional
+            Adjustment to df_resid, see cov_type 'cluster' above
+
+        **Reminder**: ``use_correction`` in "hac-groupsum" and "hac-panel" is
+        not bool, needs to be in {False, 'hac', 'cluster'}.
+
+        .. todo:: Currently there is no check for extra or misspelled keywords,
+             except in the case of cov_type `HCx`
         """
+        from statsmodels.base.covtype import descriptions, normalize_cov_type
         import statsmodels.stats.sandwich_covariance as sw
 
-        # normalize names
-        if cov_type == 'nw-panel':
-            cov_type = 'hac-panel'
-        if cov_type == 'nw-groupsum':
-            cov_type = 'hac-groupsum'
-        if 'kernel' in kwds:
-            kwds['weights_func'] = kwds.pop('kernel')
-        if 'weights_func' in kwds and not callable(kwds['weights_func']):
-            kwds['weights_func'] = sw.kernel_dict[kwds['weights_func']]
+        cov_type = normalize_cov_type(cov_type)
+
+        if 'kernel' in kwargs:
+            kwargs['weights_func'] = kwargs.pop('kernel')
+        if 'weights_func' in kwargs and not callable(kwargs['weights_func']):
+            kwargs['weights_func'] = sw.kernel_dict[kwargs['weights_func']]
 
         # TODO: make separate function that returns a robust cov plus info
-        use_self = kwds.pop('use_self', False)
+        use_self = kwargs.pop('use_self', False)
         if use_self:
             res = self
         else:
@@ -2153,61 +2543,56 @@ class RegressionResults(base.LikelihoodModelResults):
 
         adjust_df = False
         if cov_type in ['cluster', 'hac-panel', 'hac-groupsum']:
-            df_correction = kwds.get('df_correction', None)
+            df_correction = kwargs.get('df_correction', None)
             # TODO: check also use_correction, do I need all combinations?
             if df_correction is not False:  # i.e. in [None, True]:
-                # user didn't explicitely set it to False
+                # user did not explicitely set it to False
                 adjust_df = True
 
         res.cov_kwds['adjust_df'] = adjust_df
 
-        # verify and set kwds, and calculate cov
+        # verify and set kwargs, and calculate cov
         # TODO: this should be outsourced in a function so we can reuse it in
         #       other models
-        # TODO: make it DRYer   repeated code for checking kwds
+        # TODO: make it DRYer   repeated code for checking kwargs
         if cov_type in ['fixed scale', 'fixed_scale']:
-            res.cov_kwds['description'] = ('Standard Errors are based on ' +
-                                           'fixed scale')
+            res.cov_kwds['description'] = descriptions['fixed_scale']
 
-            res.cov_kwds['scale'] = scale = kwds.get('scale', 1.)
+            res.cov_kwds['scale'] = scale = kwargs.get('scale', 1.)
             res.cov_params_default = scale * res.normalized_cov_params
         elif cov_type.upper() in ('HC0', 'HC1', 'HC2', 'HC3'):
-            if kwds:
-                raise ValueError('heteroscedasticity robust covarians ' +
+            if kwargs:
+                raise ValueError('heteroscedasticity robust covariance '
                                  'does not use keywords')
-            res.cov_kwds['description'] = (
-                'Standard Errors are heteroscedasticity ' +
-                'robust ' + '(' + cov_type + ')')
-            # TODO cannot access cov without calling se first
-            getattr(self, cov_type.upper() + '_se')
+            res.cov_kwds['description'] = descriptions[cov_type.upper()]
             res.cov_params_default = getattr(self, 'cov_' + cov_type.upper())
         elif cov_type.lower() == 'hac':
-            maxlags = kwds['maxlags']   # required?, default in cov_hac_simple
+            # TODO: check if required, default in cov_hac_simple
+            maxlags = kwargs['maxlags']
             res.cov_kwds['maxlags'] = maxlags
-            weights_func = kwds.get('weights_func', sw.weights_bartlett)
+            weights_func = kwargs.get('weights_func', sw.weights_bartlett)
             res.cov_kwds['weights_func'] = weights_func
-            use_correction = kwds.get('use_correction', False)
+            use_correction = kwargs.get('use_correction', False)
             res.cov_kwds['use_correction'] = use_correction
-            res.cov_kwds['description'] = (
-                'Standard Errors are heteroscedasticity and ' +
-                'autocorrelation robust (HAC) using %d lags and %s small ' +
-                'sample correction') % (maxlags,
-                                        ['without', 'with'][use_correction])
+            res.cov_kwds['description'] = descriptions['HAC'].format(
+                maxlags=maxlags,
+                correction=['without', 'with'][use_correction])
 
             res.cov_params_default = sw.cov_hac_simple(
                 self, nlags=maxlags, weights_func=weights_func,
                 use_correction=use_correction)
         elif cov_type.lower() == 'cluster':
             # cluster robust standard errors, one- or two-way
-            groups = kwds['groups']
+            groups = kwargs['groups']
             if not hasattr(groups, 'shape'):
+                groups = [np.squeeze(np.asarray(group)) for group in groups]
                 groups = np.asarray(groups).T
 
             if groups.ndim >= 2:
                 groups = groups.squeeze()
 
             res.cov_kwds['groups'] = groups
-            use_correction = kwds.get('use_correction', True)
+            use_correction = kwargs.get('use_correction', True)
             res.cov_kwds['use_correction'] = use_correction
             if groups.ndim == 1:
                 if adjust_df:
@@ -2234,22 +2619,20 @@ class RegressionResults(base.LikelihoodModelResults):
                     self, groups, use_correction=use_correction)[0]
             else:
                 raise ValueError('only two groups are supported')
-            res.cov_kwds['description'] = (
-                'Standard Errors are robust to' +
-                'cluster correlation ' + '(' + cov_type + ')')
+            res.cov_kwds['description'] = descriptions['cluster']
 
         elif cov_type.lower() == 'hac-panel':
             # cluster robust standard errors
-            res.cov_kwds['time'] = time = kwds.get('time', None)
-            res.cov_kwds['groups'] = groups = kwds.get('groups', None)
+            res.cov_kwds['time'] = time = kwargs.get('time', None)
+            res.cov_kwds['groups'] = groups = kwargs.get('groups', None)
             # TODO: nlags is currently required
-            # nlags = kwds.get('nlags', True)
+            # nlags = kwargs.get('nlags', True)
             # res.cov_kwds['nlags'] = nlags
             # TODO: `nlags` or `maxlags`
-            res.cov_kwds['maxlags'] = maxlags = kwds['maxlags']
-            use_correction = kwds.get('use_correction', 'hac')
+            res.cov_kwds['maxlags'] = maxlags = kwargs['maxlags']
+            use_correction = kwargs.get('use_correction', 'hac')
             res.cov_kwds['use_correction'] = use_correction
-            weights_func = kwds.get('weights_func', sw.weights_bartlett)
+            weights_func = kwargs.get('weights_func', sw.weights_bartlett)
             res.cov_kwds['weights_func'] = weights_func
             if groups is not None:
                 groups = np.asarray(groups)
@@ -2264,23 +2647,26 @@ class RegressionResults(base.LikelihoodModelResults):
                 raise ValueError('either time or groups needs to be given')
             groupidx = lzip([0] + tt, tt + [nobs_])
             self.n_groups = n_groups = len(groupidx)
-            res.cov_params_default = sw.cov_nw_panel(self, maxlags, groupidx,
-                                                     weights_func=weights_func,
-                                                     use_correction=use_correction)
-            res.cov_kwds['description'] = (
-                'Standard Errors are robust to' +
-                'cluster correlation ' + '(' + cov_type + ')')
+            res.cov_params_default = sw.cov_nw_panel(
+                self,
+                maxlags,
+                groupidx,
+                weights_func=weights_func,
+                use_correction=use_correction
+            )
+            res.cov_kwds['description'] = descriptions['HAC-Panel']
+
         elif cov_type.lower() == 'hac-groupsum':
             # Driscoll-Kraay standard errors
-            res.cov_kwds['time'] = time = kwds['time']
+            res.cov_kwds['time'] = time = kwargs['time']
             # TODO: nlags is currently required
-            # nlags = kwds.get('nlags', True)
+            # nlags = kwargs.get('nlags', True)
             # res.cov_kwds['nlags'] = nlags
             # TODO: `nlags` or `maxlags`
-            res.cov_kwds['maxlags'] = maxlags = kwds['maxlags']
-            use_correction = kwds.get('use_correction', 'cluster')
+            res.cov_kwds['maxlags'] = maxlags = kwargs['maxlags']
+            use_correction = kwargs.get('use_correction', 'cluster')
             res.cov_kwds['use_correction'] = use_correction
-            weights_func = kwds.get('weights_func', sw.weights_bartlett)
+            weights_func = kwargs.get('weights_func', sw.weights_bartlett)
             res.cov_kwds['weights_func'] = weights_func
             if adjust_df:
                 # need to find number of groups
@@ -2289,9 +2675,7 @@ class RegressionResults(base.LikelihoodModelResults):
             res.cov_params_default = sw.cov_nw_groupsum(
                 self, maxlags, time, weights_func=weights_func,
                 use_correction=use_correction)
-            res.cov_kwds['description'] = (
-                        'Driscoll and Kraay Standard Errors are robust to ' +
-                        'cluster correlation ' + '(' + cov_type + ')')
+            res.cov_kwds['description'] = descriptions['HAC-Groupsum']
         else:
             raise ValueError('cov_type not recognized. See docstring for ' +
                              'available options and spelling')
@@ -2302,52 +2686,72 @@ class RegressionResults(base.LikelihoodModelResults):
 
         return res
 
+    @Appender(pred.get_prediction.__doc__)
     def get_prediction(self, exog=None, transform=True, weights=None,
-                       row_labels=None, **kwds):
+                       row_labels=None, **kwargs):
 
         return pred.get_prediction(
             self, exog=exog, transform=transform, weights=weights,
-            row_labels=row_labels, **kwds)
+            row_labels=row_labels, **kwargs)
 
-    get_prediction.__doc__ = pred.get_prediction.__doc__
-
-    def summary(self, yname=None, xname=None, title=None, alpha=.05):
-        """Summarize the Regression Results
+    def summary(
+            self,
+            yname: str | None = None,
+            xname: Sequence[str] | None = None,
+            title: str | None = None,
+            alpha: float = 0.05,
+            slim: bool = False,
+    ):
+        """
+        Summarize the Regression Results.
 
         Parameters
-        -----------
-        yname : string, optional
-            Default is `y`
-        xname : list of strings, optional
-            Default is `var_##` for ## in p the number of regressors
-        title : string, optional
+        ----------
+        yname : str, optional
+            Name of endogenous (response) variable. The Default is `y`.
+        xname : list[str], optional
+            Names for the exogenous variables. Default is `var_##` for ## in
+            the number of regressors. Must match the number of parameters
+            in the model.
+        title : str, optional
             Title for the top table. If not None, then this replaces the
-            default title
-        alpha : float
-            significance level for the confidence intervals
+            default title.
+        alpha : float, optional
+            The significance level for the confidence intervals.
+        slim : bool, optional
+            Flag indicating to produce reduced set or diagnostic information.
+            Default is False.
 
         Returns
         -------
-        smry : Summary instance
-            this holds the summary tables and text, which can be printed or
-            converted to various output formats.
+        Summary
+            Instance holding the summary tables and text, which can be printed
+            or converted to various output formats.
 
         See Also
         --------
-        statsmodels.iolib.summary.Summary : class to hold summary
-            results
+        statsmodels.iolib.summary.Summary : A class that holds summary results.
 
+        Notes
+        -----
+        For more information on regression results and diagnostic table,
+        see our documentation of `Examples/Linear Regression Models/Regression diagnostics`.
         """
-
-        # TODO: import where we need it (for now), add as cached attributes
         from statsmodels.stats.stattools import (
-            jarque_bera, omni_normtest, durbin_watson)
+            durbin_watson,
+            jarque_bera,
+            omni_normtest,
+        )
+        alpha = float_like(alpha, "alpha", optional=False)
+        slim = bool_like(slim, "slim", optional=False, strict=True)
+
         jb, jbpv, skew, kurtosis = jarque_bera(self.wresid)
         omni, omnipv = omni_normtest(self.wresid)
 
         eigvals = self.eigenvals
         condno = self.condition_number
 
+        # TODO: Avoid adding attributes in non-__init__
         self.diagn = dict(jb=jb, jbpv=jbpv, skew=skew, kurtosis=kurtosis,
                           omni=omni, omnipv=omnipv, condno=condno,
                           mineigval=eigvals[-1])
@@ -2357,8 +2761,8 @@ class RegressionResults(base.LikelihoodModelResults):
         # diagn_right_header = ['Residual stats']
 
         # TODO: requiring list/iterable is a bit annoying
-        # need more control over formatting
-        # TODO: default don't work if it's not identically spelled
+        #   need more control over formatting
+        # TODO: default do not work if it's not identically spelled
 
         top_left = [('Dep. Variable:', None),
                     ('Model:', None),
@@ -2366,35 +2770,48 @@ class RegressionResults(base.LikelihoodModelResults):
                     ('Date:', None),
                     ('Time:', None),
                     ('No. Observations:', None),
-                    ('Df Residuals:', None),  # [self.df_resid]), TODO: spelling
-                    ('Df Model:', None),  # [self.df_model])
+                    ('Df Residuals:', None),
+                    ('Df Model:', None),
                     ]
 
         if hasattr(self, 'cov_type'):
             top_left.append(('Covariance Type:', [self.cov_type]))
 
-        top_right = [('R-squared:', ["%#8.3f" % self.rsquared]),
-                     ('Adj. R-squared:', ["%#8.3f" % self.rsquared_adj]),
+        rsquared_type = '' if self.k_constant else ' (uncentered)'
+        top_right = [('R-squared' + rsquared_type + ':',
+                      ["%#8.3f" % self.rsquared]),
+                     ('Adj. R-squared' + rsquared_type + ':',
+                      ["%#8.3f" % self.rsquared_adj]),
                      ('F-statistic:', ["%#8.4g" % self.fvalue]),
                      ('Prob (F-statistic):', ["%#6.3g" % self.f_pvalue]),
-                     ('Log-Likelihood:', None),  # ["%#6.4g" % self.llf]),
+                     ('Log-Likelihood:', None),
                      ('AIC:', ["%#8.4g" % self.aic]),
                      ('BIC:', ["%#8.4g" % self.bic])
                      ]
 
-        diagn_left = [('Omnibus:', ["%#6.3f" % omni]),
-                      ('Prob(Omnibus):', ["%#6.3f" % omnipv]),
-                      ('Skew:', ["%#6.3f" % skew]),
-                      ('Kurtosis:', ["%#6.3f" % kurtosis])
-                      ]
+        if slim:
+            slimlist = ['Dep. Variable:', 'Model:', 'No. Observations:',
+                        'Covariance Type:', 'R-squared:', 'Adj. R-squared:',
+                        'F-statistic:', 'Prob (F-statistic):']
+            diagn_left = diagn_right = []
+            top_left = [elem for elem in top_left if elem[0] in slimlist]
+            top_right = [elem for elem in top_right if elem[0] in slimlist]
+            top_right = top_right + \
+                [("", [])] * (len(top_left) - len(top_right))
+        else:
+            diagn_left = [('Omnibus:', ["%#6.3f" % omni]),
+                          ('Prob(Omnibus):', ["%#6.3f" % omnipv]),
+                          ('Skew:', ["%#6.3f" % skew]),
+                          ('Kurtosis:', ["%#6.3f" % kurtosis])
+                          ]
 
-        diagn_right = [('Durbin-Watson:',
-                        ["%#8.3f" % durbin_watson(self.wresid)]
-                        ),
-                       ('Jarque-Bera (JB):', ["%#8.3f" % jb]),
-                       ('Prob(JB):', ["%#8.3g" % jbpv]),
-                       ('Cond. No.', ["%#8.3g" % condno])
-                       ]
+            diagn_right = [('Durbin-Watson:',
+                            ["%#8.3f" % durbin_watson(self.wresid)]
+                            ),
+                           ('Jarque-Bera (JB):', ["%#8.3f" % jb]),
+                           ('Prob(JB):', ["%#8.3g" % jbpv]),
+                           ('Cond. No.', ["%#8.3g" % condno])
+                           ]
 
         if title is None:
             title = self.model.__class__.__name__ + ' ' + "Regression Results"
@@ -2406,13 +2823,18 @@ class RegressionResults(base.LikelihoodModelResults):
                              yname=yname, xname=xname, title=title)
         smry.add_table_params(self, yname=yname, xname=xname, alpha=alpha,
                               use_t=self.use_t)
-
-        smry.add_table_2cols(self, gleft=diagn_left, gright=diagn_right,
-                             yname=yname, xname=xname,
-                             title="")
+        if not slim:
+            smry.add_table_2cols(self, gleft=diagn_left, gright=diagn_right,
+                                 yname=yname, xname=xname,
+                                 title="")
 
         # add warnings/notes, added to text format only
         etext = []
+        if not self.k_constant:
+            etext.append(
+                "R² is computed without centering (uncentered) since the "
+                "model does not contain a constant."
+            )
         if hasattr(self, 'cov_type'):
             etext.append(self.cov_kwds['description'])
         if self.model.exog.shape[0] < self.model.exog.shape[1]:
@@ -2425,7 +2847,7 @@ class RegressionResults(base.LikelihoodModelResults):
             wstr += "matrix is singular."
             wstr = wstr % eigvals[-1]
             etext.append(wstr)
-        elif condno > 1000:  # TODO: what is recommended
+        elif condno > 1000:  # TODO: what is recommended?
             wstr = "The condition number is large, %6.3g. This might "
             wstr += "indicate that there are\n"
             wstr += "strong multicollinearity or other numerical "
@@ -2434,69 +2856,64 @@ class RegressionResults(base.LikelihoodModelResults):
             etext.append(wstr)
 
         if etext:
-            etext = ["[{0}] {1}".format(i + 1, text)
+            etext = [f"[{i + 1}] {text}"
                      for i, text in enumerate(etext)]
-            etext.insert(0, "Warnings:")
+            etext.insert(0, "Notes:")
             smry.add_extra_txt(etext)
 
         return smry
 
-        #  top = summary_top(self, gleft=topleft, gright=diagn_left, #[],
-        #                    yname=yname, xname=xname,
-        #                    title=self.model.__class__.__name__ + ' ' +
-        #                    "Regression Results")
-        #  par = summary_params(self, yname=yname, xname=xname, alpha=.05,
-        #                       use_t=False)
-        #
-        #  diagn = summary_top(self, gleft=diagn_left, gright=diagn_right,
-        #                      yname=yname, xname=xname,
-        #                      title="Linear Model")
-        #
-        #  return summary_return([top, par, diagn], return_fmt=return_fmt)
-
-    def summary2(self, yname=None, xname=None, title=None, alpha=.05,
-                 float_format="%.4f"):
-        """Experimental summary function to summarize the regression results
+    def summary2(
+            self,
+            yname: str | None = None,
+            xname: Sequence[str] | None = None,
+            title: str | None = None,
+            alpha: float = 0.05,
+            float_format: str = "%.4f",
+    ):
+        """
+        Experimental summary function to summarize the regression results.
 
         Parameters
-        -----------
-        xname : List of strings of length equal to the number of parameters
-            Names of the independent variables (optional)
-        yname : string
-            Name of the dependent variable (optional)
-        title : string, optional
+        ----------
+        yname : str
+            The name of the dependent variable (optional).
+        xname : list[str], optional
+            Names for the exogenous variables. Default is `var_##` for ## in
+            the number of regressors. Must match the number of parameters
+            in the model.
+        title : str, optional
             Title for the top table. If not None, then this replaces the
-            default title
+            default title.
         alpha : float
-            significance level for the confidence intervals
-        float_format: string
-            print format for floats in parameters summary
+            The significance level for the confidence intervals.
+        float_format : str
+            The format for floats in parameters summary.
 
         Returns
         -------
-        smry : Summary instance
-            this holds the summary tables and text, which can be printed or
-            converted to various output formats.
+        Summary
+            Instance holding the summary tables and text, which can be printed
+            or converted to various output formats.
 
         See Also
         --------
-        statsmodels.iolib.summary.Summary : class to hold summary
-            results
-
+        statsmodels.iolib.summary2.Summary
+            A class that holds summary results.
         """
         # Diagnostics
-        from statsmodels.stats.stattools import (jarque_bera,
-                                                 omni_normtest,
-                                                 durbin_watson)
+        from statsmodels.stats.stattools import (
+            durbin_watson,
+            jarque_bera,
+            omni_normtest,
+        )
 
-        from statsmodels.compat.collections import OrderedDict
         jb, jbpv, skew, kurtosis = jarque_bera(self.wresid)
         omni, omnipv = omni_normtest(self.wresid)
         dw = durbin_watson(self.wresid)
         eigvals = self.eigenvals
         condno = self.condition_number
-        eigvals = np.sort(eigvals)  # in increasing order
-        diagnostic = OrderedDict([
+        diagnostic = dict([
             ('Omnibus:',  "%.3f" % omni),
             ('Prob(Omnibus):', "%.3f" % omnipv),
             ('Skew:', "%.3f" % skew),
@@ -2514,16 +2931,38 @@ class RegressionResults(base.LikelihoodModelResults):
                       xname=xname, yname=yname, title=title)
         smry.add_dict(diagnostic)
 
+        etext = []
+
+        if not self.k_constant:
+            etext.append(
+                "R² is computed without centering (uncentered) since the \
+                model does not contain a constant."
+            )
+        if hasattr(self, 'cov_type'):
+            etext.append(self.cov_kwds['description'])
+        if self.model.exog.shape[0] < self.model.exog.shape[1]:
+            wstr = "The input rank is higher than the number of observations."
+            etext.append(wstr)
+
         # Warnings
         if eigvals[-1] < 1e-10:
             warn = "The smallest eigenvalue is %6.3g. This might indicate that\
-            there are strong multicollinearity problems or that the design\
-            matrix is singular." % eigvals[-1]
-            smry.add_text(warn)
-        if condno > 1000:
-            warn = "* The condition number is large (%.g). This might indicate \
-            strong multicollinearity or other numerical problems." % condno
-            smry.add_text(warn)
+                there are strong multicollinearity problems or that the design\
+                matrix is singular." % eigvals[-1]
+            etext.append(warn)
+        elif condno > 1000:
+            warn = "The condition number is large, %6.3g. This might indicate\
+                that there are strong multicollinearity or other numerical\
+                problems." % condno
+            etext.append(warn)
+
+        if etext:
+            etext = [f"[{i + 1}] {text}"
+                     for i, text in enumerate(etext)]
+            etext.insert(0, "Notes:")
+
+        for line in etext:
+            smry.add_text(line)
 
         return smry
 
@@ -2532,6 +2971,32 @@ class OLSResults(RegressionResults):
     """
     Results class for for an OLS model.
 
+    Parameters
+    ----------
+    model : RegressionModel
+        The regression model instance.
+    params : ndarray
+        The estimated parameters.
+    normalized_cov_params : ndarray
+        The normalized covariance parameters.
+    scale : float
+        The estimated scale of the residuals.
+    cov_type : str
+        The covariance estimator used in the results.
+    cov_kwds : dict
+        Additional keywords used in the covariance specification.
+    use_t : bool
+        Flag indicating to use the Student's t in inference.
+    **kwargs
+        Additional keyword arguments used to initialize the results.
+
+    See Also
+    --------
+    RegressionResults
+        Results store for WLS and GLW models.
+
+    Notes
+    -----
     Most of the methods and attributes are inherited from RegressionResults.
     The special methods that are only available for OLS are:
 
@@ -2539,38 +3004,35 @@ class OLSResults(RegressionResults):
     - outlier_test
     - el_test
     - conf_int_el
-
-    See Also
-    --------
-    RegressionResults
-
     """
 
     def get_influence(self):
         """
-        get an instance of Influence with influence and outlier measures
+        Calculate influence and outlier measures.
 
         Returns
         -------
-        infl : Influence instance
-            the instance has methods to calculate the main influence and
-            outlier measures for the OLS regression
+        OLSInfluence
+            The instance containing methods to calculate the main influence and
+            outlier measures for the OLS regression.
 
-        See also
+        See Also
         --------
         statsmodels.stats.outliers_influence.OLSInfluence
+            A class that exposes methods to examine observation influence.
         """
         from statsmodels.stats.outliers_influence import OLSInfluence
         return OLSInfluence(self)
 
     def outlier_test(self, method='bonf', alpha=.05, labels=None,
-                 order=False, cutoff=None):
+                     order=False, cutoff=None):
         """
-        Test observations for outliers according to method
+        Test observations for outliers according to method.
 
         Parameters
         ----------
         method : str
+            The method to use in the outlier test.  Must be one of:
 
             - `bonferroni` : one-step correction
             - `sidak` : one-step correction
@@ -2583,21 +3045,22 @@ class OLSResults(RegressionResults):
 
             See `statsmodels.stats.multitest.multipletests` for details.
         alpha : float
-            familywise error rate
+            The familywise error rate (FWER).
         labels : None or array_like
             If `labels` is not None, then it will be used as index to the
-            returned pandas DataFrame. See also Returns below
+            returned pandas DataFrame. See also Returns below.
         order : bool
             Whether or not to order the results by the absolute value of the
-            studentized residuals. If labels are provided they will also be sorted.
+            studentized residuals. If labels are provided they will also be
+            sorted.
         cutoff : None or float in [0, 1]
-            If cutoff is not None, then the return only includes observations with
-            multiple testing corrected p-values strictly below the cutoff. The
-            returned array or dataframe can be empty if t
+            If cutoff is not None, then the return only includes observations
+            with multiple testing corrected p-values strictly below the cutoff.
+            The returned array or dataframe can be empty if t.
 
         Returns
         -------
-        table : ndarray or DataFrame
+        array_like
             Returns either an ndarray or a DataFrame if labels is not None.
             Will attempt to get labels from model_results if available. The
             columns are the Studentized residuals, the unadjusted p-value,
@@ -2612,46 +3075,37 @@ class OLSResults(RegressionResults):
         return outlier_test(self, method, alpha, labels=labels,
                             order=order, cutoff=cutoff)
 
-    def el_test(self, b0_vals, param_nums, return_weights=0,
-                ret_params=0, method='nm',
-                stochastic_exog=1, return_params=0):
+    def el_test(self, b0_vals, param_nums, return_weights=0, ret_params=0,
+                method='nm', stochastic_exog=1):
         """
-        Tests single or joint hypotheses of the regression parameters using
-        Empirical Likelihood.
+        Test single or joint hypotheses using Empirical Likelihood.
 
         Parameters
         ----------
-
         b0_vals : 1darray
-            The hypothesized value of the parameter to be tested
-
+            The hypothesized value of the parameter to be tested.
         param_nums : 1darray
-            The parameter number to be tested
-
-        print_weights : bool
+            The parameter number to be tested.
+        return_weights : bool
             If true, returns the weights that optimize the likelihood
-            ratio at b0_vals.  Default is False
-
+            ratio at b0_vals. The default is False.
         ret_params : bool
             If true, returns the parameter vector that maximizes the likelihood
-            ratio at b0_vals.  Also returns the weights.  Default is False
-
-        method : string
+            ratio at b0_vals.  Also returns the weights.  The default is False.
+        method : str
             Can either be 'nm' for Nelder-Mead or 'powell' for Powell.  The
             optimization method that optimizes over nuisance parameters.
-            Default is 'nm'
-
+            The default is 'nm'.
         stochastic_exog : bool
-            When TRUE, the exogenous variables are assumed to be stochastic.
+            When True, the exogenous variables are assumed to be stochastic.
             When the regressors are nonstochastic, moment conditions are
             placed on the exogenous variables.  Confidence intervals for
             stochastic regressors are at least as large as non-stochastic
-            regressors.  Default = TRUE
+            regressors. The default is True.
 
         Returns
         -------
-
-        res : tuple
+        tuple
             The p-value and -2 times the log-likelihood ratio for the
             hypothesized values.
 
@@ -2711,60 +3165,58 @@ class OLSResults(RegressionResults):
             return llr, pval
 
     def conf_int_el(self, param_num, sig=.05, upper_bound=None,
-                    lower_bound=None, method='nm', stochastic_exog=1):
+                    lower_bound=None, method='nm', stochastic_exog=True):
         """
-        Computes the confidence interval for the parameter given by param_num
-        using Empirical Likelihood
+        Compute the confidence interval using Empirical Likelihood.
 
         Parameters
         ----------
-
         param_num : float
-            The parameter for which the confidence interval is desired
-
+            The parameter for which the confidence interval is desired.
         sig : float
-            The significance level.  Default is .05
-
+            The significance level.  Default is 0.05.
         upper_bound : float
             The maximum value the upper limit can be.  Default is the
             99.9% confidence value under OLS assumptions.
-
         lower_bound : float
             The minimum value the lower limit can be.  Default is the 99.9%
             confidence value under OLS assumptions.
-
-        method : string
+        method : str
             Can either be 'nm' for Nelder-Mead or 'powell' for Powell.  The
             optimization method that optimizes over nuisance parameters.
-            Default is 'nm'
+            The default is 'nm'.
+        stochastic_exog : bool
+            When True, the exogenous variables are assumed to be stochastic.
+            When the regressors are nonstochastic, moment conditions are
+            placed on the exogenous variables.  Confidence intervals for
+            stochastic regressors are at least as large as non-stochastic
+            regressors.  The default is True.
 
         Returns
         -------
-
-        ci : tuple
-            The confidence interval
+        lowerl : float
+            The lower bound of the confidence interval.
+        upperl : float
+            The upper bound of the confidence interval.
 
         See Also
         --------
-
-        el_test
+        el_test : Test parameters using Empirical Likelihood.
 
         Notes
         -----
-
         This function uses brentq to find the value of beta where
-        test_beta([beta], param_num)[1] is equal to the critical
-        value.
+        test_beta([beta], param_num)[1] is equal to the critical value.
 
-        The function returns the results of each iteration of brentq at
-        each value of beta.
+        The function returns the results of each iteration of brentq at each
+        value of beta.
 
-        The current function value of the last printed optimization
-        should be the critical value at the desired significance level.
-        For alpha=.05, the value is 3.841459.
+        The current function value of the last printed optimization should be
+        the critical value at the desired significance level. For alpha=.05,
+        the value is 3.841459.
 
-        To ensure optimization terminated successfully, it is suggested to
-        do el_test([lower_limit], [param_num])
+        To ensure optimization terminated successfully, it is suggested to do
+        el_test([lower_limit], [param_num]).
 
         If the optimization does not terminate successfully, consider switching
         optimization algorithms.
@@ -2780,9 +3232,12 @@ class OLSResults(RegressionResults):
             upper_bound = self.conf_int(.01)[param_num][1]
         if lower_bound is None:
             lower_bound = self.conf_int(.01)[param_num][0]
-        f = lambda b0: self.el_test(np.array([b0]), np.array([param_num]),
-                                    method=method,
-                                    stochastic_exog=stochastic_exog)[0]-r0
+
+        def f(b0):
+            return self.el_test(np.array([b0]), np.array([param_num]),
+                                method=method,
+                                stochastic_exog=stochastic_exog)[0] - r0
+
         lowerl = optimize.brenth(f, lower_bound,
                                  self.params[param_num])
         upperl = optimize.brenth(f, self.params[param_num],
@@ -2816,49 +3271,6 @@ class RegressionResultsWrapper(wrap.ResultsWrapper):
                         base.LikelihoodResultsWrapper._wrap_methods,
                         _methods)
 
+
 wrap.populate_wrapper(RegressionResultsWrapper,
                       RegressionResults)
-
-
-if __name__ == "__main__":
-    import statsmodels.api as sm
-    data = sm.datasets.longley.load()
-    data.exog = add_constant(data.exog, prepend=False)
-    ols_results = OLS(data.endog, data.exog).fit()  # results
-    gls_results = GLS(data.endog, data.exog).fit()  # results
-    print(ols_results.summary())
-    tables = ols_results.summary(returns='tables')
-    csv = ols_results.summary(returns='csv')
-"""
-    Summary of Regression Results
-=======================================
-| Dependent Variable:            ['y']|
-| Model:                           OLS|
-| Method:                Least Squares|
-| Date:               Tue, 29 Jun 2010|
-| Time:                       22:32:21|
-| # obs:                          16.0|
-| Df residuals:                    9.0|
-| Df model:                        6.0|
-===========================================================================
-|            coefficient       std. error      t-statistic           prob.|
----------------------------------------------------------------------------
-| x1             15.0619          84.9149           0.1774          0.8631|
-| x2             -0.0358           0.0335          -1.0695          0.3127|
-| x3             -2.0202           0.4884          -4.1364        0.002535|
-| x4             -1.0332           0.2143          -4.8220       0.0009444|
-| x5             -0.0511           0.2261          -0.2261          0.8262|
-| x6           1829.1515         455.4785           4.0159        0.003037|
-| const    -3482258.6346      890420.3836          -3.9108        0.003560|
-===========================================================================
-|                        Models stats                      Residual stats |
----------------------------------------------------------------------------
-| R-squared:                 0.995479    Durbin-Watson:           2.55949 |
-| Adjusted R-squared:        0.992465    Omnibus:                0.748615 |
-| F-statistic:                330.285    Prob(Omnibus):          0.687765 |
-| Prob (F-statistic):     4.98403e-10    JB:                     0.352773 |
-| Log likelihood:            -109.617    Prob(JB):               0.838294 |
-| AIC criterion:              233.235    Skew:                   0.419984 |
-| BIC criterion:              238.643    Kurtosis:                2.43373 |
----------------------------------------------------------------------------
-"""

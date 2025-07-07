@@ -5,15 +5,12 @@ Unit tests table.py.
 :see: http://agiletesting.blogspot.com/2005/01/python-unit-testing-part-1-unittest.html
 :see: http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/305292
 '''
-from __future__ import absolute_import
-from statsmodels.compat.python import zip
-
 import numpy as np
 from numpy.testing import assert_equal
 
 __docformat__ = "restructuredtext en"
 
-from statsmodels.iolib.table import Cell, Row, SimpleTable
+from statsmodels.iolib.table import Cell, SimpleTable
 from statsmodels.iolib.table import default_latex_fmt
 from statsmodels.iolib.table import default_html_fmt
 
@@ -55,15 +52,16 @@ def custom_labeller(cell):
         return 'missing'
 
 
-class TestCell(object):
+class TestCell:
     def test_celldata(self):
         celldata = cell0data, cell1data, row1data[0], row1data[1]
-        cells = [Cell(datum, datatype=i%2) for i, datum in enumerate(celldata)]
+        cells = [Cell(datum, datatype=i % 2)
+                 for i, datum in enumerate(celldata)]
         for cell, datum in zip(cells, celldata):
             assert_equal(cell.data, datum)
 
 
-class TestSimpleTable(object):
+class TestSimpleTable:
     def test_txt_fmt1(self):
         # Limited test of custom txt_fmt
         desired = """
@@ -117,7 +115,7 @@ class TestSimpleTable(object):
         #the previous has significant trailing whitespace that got removed
         #desired = '''\n<table class="simpletable">\n<tr>\n    <td></td>    <th>header1</th> <th>header2</th>\n</tr>\n<tr>\n  <th>stub1</th>   <td>0.0</td>      <td>1</td>   \n</tr>\n<tr>\n  <th>stub2</th>    <td>2</td>     <td>3.333</td> \n</tr>\n</table>\n'''
         actual = '\n%s\n' % tbl.as_html()
-        actual = '\n'.join((line.rstrip() for line in actual.split('\n')))
+        actual = '\n'.join(line.rstrip() for line in actual.split('\n'))
         #print(actual)
         #print(desired)
         #print len(actual), len(desired)

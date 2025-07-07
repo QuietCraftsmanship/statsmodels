@@ -16,8 +16,8 @@ endogenous variable.
 
 
 import numpy as np
-from numpy.testing import assert_array_almost_equal
 import statsmodels.api as sm
+from statsmodels.iolib.table import SimpleTable
 from statsmodels.sandbox.tools import pca
 from statsmodels.sandbox.tools.cross_val import LeaveOneOut
 
@@ -41,8 +41,6 @@ xred, fact, eva, eve  = pca(x0, keepdim=0)
 print(eve)
 print(fact[:5])
 print(f0[:5])
-
-import statsmodels.api as sm
 
 res = sm.OLS(y0, sm.add_constant(x0, prepend=False)).fit()
 print('OLS on original data')
@@ -91,8 +89,6 @@ print('best result for k, by AIC, BIC, R2_adj, L1O')
 print(np.r_[(np.argmin(results[:,1:3],0), np.argmax(results[:,3],0),
              np.argmin(results[:,-1],0))])
 
-from statsmodels.iolib.table import (SimpleTable, default_txt_fmt,
-                        default_latex_fmt, default_html_fmt)
 
 headers = 'k, AIC, BIC, R2_adj, L1O'.split(', ')
 numformat = ['%6d'] + ['%10.3f']*4 #'%10.4f'
@@ -106,6 +102,3 @@ print("Notes: k is number of components of PCA,")
 print("       constant is added additionally")
 print("       k=0 means regression on constant only")
 print("       L1O: sum of squared prediction errors for leave-one-out")
-
-
-

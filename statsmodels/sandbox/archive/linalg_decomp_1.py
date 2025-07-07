@@ -22,54 +22,13 @@ Author: josef-pktd
 Created on 2010-10-20
 '''
 
-from __future__ import print_function
-from statsmodels.compat.python import get_function_name
 import numpy as np
 from scipy import linalg
 
-
-#this has been copied from nitime a long time ago
-#TODO: ceck whether class has changed in nitime
-class OneTimeProperty(object):
+from statsmodels.tools.decorators import cache_readonly
 
 
-    """A descriptor to make special properties that become normal attributes.
-
-    This is meant to be used mostly by the auto_attr decorator in this module.
-    Author: Fernando Perez, copied from nitime
-    """
-    def __init__(self,func):
-
-        """Create a OneTimeProperty instance.
-
-         Parameters
-         ----------
-           func : method
-
-             The method that will be called the first time to compute a value.
-             Afterwards, the method's name will be a standard attribute holding
-             the value of this computation.
-             """
-        self.getter = func
-        self.name = get_function_name(func)
-
-    def __get__(self,obj,type=None):
-        """This will be called on attribute access on the class or instance. """
-
-        if obj is None:
-            # Being called on the class, return the original function. This way,
-            # introspection works on the class.
-            #return func
-            print('class access')
-            return self.getter
-
-        val = self.getter(obj)
-        #print("** auto_attr - loading '%s'" % self.name  # dbg)
-        setattr(obj, self.name, val)
-        return val
-
-
-class PlainMatrixArray(object):
+class PlainMatrixArray:
     '''Class that defines linalg operation on an array
 
     simplest version as benchmark
@@ -79,35 +38,34 @@ class PlainMatrixArray(object):
 
     '''
     def __init__(self, data=None, sym=None):
-        if not data is None:
+        if data is not None:
             if sym is None:
                 self.x = np.asarray(data)
                 self.m = np.dot(self.x.T, self.x)
             else:
                 raise ValueError('data and sym cannot be both given')
-        elif not sym is None:
+        elif sym is not None:
             self.m = np.asarray(sym)
             self.x = np.eye(*self.m.shape) #default
 
         else:
             raise ValueError('either data or sym need to be given')
 
-    @OneTimeProperty
+    @cache_readonly
     def minv(self):
         return np.linalg.inv(self.m)
 
-    @OneTimeProperty
     def m_y(self, y):
         return np.dot(self.m, y)
 
     def minv_y(self, y):
         return np.dot(self.minv, y)
 
-    @OneTimeProperty
+    @cache_readonly
     def mpinv(self):
         return linalg.pinv(self.m)
 
-    @OneTimeProperty
+    @cache_readonly
     def xpinv(self):
         return linalg.pinv(self.x)
 
@@ -124,28 +82,28 @@ class PlainMatrixArray(object):
     def y_minv_yt(self, y):
         return np.dot(y, np.dot(self.minv, y.T))
 
-    @OneTimeProperty
+    @cache_readonly
     def mdet(self):
         return linalg.det(self.m)
 
-    @OneTimeProperty
+    @cache_readonly
     def mlogdet(self):
         return np.log(linalg.det(self.m))
 
-    @OneTimeProperty
+    @cache_readonly
     def meigh(self):
         evals, evecs = linalg.eigh(self.m)
         sortind = np.argsort(evals)[::-1]
         return evals[sortind], evecs[:,sortind]
 
-    @OneTimeProperty
+    @cache_readonly
     def mhalf(self):
         evals, evecs = self.meigh
         return np.dot(np.diag(evals**0.5), evecs.T)
         #return np.dot(evecs, np.dot(np.diag(evals**0.5), evecs.T))
         #return np.dot(evecs, 1./np.sqrt(evals) * evecs.T))
 
-    @OneTimeProperty
+    @cache_readonly
     def minvhalf(self):
         evals, evecs = self.meigh
         return np.dot(evecs, 1./np.sqrt(evals) * evecs.T)
@@ -162,7 +120,7 @@ class SvdArray(PlainMatrixArray):
     '''
 
     def __init__(self, data=None, sym=None):
-        super(SvdArray, self).__init__(data=data, sym=sym)
+        super().__init__(data=data, sym=sym)
 
         u, s, v = np.linalg.svd(self.x, full_matrices=1)
         self.u, self.s, self.v = u, s, v
@@ -172,35 +130,34 @@ class SvdArray(PlainMatrixArray):
     def _sdiagpow(self, p):
         return linalg.diagsvd(np.power(self.s, p), *x.shape)
 
-    @OneTimeProperty
+    @cache_readonly
     def minv(self):
         sinvv = np.dot(self.sinvdiag, self.v)
         return np.dot(sinvv.T, sinvv)
 
-
-    @OneTimeProperty
+    @cache_readonly
     def meigh(self):
         evecs = self.v.T
         evals = self.s**2
         return evals, evecs
 
-    @OneTimeProperty
+    @cache_readonly
     def mdet(self):
         return self.meigh[0].prod()
 
-    @OneTimeProperty
+    @cache_readonly
     def mlogdet(self):
         return np.log(self.meigh[0]).sum()
 
-    @OneTimeProperty
+    @cache_readonly
     def mhalf(self):
         return np.dot(np.diag(self.s), self.v)
 
-    @OneTimeProperty
+    @cache_readonly
     def xxthalf(self):
         return np.dot(self.u, self.sdiag)
 
-    @OneTimeProperty
+    @cache_readonly
     def xxtinvhalf(self):
         return np.dot(self.u, self.sinvdiag)
 
@@ -221,7 +178,7 @@ class CholArray(PlainMatrixArray):
 
     def yt_minv_y(self, y):
         '''xSigmainvx
-        doesn't use stored cholesky yet
+        does not use stored cholesky yet
         '''
         return np.dot(x,linalg.cho_solve(linalg.cho_factor(self.m),x))
         #same as

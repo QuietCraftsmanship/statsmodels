@@ -4,18 +4,20 @@ explicit functions for autocovariance functions of ARIMA(1,1), MA(1), MA(2)
 plus 3 functions from nitime.utils
 
 '''
-from __future__ import print_function
-from statsmodels.compat.python import range
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.testing import assert_array_almost_equal
 
-import matplotlib.mlab as mlab
-
-from statsmodels.tsa.arima_process import arma_generate_sample, arma_impulse_response
-from statsmodels.tsa.arima_process import arma_acovf, arma_acf, ARIMA
-#from movstat import acf, acovf
-#from statsmodels.sandbox.tsa import acf, acovf, pacf
-from statsmodels.tsa.stattools import acf, acovf, pacf
+from statsmodels import regression
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima_process import (
+    arma_acf,
+    arma_acovf,
+    arma_generate_sample,
+    arma_impulse_response,
+)
+from statsmodels.tsa.stattools import acf, acovf
 
 ar = [1., -0.6]
 #ar = [1., 0.]
@@ -147,7 +149,7 @@ for c, args in cases:
     print('')
     print(c, ar, ma)
     myacovf = arma_acovf(ar, ma, nobs=10)
-    myacf = arma_acf(ar, ma, nobs=10)
+    myacf = arma_acf(ar, ma, lags=10)
     if c[:2]=='ma':
         othacovf = comparefn[c](ma)
     else:
@@ -171,10 +173,10 @@ def ar_generator(N=512, sigma=1.):
     v = np.random.normal(size=N, scale=sigma**0.5)
     u = np.zeros(N)
     P = len(taps)
-    for l in range(P):
-        u[l] = v[l] + np.dot(u[:l][::-1], taps[:l])
-    for l in range(P,N):
-        u[l] = v[l] + np.dot(u[l-P:l][::-1], taps)
+    for lag in range(P):
+        u[lag] = v[lag] + np.dot(u[:lag][::-1], taps[:lag])
+    for lag in range(P,N):
+        u[lag] = v[lag] + np.dot(u[lag-P:lag][::-1], taps)
     return u, v, taps
 
 #JP: small differences to using np.correlate, because assumes mean(s)=0
@@ -192,7 +194,7 @@ definition r(k) = E{s(n)s*(n-k)} where E{} is the expectation operator.
 
 #JP: with valid this returns a single value, if x and y have same length
 #   e.g. norm_corr(x, x)
-#   using std subtracts mean, but correlate doesn't, requires means are exactly 0
+#   using std subtracts mean, but correlate does not, requires means are exactly 0
 #   biased, no n-k correction for laglength
 #from nitime.utils
 def norm_corr(x,y,mode = 'valid'):
@@ -208,7 +210,7 @@ their lengths. This results in a correlation = 1 for an auto-correlation"""
 # from matplotlib axes.py
 # note: self is axis
 def pltacorr(self, x, **kwargs):
-    """
+    r"""
     call signature::
 
         acorr(x, normed=True, detrend=detrend_none, usevlines=True,
@@ -334,13 +336,15 @@ def pltxcorr(self, x, y, normed=True, detrend=detrend_none,
 
     c = np.correlate(x, y, mode=2)
 
-    if normed: c/= np.sqrt(np.dot(x,x) * np.dot(y,y))
+    if normed:
+        c /= np.sqrt(np.dot(x, x) * np.dot(y, y))
 
-    if maxlags is None: maxlags = Nx - 1
+    if maxlags is None:
+        maxlags = Nx - 1
 
     if maxlags >= Nx or maxlags < 1:
         raise ValueError('maxlags must be None or strictly '
-                         'positive < %d'%Nx)
+                         'positive < %d' % Nx)
 
     lags = np.arange(-maxlags,maxlags+1)
     c = c[Nx-1-maxlags:Nx+maxlags]
@@ -351,7 +355,7 @@ def pltxcorr(self, x, y, normed=True, detrend=detrend_none,
         b = self.axhline(**kwargs)
         kwargs.setdefault('marker', 'o')
         kwargs.setdefault('linestyle', 'None')
-        d = self.plot(lags, c, **kwargs)
+        self.plot(lags, c, **kwargs)
     else:
 
         kwargs.setdefault('marker', 'o')
@@ -385,10 +389,8 @@ print(acf2m[:10])
 
 x = arma_generate_sample([1.0, -0.8], [1.0], 500)
 print(acf(x)[:20])
-import statsmodels.api as sm
-print(sm.regression.yule_walker(x, 10))
+print(regression.yule_walker(x, 10))
 
-import matplotlib.pyplot as plt
 #ax = plt.axes()
 plt.plot(x)
 #plt.show()
@@ -399,11 +401,11 @@ plt.figure()
 pltxcorr(plt,x,x, usevlines=False)
 plt.figure()
 #FIXME: plotacf was moved to graphics/tsaplots.py, and interface changed
-plotacf(plt, acf1[:20], np.arange(len(acf1[:20])), usevlines=True)
+plot_acf(plt, acf1[:20], np.arange(len(acf1[:20])), usevlines=True)
 plt.figure()
 ax = plt.subplot(211)
-plotacf(ax, acf1[:20], usevlines=True)
+plot_acf(ax, acf1[:20], usevlines=True)
 ax = plt.subplot(212)
-plotacf(ax, acf1[:20], np.arange(len(acf1[:20])), usevlines=False)
+plot_acf(ax, acf1[:20], np.arange(len(acf1[:20])), usevlines=False)
 
 #plt.show()

@@ -1,24 +1,22 @@
 '''Kernel Ridge Regression for local non-parametric regression'''
 
 
+import matplotlib.pylab as plt
 import numpy as np
 from scipy import spatial as ssp
-from numpy.testing import assert_equal
-import matplotlib.pylab as plt
 
-def plt_closeall(n=10):
-    '''close a number of open matplotlib windows'''
-    for i in range(n): plt.close()
 
 def kernel_rbf(x,y,scale=1, **kwds):
     #scale = kwds.get('scale',1)
     dist = ssp.minkowski_distance_p(x[:,np.newaxis,:],y[np.newaxis,:,:],2)
     return np.exp(-0.5/scale*(dist))
 
+
 def kernel_euclid(x,y,p=2, **kwds):
     return ssp.minkowski_distance(x[:,np.newaxis,:],y[np.newaxis,:,:],p)
 
-class GaussProcess(object):
+
+class GaussProcess:
     '''class to perform kernel ridge regression (gaussian process)
 
     Warning: this class is memory intensive, it creates nobs x nobs distance
@@ -35,7 +33,7 @@ class GaussProcess(object):
     * automatic selection or proposal of smoothing parameters
 
     Note: this is different from kernel smoothing regression,
-       see for example http://en.wikipedia.org/wiki/Kernel_smoother
+       see for example https://en.wikipedia.org/wiki/Kernel_smoother
 
     In this version of the kernel ridge regression, the training points
     are fitted exactly.
@@ -97,7 +95,7 @@ class GaussProcess(object):
         self.distxsample = kernel(x,x,scale=scale)
         self.Kinv = np.linalg.inv(self.distxsample +
                              np.eye(*self.distxsample.shape)*ridgecoeff)
-        if not y is None:
+        if y is not None:
             self.y = y
             self.yest = self.fit(y)
 
@@ -122,7 +120,7 @@ class GaussProcess(object):
     def plot(self, y, plt=plt ):
         '''some basic plots'''
         #todo return proper graph handles
-        plt.figure();
+        plt.figure()
         plt.plot(self.x,self.y, 'bo-', self.x, self.yest, 'r.-')
         plt.title('sample (training) points')
         plt.figure()
@@ -173,7 +171,6 @@ def example2(m=100, scale=0.01, stride=2):
     y1true = np.sum(np.sin(xs1**2),1)[:,np.newaxis]/xs1
     y1 = y1true + 0.05*np.random.randn(m,1)
 
-    ridgecoeff = 1e-10
     #stride = 2 #use only some points as trainig points e.g 2 means every 2nd
     gp1 = GaussProcess(xs1[::stride,:],y1[::stride,:], kernel=kernel_euclid,
                        ridgecoeff=1e-10)
@@ -206,4 +203,3 @@ if __name__ == '__main__':
     #example2(m=200, scale=0.01,stride=4)
     example1()
     #plt.show()
-    #plt_closeall()   # use this to close the open figure windows

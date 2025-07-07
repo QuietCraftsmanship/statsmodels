@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Aug  3 21:08:49 2017
 
@@ -7,21 +6,26 @@ Author: Josef Perktold
 
 import numpy as np
 from numpy.testing import assert_allclose
-from statsmodels.discrete.discrete_model import (Poisson, NegativeBinomial,
-                                                 NegativeBinomialP)
-from statsmodels.tools.tools import add_constant
-
-import statsmodels.discrete.tests.results.results_count_margins as res_stata
 
 # load data into module namespace
 from statsmodels.datasets.cpunish import load
+from statsmodels.discrete.discrete_model import (
+    NegativeBinomial,
+    NegativeBinomialP,
+    Poisson,
+)
+import statsmodels.discrete.tests.results.results_count_margins as res_stata
+from statsmodels.tools.tools import add_constant
+
 cpunish_data = load()
+cpunish_data.exog = np.asarray(cpunish_data.exog)
+cpunish_data.endog = np.asarray(cpunish_data.endog)
 cpunish_data.exog[:,3] = np.log(cpunish_data.exog[:,3])
 exog = add_constant(cpunish_data.exog, prepend=False)
 endog = cpunish_data.endog - 1 # avoid zero-truncation
 exog /= np.round(exog.max(0), 3)
 
-class CheckMarginMixin(object):
+class CheckMarginMixin:
     rtol_fac = 1
 
     def test_margins_table(self):
@@ -39,7 +43,7 @@ class TestPoissonMargin(CheckMarginMixin):
 
     @classmethod
     def setup_class(cls):
-        # here we don't need to check convergence from default start_params
+        # here we do not need to check convergence from default start_params
         start_params = [14.1709, 0.7085, -3.4548, -0.539, 3.2368,  -7.9299,
                         -5.0529]
         mod_poi = Poisson(endog, exog)
@@ -58,7 +62,7 @@ class TestPoissonMarginDummy(CheckMarginMixin):
 
     @classmethod
     def setup_class(cls):
-        # here we don't need to check convergence from default start_params
+        # here we do not need to check convergence from default start_params
         start_params = [14.1709, 0.7085, -3.4548, -0.539, 3.2368,  -7.9299,
                         -5.0529]
         mod_poi = Poisson(endog, exog)
@@ -75,7 +79,7 @@ class TestNegBinMargin(CheckMarginMixin):
 
     @classmethod
     def setup_class(cls):
-        # here we don't need to check convergence from default start_params
+        # here we do not need to check convergence from default start_params
         start_params = [13.1996, 0.8582, -2.8005, -1.5031, 2.3849, -8.5552,
                         -2.88, 1.14]
         mod = NegativeBinomial(endog, exog)
@@ -94,7 +98,7 @@ class TestNegBinMarginDummy(CheckMarginMixin):
 
     @classmethod
     def setup_class(cls):
-        # here we don't need to check convergence from default start_params
+        # here we do not need to check convergence from default start_params
         start_params = [13.1996, 0.8582, -2.8005, -1.5031, 2.3849, -8.5552,
                         -2.88, 1.14]
         mod = NegativeBinomial(endog, exog)
@@ -113,7 +117,7 @@ class TestNegBinPMargin(CheckMarginMixin):
 
     @classmethod
     def setup_class(cls):
-        # here we don't need to check convergence from default start_params
+        # here we do not need to check convergence from default start_params
         start_params = [13.1996, 0.8582, -2.8005, -1.5031, 2.3849, -8.5552,
                         -2.88, 1.14]
         mod = NegativeBinomialP(endog, exog)   # checks also that default p=2

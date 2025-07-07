@@ -2,7 +2,6 @@
 Module containing the base object for multivariate kernel density and
 regression, plus some utilities.
 """
-from statsmodels.compat.python import range, string_types
 import copy
 
 import numpy as np
@@ -29,7 +28,8 @@ kernel_func = dict(wangryzin=kernels.wang_ryzin,
                    gaussian_cdf=kernels.gaussian_cdf,
                    aitchisonaitken_cdf=kernels.aitchison_aitken_cdf,
                    wangryzin_cdf=kernels.wang_ryzin_cdf,
-                   d_gaussian=kernels.d_gaussian)
+                   d_gaussian=kernels.d_gaussian,
+                   tricube=kernels.tricube)
 
 
 def _compute_min_std_IQR(data):
@@ -51,7 +51,6 @@ def _compute_subset(class_type, data, bw, co, do, n_cvars, ix_ord,
     Notes
     -----
     Needs to be outside the class in order for joblib to be able to pickle it.
-
     """
     if randomize:
         np.random.shuffle(data)
@@ -97,7 +96,7 @@ def _compute_subset(class_type, data, bw, co, do, n_cvars, ix_ord,
     return sample_scale_sub, bw_sub
 
 
-class GenericKDE (object):
+class GenericKDE :
     """
     Base class for density estimation and regression KDE classes.
     """
@@ -107,7 +106,7 @@ class GenericKDE (object):
 
         Parameters
         ----------
-        bw: array_like or str
+        bw : {array_like, str}
             If array_like: user-specified bandwidth.
             If a string, should be one of:
 
@@ -119,19 +118,22 @@ class GenericKDE (object):
         -----
         The default values for bw is 'normal_reference'.
         """
-
-        self.bw_func = dict(normal_reference=self._normal_reference,
-                            cv_ml=self._cv_ml, cv_ls=self._cv_ls)
         if bw is None:
             bw = 'normal_reference'
 
-        if not isinstance(bw, string_types):
+        if not isinstance(bw, str):
             self._bw_method = "user-specified"
             res = np.asarray(bw)
         else:
             # The user specified a bandwidth selection method
             self._bw_method = bw
-            bwfunc = self.bw_func[bw]
+            # Workaround to avoid instance methods in __dict__
+            if bw == 'normal_reference':
+                bwfunc = self._normal_reference
+            elif bw == 'cv_ml':
+                bwfunc = self._cv_ml
+            else:  # bw == 'cv_ls'
+                bwfunc = self._cv_ls
             res = bwfunc()
 
         return res
@@ -175,9 +177,9 @@ class GenericKDE (object):
 
         if bw is None:
             self._bw_method = 'normal_reference'
-        if isinstance(bw, string_types):
+        if isinstance(bw, str):
             self._bw_method = bw
-        else: 
+        else:
             self._bw_method = "user-specified"
             return bw
 
@@ -205,10 +207,10 @@ class GenericKDE (object):
         class_type, class_vars = self._get_class_vars_type()
         if has_joblib:
             # `res` is a list of tuples (sample_scale_sub, bw_sub)
-            res = joblib.Parallel(n_jobs=self.n_jobs) \
-                (joblib.delayed(_compute_subset) \
-                (class_type, data, bw, co, do, n_cvars, ix_ord, ix_unord, \
-                n_sub, class_vars, self.randomize, bounds[i]) \
+            res = joblib.Parallel(n_jobs=self.n_jobs)(
+                joblib.delayed(_compute_subset)(
+                    class_type, data, bw, co, do, n_cvars, ix_ord, ix_unord, \
+                    n_sub, class_vars, self.randomize, bounds[i]) \
                 for i in range(n_blocks))
         else:
             res = []
@@ -333,38 +335,38 @@ class GenericKDE (object):
         raise NotImplementedError
 
 
-class EstimatorSettings(object):
+class EstimatorSettings:
     """
     Object to specify settings for density estimation or regression.
 
-    `EstimatorSettings` has several proporties related to how bandwidth
+    `EstimatorSettings` has several properties related to how bandwidth
     estimation for the `KDEMultivariate`, `KDEMultivariateConditional`,
     `KernelReg` and `CensoredKernelReg` classes behaves.
 
     Parameters
     ----------
-    efficient: bool, optional
+    efficient : bool, optional
         If True, the bandwidth estimation is to be performed
         efficiently -- by taking smaller sub-samples and estimating
         the scaling factor of each subsample.  This is useful for large
         samples (nobs >> 300) and/or multiple variables (k_vars > 3).
         If False (default), all data is used at the same time.
-    randomize: bool, optional
+    randomize : bool, optional
         If True, the bandwidth estimation is to be performed by
         taking `n_res` random resamples (with replacement) of size `n_sub` from
         the full sample.  If set to False (default), the estimation is
         performed by slicing the full sample in sub-samples of size `n_sub` so
         that all samples are used once.
-    n_sub: int, optional
+    n_sub : int, optional
         Size of the sub-samples.  Default is 50.
-    n_res: int, optional
+    n_res : int, optional
         The number of random re-samples used to estimate the bandwidth.
         Only has an effect if ``randomize == True``.  Default value is 25.
-    return_median: bool, optional
+    return_median : bool, optional
         If True (default), the estimator uses the median of all scaling factors
         for each sub-sample to estimate the bandwidth of the full sample.
         If False, the estimator uses the mean.
-    return_only_bw: bool, optional
+    return_only_bw : bool, optional
         If True, the estimator is to use the bandwidth and not the
         scaling factor.  This is *not* theoretically justified.
         Should be used only for experimenting.
@@ -373,13 +375,12 @@ class EstimatorSettings(object):
         ``joblib.Parallel``.  Default is -1, meaning ``n_cores - 1``, with
         ``n_cores`` the number of available CPU cores.
         See the `joblib documentation
-        <https://pythonhosted.org/joblib/parallel.html>`_ for more details.
+        <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_ for more details.
 
     Examples
     --------
     >>> settings = EstimatorSettings(randomize=True, n_jobs=3)
     >>> k_dens = KDEMultivariate(data, var_type, defaults=settings)
-
     """
     def __init__(self, efficient=False, randomize=False, n_res=25, n_sub=50,
                  return_median=True, return_only_bw=False, n_jobs=-1):
@@ -392,13 +393,13 @@ class EstimatorSettings(object):
         self.n_jobs = n_jobs
 
 
-class LeaveOneOut(object):
+class LeaveOneOut:
     """
     Generator to give leave-one-out views on X.
 
     Parameters
     ----------
-    X : array-like
+    X : array_like
         2-D array.
 
     Examples
@@ -410,7 +411,7 @@ class LeaveOneOut(object):
 
     Notes
     -----
-    A little lighter weight than sklearn LOO. We don't need test index.
+    A little lighter weight than sklearn LOO. We do not need test index.
     Also passes views on X, not the index.
     """
     def __init__(self, X):
@@ -421,7 +422,7 @@ class LeaveOneOut(object):
         nobs, k_vars = np.shape(X)
 
         for i in range(nobs):
-            index = np.ones(nobs, dtype=np.bool)
+            index = np.ones(nobs, dtype=bool)
             index[i] = False
             yield X[index, :]
 
@@ -459,19 +460,19 @@ def gpke(bw, data, data_predict, var_type, ckertype='gaussian',
 
     Parameters
     ----------
-    bw: 1-D ndarray
+    bw : 1-D ndarray
         The user-specified bandwidth parameters.
-    data: 1D or 2-D ndarray
+    data : 1D or 2-D ndarray
         The training data.
-    data_predict: 1-D ndarray
+    data_predict : 1-D ndarray
         The evaluation points at which the kernel estimation is performed.
-    var_type: str, optional
+    var_type : str, optional
         The variable type (continuous, ordered, unordered).
-    ckertype: str, optional
+    ckertype : str, optional
         The kernel used for the continuous variables.
-    okertype: str, optional
+    okertype : str, optional
         The kernel used for the ordered discrete variables.
-    ukertype: str, optional
+    ukertype : str, optional
         The kernel used for the unordered discrete variables.
     tosum : bool, optional
         Whether or not to sum the calculated array of densities.  Default is
@@ -479,7 +480,7 @@ def gpke(bw, data, data_predict, var_type, ckertype='gaussian',
 
     Returns
     -------
-    dens: array-like
+    dens : array_like
         The generalized product kernel density estimator.
 
     Notes

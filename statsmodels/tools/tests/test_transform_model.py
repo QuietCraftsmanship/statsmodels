@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Tue May 27 13:26:01 2014
 
@@ -31,10 +30,10 @@ def test_standardize1():
 
     # check we use stored transformation
     xs4 = transf(2 * x)
-    assert_allclose(xs4, (2*x - transf.mean) / transf.scale, rtol=1e-13, atol=1e-20)
+    assert_allclose(xs4, (2*x - transf.mean) / transf.scale,
+                    rtol=1e-13, atol=1e-20)
 
-
-    # affine transform doesn't change standardized
+    # affine transform does not change standardized
     x2 = 2 * x + np.random.randn(4)
     transf2 = StandardizeTransform(x2)
     xs3 = transf2(x2)
@@ -64,8 +63,3 @@ def test_standardize_ols():
     res1 = OLS(endog, exog_st).fit()
     params = transf.transform_params(res1.params)
     assert_allclose(params, res2.params, rtol=1e-13)
-
-
-
-test_standardize1()
-test_standardize_ols()

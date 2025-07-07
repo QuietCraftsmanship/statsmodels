@@ -17,15 +17,14 @@ References
 ----------
 
 '''
-from __future__ import print_function
-from statsmodels.compat.python import range, lmap, string_types, callable
-import numpy as np
+from statsmodels.compat.python import lmap
 
+import numpy as np
+from scipy.special import kolmogorov as ksprob
 from scipy.stats import distributions
 
 from statsmodels.tools.decorators import cache_readonly
 
-from scipy.special import kolmogorov as ksprob
 
 #from scipy.stats unchanged
 def ks_2samp(data1, data2):
@@ -72,7 +71,7 @@ def ks_2samp(data1, data2):
     >>> from scipy.stats import ks_2samp
 
     >>> #fix random seed to get the same result
-    >>> np.random.seed(12345678);
+    >>> np.random.seed(12345678)
 
     >>> n1 = 200  # size of first sample
     >>> n2 = 300  # size of second sample
@@ -80,7 +79,7 @@ def ks_2samp(data1, data2):
     different distribution
     we can reject the null hypothesis since the pvalue is below 1%
 
-    >>> rvs1 = stats.norm.rvs(size=n1,loc=0.,scale=1);
+    >>> rvs1 = stats.norm.rvs(size=n1,loc=0.,scale=1)
     >>> rvs2 = stats.norm.rvs(size=n2,loc=0.5,scale=1.5)
     >>> ks_2samp(rvs1,rvs2)
     (0.20833333333333337, 4.6674975515806989e-005)
@@ -99,7 +98,6 @@ def ks_2samp(data1, data2):
     >>> rvs4 = stats.norm.rvs(size=n2,loc=0.0,scale=1.0)
     >>> ks_2samp(rvs1,rvs4)
     (0.07999999999999996, 0.41126949729859719)
-
     """
     data1, data2 = lmap(np.asarray, (data1, data2))
     n1 = data1.shape[0]
@@ -117,7 +115,7 @@ def ks_2samp(data1, data2):
     en = np.sqrt(n1*n2/float(n1+n2))
     try:
         prob = ksprob((en+0.12+0.11/en)*d)
-    except:
+    except Exception:
         prob = 1.0
     return d, prob
 
@@ -136,7 +134,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
 
     Parameters
     ----------
-    rvs : string or array or callable
+    rvs : str or array or callable
         string: name of a distribution in scipy.stats
 
         array: 1-D observations of random variables
@@ -144,7 +142,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
         callable: function to generate random variables, requires keyword
         argument `size`
 
-    cdf : string or callable
+    cdf : str or callable
         string: name of a distribution in scipy.stats, if rvs is a string then
         cdf can evaluate to `False` or be the same as rvs
         callable: function to evaluate cdf
@@ -215,7 +213,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
     >>> kstest(x,'norm', alternative = 'greater')
     (0.0072115233216311081, 0.98531158590396395)
 
-    Don't reject equal distribution against alternative hypothesis: greater
+    Do not reject equal distribution against alternative hypothesis: greater
 
     >>> kstest(x,'norm', mode='asymp')
     (0.12464329735846891, 0.08944488871182088)
@@ -238,9 +236,8 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
     >>> np.random.seed(987654321)
     >>> stats.kstest(stats.t.rvs(3,size=100),'norm')
     (0.131016895759829, 0.058826222555312224)
-
     """
-    if isinstance(rvs, string_types):
+    if isinstance(rvs, str):
         #cdf = getattr(stats, rvs).cdf
         if (not cdf) or (cdf == rvs):
             cdf = getattr(distributions, rvs).cdf
@@ -249,7 +246,7 @@ def kstest(rvs, cdf, args=(), N=20, alternative = 'two_sided', mode='approx',**k
             raise AttributeError('if rvs is string, cdf has to be the same distribution')
 
 
-    if isinstance(cdf, string_types):
+    if isinstance(cdf, str):
         cdf = getattr(distributions, cdf).cdf
     if callable(rvs):
         kwds = {'size':N}
@@ -366,7 +363,7 @@ gof_pvals['scipy'] = {
 gof_pvals['scipy_approx'] = {
     'd' : pval_kstest_approx }
 
-class GOF(object):
+class GOF:
     '''One Sample Goodness of Fit tests
 
     includes Kolmogorov-Smirnov D, D+, D-, Kuiper V, Cramer-von Mises W^2, U^2 and
@@ -391,7 +388,7 @@ class GOF(object):
 
 
     def __init__(self, rvs, cdf, args=(), N=20):
-        if isinstance(rvs, string_types):
+        if isinstance(rvs, str):
             #cdf = getattr(stats, rvs).cdf
             if (not cdf) or (cdf == rvs):
                 cdf = getattr(distributions, rvs).cdf
@@ -400,7 +397,7 @@ class GOF(object):
                 raise AttributeError('if rvs is string, cdf has to be the same distribution')
 
 
-        if isinstance(cdf, string_types):
+        if isinstance(cdf, str):
             cdf = getattr(distributions, cdf).cdf
         if callable(rvs):
             kwds = {'size':N}
@@ -473,7 +470,7 @@ class GOF(object):
 
     @cache_readonly
     def asqu(self):
-        '''Stephens 1974, doesn't have p-value formula for A^2'''
+        '''Stephens 1974, does not have p-value formula for A^2'''
         nobs = self.nobs
         cdfvals = self.cdfvals
 
@@ -526,14 +523,14 @@ def asquare(cdfvals, axis=0):
     islice = [None] * ndim
     islice[axis] = slice(None)
     slice_reverse[axis] = slice(None, None, -1)
-    asqu = -((2. * np.arange(1., nobs+1)[islice] - 1) *
-            (np.log(cdfvals) + np.log(1-cdfvals[slice_reverse]))/nobs).sum(axis) \
+    asqu = -((2. * np.arange(1., nobs+1)[tuple(islice)] - 1) *
+            (np.log(cdfvals) + np.log(1-cdfvals[tuple(slice_reverse)]))/nobs).sum(axis) \
             - nobs
 
     return asqu
 
 
-#class OneSGOFFittedVec(object):
+#class OneSGOFFittedVec:
 #    '''for vectorized fitting'''
     # currently I use the bootstrap as function instead of full class
 
@@ -563,7 +560,7 @@ def bootstrap(distr, args=(), nobs=200, nrep=100, value=None, batch_size=None):
 
     #it will be better to build a separate batch function that calls bootstrap
     #keep batch if value is true, but batch iterate from outside if stat is returned
-    if (not batch_size is None):
+    if batch_size is not None:
         if value is None:
             raise ValueError('using batching requires a value')
         n_batch = int(np.ceil(nrep/float(batch_size)))
@@ -620,7 +617,7 @@ def bootstrap2(value, distr, args=(), nobs=200, nrep=100):
     return count * 1. / nrep
 
 
-class NewNorm(object):
+class NewNorm:
     '''just a holder for modified distributions
     '''
 
@@ -638,8 +635,10 @@ class NewNorm(object):
 
 
 
+
 if __name__ == '__main__':
     from scipy import stats
+
     #rvs = np.random.randn(1000)
     rvs = stats.t.rvs(3, size=200)
     print('scipy kstest')
@@ -686,21 +685,3 @@ if __name__ == '__main__':
     [0.1545, 0.10009999999999999, 0.049000000000000002, 0.023, 0.0104]
     >>>
     '''
-
-    #test equality of loop, vectorized, batch-vectorized
-    np.random.seed(8765679)
-    resu1 = bootstrap(NewNorm(), args=(0,1), nobs=nobs, nrep=100,
-                      value=0.576/(1 + 4./nobs - 25./nobs**2))
-    np.random.seed(8765679)
-    tmp = [bootstrap(NewNorm(), args=(0,1), nobs=nobs, nrep=1) for _ in range(100)]
-    resu2 = (np.array(tmp) > 0.576/(1 + 4./nobs - 25./nobs**2)).mean()
-    np.random.seed(8765679)
-    tmp = [bootstrap(NewNorm(), args=(0,1), nobs=nobs, nrep=1,
-                     value=0.576/ (1 + 4./nobs - 25./nobs**2),
-                     batch_size=10) for _ in range(10)]
-    resu3 = np.array(resu).mean()
-    from numpy.testing import assert_almost_equal, assert_array_almost_equal
-    assert_array_almost_equal(resu1, resu2, 15)
-    assert_array_almost_equal(resu2, resu3, 15)
-
-

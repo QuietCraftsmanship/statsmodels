@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 """Cluster Robust Standard Errors with Two Clusters
 
 Created on Sat Dec 17 08:39:16 2011
 
 Author: Josef Perktold
 """
-from statsmodels.compat.python import urlretrieve
+from urllib.request import urlretrieve
+
 import numpy as np
 from numpy.testing import assert_almost_equal
 
@@ -18,7 +18,7 @@ import statsmodels.stats.sandwich_covariance as sw
 try:
     pet = np.genfromtxt("test_data.txt")
     print('using local file')
-except IOError:
+except OSError:
     urlretrieve('http://www.kellogg.northwestern.edu/faculty/petersen/htm/papers/se/test_data.txt',
                        'test_data.txt')
     print('downloading file')

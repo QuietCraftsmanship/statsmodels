@@ -27,10 +27,7 @@ References
         Models", 2006, Econometric Reviews 25, 523-544
 
 """
-from __future__ import division
 # TODO: make default behavior efficient=True above a certain n_obs
-
-from statsmodels.compat.python import range, next
 import numpy as np
 
 from . import kernels
@@ -52,12 +49,12 @@ class KDEMultivariate(GenericKDE):
 
     Parameters
     ----------
-    data: list of ndarrays or 2-D ndarray
+    data : list of ndarrays or 2-D ndarray
         The training data for the Kernel Density Estimation, used to determine
         the bandwidth(s).  If a 2-D array, should be of shape
         (num_observations, num_variables).  If a list, each list element is a
         separate observation.
-    var_type: str
+    var_type : str
         The type of the variables:
 
             - c : continuous
@@ -66,7 +63,7 @@ class KDEMultivariate(GenericKDE):
 
         The string should contain a type specifier for each variable, so for
         example ``var_type='ccuo'``.
-    bw: array_like or str, optional
+    bw : array_like or str, optional
         If an array, it is a fixed user-specified bandwidth.  If a string,
         should be one of:
 
@@ -74,12 +71,12 @@ class KDEMultivariate(GenericKDE):
             - cv_ml: cross validation maximum likelihood
             - cv_ls: cross validation least squares
 
-    defaults: EstimatorSettings instance, optional
+    defaults : EstimatorSettings instance, optional
         The default values for (efficient) bandwidth estimation.
 
     Attributes
     ----------
-    bw: array_like
+    bw : array_like
         The bandwidth parameters.
 
     See Also
@@ -101,7 +98,7 @@ class KDEMultivariate(GenericKDE):
     >>> dens_u.bw
     array([ 0.39967419,  0.38423292])
     """
-    def __init__(self, data, var_type, bw=None, defaults=EstimatorSettings()):
+    def __init__(self, data, var_type, bw=None, defaults=None):
         self.var_type = var_type
         self.k_vars = len(self.var_type)
         self.data = _adjust_shape(data, self.k_vars)
@@ -110,7 +107,7 @@ class KDEMultivariate(GenericKDE):
         if self.nobs <= self.k_vars:
             raise ValueError("The number of observations must be larger " \
                              "than the number of variables.")
-
+        defaults = EstimatorSettings() if defaults is None else defaults
         self._set_defaults(defaults)
         if not self.efficient:
             self.bw = self._compute_bw(bw)
@@ -134,9 +131,9 @@ class KDEMultivariate(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             The value for the bandwidth parameter(s).
-        func: callable, optional
+        func : callable, optional
             Function to transform the likelihood values (before summing); for
             the log likelihood, use ``func=np.log``.  Default is ``f(x) = x``.
 
@@ -168,12 +165,12 @@ class KDEMultivariate(GenericKDE):
 
         Parameters
         ----------
-        data_predict: array_like, optional
+        data_predict : array_like, optional
             Points to evaluate at.  If unspecified, the training data is used.
 
         Returns
         -------
-        pdf_est: array_like
+        pdf_est : array_like
             Probability density function evaluated at `data_predict`.
 
         Notes
@@ -204,24 +201,24 @@ class KDEMultivariate(GenericKDE):
 
         Parameters
         ----------
-        data_predict: array_like, optional
+        data_predict : array_like, optional
             Points to evaluate at.  If unspecified, the training data is used.
 
         Returns
         -------
-        cdf_est: array_like
+        cdf_est : array_like
             The estimate of the cdf.
 
         Notes
         -----
-        See http://en.wikipedia.org/wiki/Cumulative_distribution_function
+        See https://en.wikipedia.org/wiki/Cumulative_distribution_function
         For more details on the estimation see Ref. [5] in module docstring.
 
         The multivariate CDF for mixed data (continuous and ordered/unordered
         discrete) is estimated by:
 
-        .. math:: 
-        
+        .. math::
+
             F(x^{c},x^{d})=n^{-1}\sum_{i=1}^{n}\left[G(\frac{x^{c}-X_{i}}{h})\sum_{u\leq x^{d}}L(X_{i}^{d},x_{i}^{d}, \lambda)\right]
 
         where G() is the product kernel CDF estimator for the continuous
@@ -252,12 +249,12 @@ class KDEMultivariate(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             The bandwidth parameter(s).
 
         Returns
         -------
-        CV: float
+        CV : float
             The cross-validation objective function.
 
         Notes
@@ -352,14 +349,14 @@ class KDEMultivariateConditional(GenericKDE):
 
     Parameters
     ----------
-    endog: list of ndarrays or 2-D ndarray
+    endog : list of ndarrays or 2-D ndarray
         The training data for the dependent variables, used to determine
         the bandwidth(s).  If a 2-D array, should be of shape
         (num_observations, num_variables).  If a list, each list element is a
         separate observation.
-    exog: list of ndarrays or 2-D ndarray
+    exog : list of ndarrays or 2-D ndarray
         The training data for the independent variable; same shape as `endog`.
-    dep_type: str
+    dep_type : str
         The type of the dependent variables:
 
             c : Continuous
@@ -368,9 +365,9 @@ class KDEMultivariateConditional(GenericKDE):
 
         The string should contain a type specifier for each variable, so for
         example ``dep_type='ccuo'``.
-    indep_type: str
-        The type of the independent variables; specifed like `dep_type`.
-    bw: array_like or str, optional
+    indep_type : str
+        The type of the independent variables; specified like `dep_type`.
+    bw : array_like or str, optional
         If an array, it is a fixed user-specified bandwidth.  If a string,
         should be one of:
 
@@ -378,12 +375,12 @@ class KDEMultivariateConditional(GenericKDE):
             - cv_ml: cross validation maximum likelihood
             - cv_ls: cross validation least squares
 
-    defaults: Instance of class EstimatorSettings
+    defaults : Instance of class EstimatorSettings
         The default values for the efficient bandwidth estimation
 
     Attributes
-    ---------
-    bw: array_like
+    ----------
+    bw : array_like
         The bandwidth parameters
 
     See Also
@@ -392,7 +389,7 @@ class KDEMultivariateConditional(GenericKDE):
 
     References
     ----------
-    .. [1] http://en.wikipedia.org/wiki/Conditional_probability_distribution
+    .. [1] https://en.wikipedia.org/wiki/Conditional_probability_distribution
 
     Examples
     --------
@@ -408,7 +405,7 @@ class KDEMultivariateConditional(GenericKDE):
     """
 
     def __init__(self, endog, exog, dep_type, indep_type, bw,
-                 defaults=EstimatorSettings()):
+                 defaults=None):
         self.dep_type = dep_type
         self.indep_type = indep_type
         self.data_type = dep_type + indep_type
@@ -419,6 +416,7 @@ class KDEMultivariateConditional(GenericKDE):
         self.nobs, self.k_dep = np.shape(self.endog)
         self.data = np.column_stack((self.endog, self.exog))
         self.k_vars = np.shape(self.data)[1]
+        defaults = EstimatorSettings() if defaults is None else defaults
         self._set_defaults(defaults)
         if not self.efficient:
             self.bw = self._compute_bw(bw)
@@ -447,15 +445,15 @@ class KDEMultivariateConditional(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             The bandwidth parameter(s).
-        func: callable, optional
+        func : callable, optional
             Function to transform the likelihood values (before summing); for
             the log likelihood, use ``func=np.log``.  Default is ``f(x) = x``.
 
         Returns
         -------
-        L: float
+        L : float
             The value of the leave-one-out function for the data.
 
         Notes
@@ -484,15 +482,15 @@ class KDEMultivariateConditional(GenericKDE):
 
         Parameters
         ----------
-        endog_predict: array_like, optional
+        endog_predict : array_like, optional
             Evaluation data for the dependent variables.  If unspecified, the
             training data is used.
-        exog_predict: array_like, optional
+        exog_predict : array_like, optional
             Evaluation data for the independent variables.
 
         Returns
         -------
-        pdf: array_like
+        pdf : array_like
             The value of the probability density at `endog_predict` and `exog_predict`.
 
         Notes
@@ -536,16 +534,16 @@ class KDEMultivariateConditional(GenericKDE):
 
         Parameters
         ----------
-        endog_predict: array_like, optional
+        endog_predict : array_like, optional
             The evaluation dependent variables at which the cdf is estimated.
             If not specified the training dependent variables are used.
-        exog_predict: array_like, optional
+        exog_predict : array_like, optional
             The evaluation independent variables at which the cdf is estimated.
             If not specified the training independent variables are used.
 
         Returns
         -------
-        cdf_est: array_like
+        cdf_est : array_like
             The estimate of the cdf.
 
         Notes
@@ -555,8 +553,8 @@ class KDEMultivariateConditional(GenericKDE):
         The multivariate conditional CDF for mixed data (continuous and
         ordered/unordered discrete) is estimated by:
 
-        .. math:: 
-            
+        .. math::
+
             F(y|x)=\frac{n^{-1}\sum_{i=1}^{n}G(\frac{y-Y_{i}}{h_{0}}) W_{h}(X_{i},x)}{\widehat{\mu}(x)}
 
         where G() is the product kernel CDF estimator for the dependent (y)
@@ -608,12 +606,12 @@ class KDEMultivariateConditional(GenericKDE):
 
         Parameters
         ----------
-        bw: array_like
+        bw : array_like
             The bandwidth parameter(s).
 
         Returns
         -------
-        CV: float
+        CV : float
             The cross-validation objective function.
 
         Notes
@@ -687,4 +685,3 @@ class KDEMultivariateConditional(GenericKDE):
         class_type = 'KDEMultivariateConditional'
         class_vars = (self.k_dep, self.dep_type, self.indep_type)
         return class_type, class_vars
-

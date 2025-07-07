@@ -1,10 +1,11 @@
 import numpy as np
+import pandas as pd
 from statsmodels.base.model import LikelihoodModelResults
 
 
-class BayesGaussMI(object):
+class BayesGaussMI:
     """
-    BayesGaussMI uses a Gaussian model to impute multivariate data.
+    Bayesian Imputation using a Gaussian model.
 
     The approach is Bayesian.  The goal is to sample from the joint
     distribution of the mean vector, covariance matrix, and missing
@@ -32,25 +33,34 @@ class BayesGaussMI(object):
         The degrees of freedom of the inverse Wishart prior
         distribution for the covariance matrix.  Defaults to 1.
 
-    Returns:
-    -------
-    MIResults object
+    Examples
+    --------
+    A basic example with OLS. Data is generated assuming 10% is missing at
+    random.
 
-    Examples:
-    ---------
-    A basic example with OLS:
+    >>> import numpy as np
+    >>> x = np.random.standard_normal((1000, 2))
+    >>> x.flat[np.random.sample(2000) < 0.1] = np.nan
 
-    >> def model_args(x):
-           # Return endog, exog from x
-           return (x[:, 0], x[:, 1:])
-    >> imp = BayesGaussMI(x)
-    >> mi = MI(imp, sm.OLS, model_args)
+    The imputer is used with ``MI``.
+
+    >>> import statsmodels.api as sm
+    >>> def model_args_fn(x):
+    ...     # Return endog, exog from x
+    ...    return x[:, 0], x[:, 1:]
+    >>> imp = sm.BayesGaussMI(x)
+    >>> mi = sm.MI(imp, sm.OLS, model_args_fn)
     """
 
     def __init__(self, data, mean_prior=None, cov_prior=None, cov_prior_df=1):
 
-        data = np.asarray(data)
+        self.exog_names = None
+        if type(data) is pd.DataFrame:
+            self.exog_names = data.columns
+
+        data = np.require(data, requirements="W")
         self.data = data
+        self._data = data
         self.mask = np.isnan(data)
         self.nobs = self.mask.shape[0]
         self.nvar = self.mask.shape[1]
@@ -66,14 +76,14 @@ class BayesGaussMI(object):
             if v not in rowmap:
                 rowmap[v] = []
             rowmap[v].append(i)
-        self.patterns = [np.asarray(x) for x in rowmap.values()]
+        self.patterns = [np.asarray(v) for v in rowmap.values()]
 
         # Simple starting values for mean and covariance
-        p = self.data.shape[1]
+        p = self._data.shape[1]
         self.cov = np.eye(p)
         mean = []
         for i in range(p):
-            v = self.data[:, i]
+            v = self._data[:, i]
             v = v[np.isfinite(v)]
             if len(v) == 0:
                 msg = "Column %d has no observed values" % i
@@ -123,13 +133,22 @@ class BayesGaussMI(object):
             vmm = self.cov[ix_miss, :][:, ix_miss]
             vmo = self.cov[ix_miss, :][:, ix_obs]
 
-            r = self.data[ix, :][:, ix_obs] - mo
+            r = self._data[ix, :][:, ix_obs] - mo
             cm = mm + np.dot(vmo, np.linalg.solve(voo, r.T)).T
             cv = vmm - np.dot(vmo, np.linalg.solve(voo, vmo.T))
 
             cs = np.linalg.cholesky(cv)
             u = np.random.normal(size=(len(ix), len(ix_miss)))
-            self.data[np.ix_(ix, ix_miss)] = cm + np.dot(u, cs.T)
+            self._data[np.ix_(ix, ix_miss)] = cm + np.dot(u, cs.T)
+
+        # Set the user-visible data set.
+        if self.exog_names is not None:
+            self.data = pd.DataFrame(
+                           self._data,
+                           columns=self.exog_names,
+                           copy=False)
+        else:
+            self.data = self._data
 
     def update_mean(self):
         """
@@ -145,7 +164,7 @@ class BayesGaussMI(object):
         cm = np.dot(self.cov, cm)
 
         # Posterior mean of the mean
-        vm = np.linalg.solve(self.cov, self.data.sum(0))
+        vm = np.linalg.solve(self.cov, self._data.sum(0))
         vm = np.dot(cm, vm)
 
         # Sample
@@ -160,7 +179,7 @@ class BayesGaussMI(object):
         """
         # https://stats.stackexchange.com/questions/50844/estimating-the-covariance-posterior-distribution-of-a-multivariate-gaussian
 
-        r = self.data - self.mean
+        r = self._data - self.mean
         gr = np.dot(r.T, r)
         a = gr + self.cov_prior
         df = int(np.ceil(self.nobs + self.cov_prior_df))
@@ -171,7 +190,7 @@ class BayesGaussMI(object):
         self.cov = np.linalg.inv(ma)
 
 
-class MI(object):
+class MI:
     """
     MI performs multiple imputation using a provided imputer object.
 
@@ -181,12 +200,17 @@ class MI(object):
         An imputer class, such as BayesGaussMI.
     model : model class
         Any statsmodels model class.
-    model_args : list-like, optional
-        List of arguments to be passed to the model initializer.
-        Must include endog, exog, and any other mandatory arguments
-        for the model class.
-    model_kwds : dict-like, optional
-        Keyword arguments to be passed to the model initializer
+    model_args_fn : function
+        A function taking an imputed dataset as input and returning
+        endog, exog.  If the model is fit using a formula, returns
+        a DataFrame used to build the model.  Optional when a formula
+        is used.
+    model_kwds_fn : function, optional
+        A function taking an imputed dataset as input and returning
+        a dictionary of model keyword arguments.
+    formula : str, optional
+        If provided, the model is constructed using the `from_formula`
+        class method, otherwise the `__init__` method is used.
     fit_args : list-like, optional
         List of arguments to be passed to the fit method
     fit_kwds : dict-like, optional
@@ -200,7 +224,7 @@ class MI(object):
         Number of imputed data sets to use in the analysis
     skip : int
         Number of Gibbs iterations to skip between successive
-        mutiple imputation fits.
+        multiple imputation fits.
 
     Notes
     -----
@@ -212,9 +236,9 @@ class MI(object):
     to 0/1.
     """
 
-    def __init__(self, imp, model, model_args, model_kwds=None,
-                 fit_args=None, fit_kwds=None, xfunc=None, burn=100,
-                 nrep=20, skip=10):
+    def __init__(self, imp, model, model_args_fn=None, model_kwds_fn=None,
+                 formula=None, fit_args=None, fit_kwds=None, xfunc=None,
+                 burn=100, nrep=20, skip=10):
 
         # The imputer
         self.imp = imp
@@ -225,13 +249,19 @@ class MI(object):
 
         # The model class
         self.model = model
-        self.model_args = model_args
+        self.formula = formula
 
-        if model_kwds is None:
+        if model_args_fn is None:
+            def f(x):
+                return []
+            model_args_fn = f
+        self.model_args_fn = model_args_fn
+
+        if model_kwds_fn is None:
             def f(x):
                 return {}
-            model_kwds = f
-        self.model_kwds = model_kwds
+            model_kwds_fn = f
+        self.model_kwds_fn = model_kwds_fn
 
         if fit_args is None:
             def f(x):
@@ -253,17 +283,25 @@ class MI(object):
         for k in range(burn):
             imp.update()
 
-    def fit(self):
+    def fit(self, results_cb=None):
         """
-        fit imputes datasets, fits models, and pools results.
+        Impute datasets, fit models, and pool results.
+
+        Parameters
+        ----------
+        results_cb : function, optional
+            If provided, each results instance r is passed through `results_cb`,
+            then appended to the `results` attribute of the MIResults object.
+            To save complete results, use `results_cb=lambda x: x`.  The default
+            behavior is to save no results.
 
         Returns
         -------
         A MIResults object.
         """
 
-        par = []
-        cov = []
+        par, cov = [], []
+        all_results = []
 
         for k in range(self.nrep):
 
@@ -275,16 +313,29 @@ class MI(object):
             if self.xfunc is not None:
                 da = self.xfunc(da)
 
-            model = self.model(*self.model_args(da), **self.model_kwds(da))
+            if self.formula is None:
+                model = self.model(*self.model_args_fn(da),
+                                   **self.model_kwds_fn(da))
+            else:
+                model = self.model.from_formula(
+                          self.formula, *self.model_args_fn(da),
+                          **self.model_kwds_fn(da))
+
             result = model.fit(*self.fit_args(da), **self.fit_kwds(da))
 
-            par.append(result.params.copy())
-            cov.append(result.cov_params().copy())
+            if results_cb is not None:
+                all_results.append(results_cb(result))
+
+            par.append(np.asarray(result.params.copy()))
+            cov.append(np.asarray(result.cov_params().copy()))
 
         params, cov_params, fmi = self._combine(par, cov)
 
         r = MIResults(self, model, params, cov_params)
         r.fmi = fmi
+
+        r.results = all_results
+
         return r
 
     def _combine(self, par, cov):
@@ -326,15 +377,15 @@ class MIResults(LikelihoodModelResults):
         This can be any instance from the multiple imputation runs.
         It is used to get class information, the specific parameter
         and data values are not used.
-    params : array-like
+    params : array_like
         The overall multiple imputation parameter estimates.
-    normalized_cov_params : array-like (2d)
+    normalized_cov_params : array_like (2d)
         The overall variance covariance matrix of the estimates.
     """
 
     def __init__(self, mi, model, params, normalized_cov_params):
 
-        super(MIResults, self).__init__(model, params, normalized_cov_params)
+        super().__init__(model, params, normalized_cov_params)
         self.mi = mi
         self._model = model
 
@@ -343,8 +394,8 @@ class MIResults(LikelihoodModelResults):
         Summarize the results of running multiple imputation.
 
         Parameters
-        -----------
-        title : string, optional
+        ----------
+        title : str, optional
             Title for the top table. If not None, then this replaces
             the default title
         alpha : float
@@ -358,12 +409,11 @@ class MIResults(LikelihoodModelResults):
         """
 
         from statsmodels.iolib import summary2
-        from statsmodels.compat.collections import OrderedDict
 
         smry = summary2.Summary()
         float_format = "%8.3f"
 
-        info = OrderedDict()
+        info = {}
         info["Method:"] = "MI"
         info["Model:"] = self.mi.model.__name__
         info["Dependent variable:"] = self._model.endog_names

@@ -12,11 +12,9 @@ General References
 Owen, A.B.(2001). Empirical Likelihood. Chapman and Hall
 
 """
-from __future__ import division
-
 import numpy as np
-from statsmodels.emplike.descriptive import _OptFuncts
 
+from statsmodels.emplike.descriptive import _OptFuncts
 
 
 class _ELRegOpts(_OptFuncts):
@@ -29,8 +27,7 @@ class _ELRegOpts(_OptFuncts):
     ----------
 
     OLSResults : Results instance
-        A fitted OLS result
-
+        A fitted OLS result.
     """
     def __init__(self):
         pass
@@ -41,12 +38,12 @@ class _ELRegOpts(_OptFuncts):
                           stochastic_exog=None):
         """
         A function that is optimized over nuisance parameters to conduct a
-        hypothesis test for the parameters of interest
+        hypothesis test for the parameters of interest.
 
         Parameters
         ----------
         nuisance_params: 1darray
-            Parameters to be optimized over
+            Parameters to be optimized over.
 
         Returns
         -------
@@ -86,8 +83,5 @@ class _ELRegOpts(_OptFuncts):
             #    raise RuntimeError('weights do not sum to 1')
             llr = np.sum(np.log(nobs * self.new_weights))
             return -2 * llr
-        except np.linalg.linalg.LinAlgError:
+        except np.linalg.LinAlgError:
             return np.inf
-
-
-

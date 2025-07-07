@@ -1,26 +1,22 @@
-from statsmodels.compat.testing import skipif
-
 from statsmodels.sandbox.predict_functional import predict_functional
 import numpy as np
 import pandas as pd
+import pytest
 import statsmodels.api as sm
-from numpy.testing import dec
 
 # If true, the output is written to a multi-page pdf file.
 pdf_output = False
 
 try:
     import matplotlib.pyplot as plt
-    import matplotlib
-    have_matplotlib = True
 except ImportError:
-    have_matplotlib = False
+    pass
 
 def pctl(q):
     return lambda x : np.percentile(x, 100 *q)
 
 
-class TestPredFunc(object):
+class TestPredFunc:
 
     @classmethod
     def setup_class(cls):
@@ -36,12 +32,9 @@ class TestPredFunc(object):
     def close_or_save(self, fig):
         if pdf_output:
             self.pdf.savefig(fig)
-        else:
-            plt.close(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_formula(self):
+    @pytest.mark.matplotlib
+    def test_formula(self, close_figures):
 
         np.random.seed(542)
         n = 500
@@ -73,7 +66,7 @@ class TestPredFunc(object):
         plt.plot(fvals1, pr1, '-', label='x4=B')
         plt.plot(fvals2, pr2, '-', label='x4=C')
         ha, lb = ax.get_legend_handles_labels()
-        plt.figlegend(ha, lb, "center right")
+        plt.figlegend(ha, lb, loc="center right")
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Fitted mean", size=15)
         plt.title("Linear model prediction")
@@ -87,15 +80,14 @@ class TestPredFunc(object):
         plt.plot(fvals2, pr2, '-', label='x4=C')
         plt.fill_between(fvals2, ci2[:, 0], ci2[:, 1], color='grey')
         ha, lb = ax.get_legend_handles_labels()
-        plt.figlegend(ha, lb, "center right")
+        plt.figlegend(ha, lb, loc="center right")
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Fitted mean", size=15)
         plt.title("Linear model prediction")
         self.close_or_save(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_lm_contrast(self):
+    @pytest.mark.matplotlib
+    def test_lm_contrast(self, close_figures):
 
         np.random.seed(542)
         n = 200
@@ -122,16 +114,15 @@ class TestPredFunc(object):
         plt.plot(fvals, 4 - fvals, '-', label="Truth", color='lime', lw=4)
         plt.fill_between(fvals, cb[:, 0], cb[:, 1], color='grey')
         ha, lb = ax.get_legend_handles_labels()
-        leg = plt.figlegend(ha, lb, "center right")
+        leg = plt.figlegend(ha, lb, loc="center right")
         leg.draw_frame(False)
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Mean contrast", size=15)
         plt.title("Linear model contrast")
         self.close_or_save(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_glm_formula_contrast(self):
+    @pytest.mark.matplotlib
+    def test_glm_formula_contrast(self, close_figures):
 
         np.random.seed(542)
         n = 50
@@ -159,16 +150,15 @@ class TestPredFunc(object):
         plt.plot(fvals, 0.2 - 0.1*fvals, '-', label="Truth", color='lime', lw=4)
         plt.fill_between(fvals, cb[:, 0], cb[:, 1], color='grey')
         ha, lb = ax.get_legend_handles_labels()
-        leg = plt.figlegend(ha, lb, "center right")
+        leg = plt.figlegend(ha, lb, loc="center right")
         leg.draw_frame(False)
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Linear predictor contrast", size=15)
         plt.title("Poisson regression contrast")
         self.close_or_save(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_scb(self):
+    @pytest.mark.matplotlib
+    def test_scb(self, close_figures):
 
         np.random.seed(473)
         n = 100
@@ -220,7 +210,7 @@ class TestPredFunc(object):
                 plt.plot(fvals2, cb2[:, 0], color='green', label='Simultaneous CB')
                 plt.plot(fvals2, cb2[:, 1], color='green')
                 ha, lb = ax.get_legend_handles_labels()
-                leg = plt.figlegend(ha, lb, "center right")
+                leg = plt.figlegend(ha, lb, loc="center right")
                 leg.draw_frame(False)
                 plt.xlabel("Focus variable", size=15)
                 if linear:
@@ -231,9 +221,8 @@ class TestPredFunc(object):
 
                 self.close_or_save(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_glm_formula(self):
+    @pytest.mark.matplotlib
+    def test_glm_formula(self, close_figures):
 
         np.random.seed(542)
         n = 500
@@ -275,7 +264,7 @@ class TestPredFunc(object):
             plt.plot(fvals1, exact1, '-', label='x3=B (exact)')
             plt.plot(fvals2, exact2, '-', label='x3=C (exact)')
             ha, lb = ax.get_legend_handles_labels()
-            plt.figlegend(ha, lb, "center right")
+            plt.figlegend(ha, lb, loc="center right")
             plt.xlabel("Focus variable", size=15)
             if linear:
                 plt.ylabel("Fitted linear predictor", size=15)
@@ -292,7 +281,7 @@ class TestPredFunc(object):
             plt.plot(fvals2, pr2, '-', label='x3=C', color='lime')
             plt.fill_between(fvals2, ci2[:, 0], ci2[:, 1], color='grey')
             ha, lb = ax.get_legend_handles_labels()
-            plt.figlegend(ha, lb, "center right")
+            plt.figlegend(ha, lb, loc="center right")
             plt.xlabel("Focus variable", size=15)
             if linear:
                 plt.ylabel("Fitted linear predictor", size=15)
@@ -301,9 +290,8 @@ class TestPredFunc(object):
             plt.title("Binomial GLM prediction")
             self.close_or_save(fig)
 
-
-    @skipif(not have_matplotlib, reason='matplotlib not available')
-    def test_noformula_prediction(self):
+    @pytest.mark.matplotlib
+    def test_noformula_prediction(self, close_figures):
 
         np.random.seed(6434)
         n = 200
@@ -330,7 +318,7 @@ class TestPredFunc(object):
         plt.plot(fvals1, pr1, '-', label='x2=1', lw=4, alpha=0.6, color='orange')
         plt.plot(fvals2, pr2, '-', label='x2=-1', lw=4, alpha=0.6, color='lime')
         ha, lb = ax.get_legend_handles_labels()
-        leg = plt.figlegend(ha, lb, "center right")
+        leg = plt.figlegend(ha, lb, loc="center right")
         leg.draw_frame(False)
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Fitted mean", size=15)
@@ -345,7 +333,7 @@ class TestPredFunc(object):
         plt.plot(fvals1, pr2, '-', label='x2=1', lw=4, alpha=0.6, color='lime')
         plt.fill_between(fvals2, ci2[:, 0], ci2[:, 1], color='grey')
         ha, lb = ax.get_legend_handles_labels()
-        plt.figlegend(ha, lb, "center right")
+        plt.figlegend(ha, lb, loc="center right")
         plt.xlabel("Focus variable", size=15)
         plt.ylabel("Fitted mean", size=15)
         plt.title("Linear model prediction")

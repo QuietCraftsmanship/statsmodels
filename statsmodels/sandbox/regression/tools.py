@@ -19,7 +19,6 @@ A: josef-pktd
 
 '''
 
-from __future__ import print_function
 import numpy as np
 from scipy import special
 from scipy.special import gammaln
@@ -30,14 +29,14 @@ def norm_lls(y, params):
 
     Parameters
     ----------
-    y : array, 1d
+    y : ndarray, 1d
         normally distributed random variable
-    params: array, (nobs, 2)
+    params : ndarray, (nobs, 2)
         array of mean, variance (mu, sigma2) with observations in rows
 
     Returns
     -------
-    lls : array
+    lls : ndarray
         contribution to loglikelihood for each observation
     '''
 
@@ -50,9 +49,9 @@ def norm_lls_grad(y, params):
 
     Parameters
     ----------
-    y : array, 1d
+    y : ndarray, 1d
         normally distributed random variable
-    params: array, (nobs, 2)
+    params : ndarray, (nobs, 2)
         array of mean, variance (mu, sigma2) with observations in rows
 
     Returns
@@ -83,11 +82,11 @@ def normgrad(y, x, params):
 
     Parameters
     ----------
-    y : array, 1d
+    y : ndarray, 1d
         normally distributed random variable with mean x*beta, and variance sigma2
-    x : array, 2d
+    x : ndarray, 2d
         explanatory variables, observation in rows, variables in columns
-    params: array_like, (nvars + 1)
+    params : array_like, (nvars + 1)
         array of coefficients and variance (beta, sigma2)
 
     Returns
@@ -119,21 +118,21 @@ def tstd_lls(y, params, df):
 
     Parameters
     ----------
-    y : array, 1d
+    y : ndarray, 1d
         normally distributed random variable
-    params: array, (nobs, 2)
+    params : ndarray, (nobs, 2)
         array of mean, variance (mu, sigma2) with observations in rows
-    df : integer
+    df : int
         degrees of freedom of the t distribution
 
     Returns
     -------
-    lls : array
+    lls : ndarray
         contribution to loglikelihood for each observation
 
     Notes
     -----
-    parameterized for garch
+    parametrized for garch
     '''
 
     mu, sigma2 = params.T
@@ -150,16 +149,6 @@ def norm_dlldy(y):
     '''
     return -y
 
-def ts_dlldy(y, df):
-    '''derivative of log pdf of standardized (?) t with respect to y
-
-    Notes
-    -----
-    parameterized for garch, with mean 0 and variance 1
-    '''
-    #(df+1)/2. / (1 + y**2/(df-2.)) * 2.*y/(df-2.)
-    #return -(df+1)/(df-2.) / (1 + y**2/(df-2.)) * y
-    return -(df+1)/(df) / (1 + y**2/(df)) * y
 
 def tstd_pdf(x, df):
     '''pdf for standardized (not standard) t distribution, variance is one
@@ -167,7 +156,7 @@ def tstd_pdf(x, df):
     '''
 
     r = np.array(df*1.0)
-    Px = np.exp(special.gammaln((r+1)/2.)-special.gammaln(r/2.))/np.sqrt((r-2)*pi)
+    Px = np.exp(special.gammaln((r+1)/2.)-special.gammaln(r/2.))/np.sqrt((r-2)*np.pi)
     Px /= (1+(x**2)/(r-2))**((r+1)/2.)
     return Px
 
@@ -176,21 +165,21 @@ def ts_lls(y, params, df):
 
     Parameters
     ----------
-    y : array, 1d
+    y : ndarray, 1d
         normally distributed random variable
-    params: array, (nobs, 2)
+    params : ndarray, (nobs, 2)
         array of mean, variance (mu, sigma2) with observations in rows
-    df : integer
+    df : int
         degrees of freedom of the t distribution
 
     Returns
     -------
-    lls : array
+    lls : ndarray
         contribution to loglikelihood for each observation
 
     Notes
     -----
-    parameterized for garch
+    parametrized for garch
     normalized/rescaled so that sigma2 is the variance
 
     >>> df = 10; sigma = 1.
@@ -223,7 +212,7 @@ def ts_dlldy(y, df):
 
     Returns
     -------
-    dlldy : array
+    dlldy : ndarray
         derivative of loglikelihood wrt random variable y evaluated at the
         points given in y
 
@@ -241,7 +230,7 @@ def tstd_dlldy(y, df):
     '''derivative of log pdf of standardized t with respect to y
 
         Parameters
-    ----------
+        ----------
     y : array_like
         data points of random variable at which loglike is evaluated
     df : array_like
@@ -250,14 +239,14 @@ def tstd_dlldy(y, df):
 
     Returns
     -------
-    dlldy : array
+    dlldy : ndarray
         derivative of loglikelihood wrt random variable y evaluated at the
         points given in y
 
 
     Notes
     -----
-    parameterized for garch, standardized to variance=1
+    parametrized for garch, standardized to variance=1
     '''
     #(df+1)/2. / (1 + y**2/(df-2.)) * 2.*y/(df-2.)
     return -(df+1)/(df-2.) / (1 + y**2/(df-2.)) * y
@@ -281,10 +270,10 @@ def locscale_grad(y, loc, scale, dlldy, *args):
 
     Returns
     -------
-    dlldloc : array
+    dlldloc : ndarray
         derivative of loglikelihood wrt location evaluated at the
         points given in y
-    dlldscale : array
+    dlldscale : ndarray
         derivative of loglikelihood wrt scale evaluated at the
         points given in y
 
@@ -391,11 +380,3 @@ if __name__ == '__main__':
             assert_almost_equal(tstd_lls(yt, np.array([loc, scale**2]), df),
                                 llt(yt,loc,scale*np.sqrt((df-2.)/df),df), 5,
                                 err_msg='loglike')
-
-
-
-
-
-
-
-

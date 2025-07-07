@@ -14,22 +14,22 @@ Examples
 --------
 
 .. ipython:: python
-    :okwarning:
+   :okwarning:
 
-    # Load modules and data
-    import statsmodels.api as sm
-    data = sm.datasets.scotland.load()
-    data.exog = sm.add_constant(data.exog)
+   # Load modules and data
+   import statsmodels.api as sm
+   data = sm.datasets.scotland.load()
+   data.exog = sm.add_constant(data.exog)
 
-    # Instantiate a gamma family model with the default link function.
-    gamma_model = sm.GLM(data.endog, data.exog, family=sm.families.Gamma())
-    gamma_results = gamma_model.fit()
-    print(gamma_results.summary())
+   # Instantiate a gamma family model with the default link function.
+   gamma_model = sm.GLM(data.endog, data.exog, family=sm.families.Gamma())
+   gamma_results = gamma_model.fit()
+   print(gamma_results.summary())
 
 Detailed examples can be found here:
 
-* `GLM <examples/notebooks/generated/glm.html>`__
-* `Formula <examples/notebooks/generated/glm_formula.html>`__
+* `GLM <examples/notebooks/generated/glm.ipynb>`_
+* `Formula <examples/notebooks/generated/glm_formula.ipynb>`_
 
 Technical Documentation
 -----------------------
@@ -132,7 +132,7 @@ Results Class
    :toctree: generated/
 
    GLMResults
-   PredictionResults
+   PredictionResultsMean
 
 .. _families:
 
@@ -146,7 +146,6 @@ The distribution families currently implemented are
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/glmfamilies.rst
 
    Family
    Binomial
@@ -163,6 +162,9 @@ The distribution families currently implemented are
 Link Functions
 ^^^^^^^^^^^^^^
 
+Note: The lower case link classes have been deprecated and will be removed in
+future. Link classes now follow the Python class name convention.
+
 The link functions currently implemented are the following. Not all link
 functions are available for each distribution family. The list of
 available link functions can be obtained by
@@ -178,19 +180,45 @@ available link functions can be obtained by
    :toctree: generated/
 
    Link
-
    CDFLink
    CLogLog
+   LogLog
+   LogC
    Log
    Logit
    NegativeBinomial
    Power
-   cauchy
-   cloglog
-   identity
-   inverse_power
-   inverse_squared
-   log
-   logit
+   Cauchy
+   Identity
+   InversePower
+   InverseSquared
+   Probit
+
+.. _varfuncs:
+
+Variance Functions
+^^^^^^^^^^^^^^^^^^
+
+Each of the families has an associated variance function. You can access
+the variance functions here:
+
+::
+
+    >>> sm.families.<familyname>.variance
+
+.. module:: statsmodels.genmod.families.varfuncs
+.. currentmodule:: statsmodels.genmod.families.varfuncs
+
+.. autosummary::
+   :toctree: generated/
+
+   VarianceFunction
+   constant
+   Power
+   mu
+   mu_squared
+   mu_cubed
+   Binomial
+   binary
+   NegativeBinomial
    nbinom
-   probit

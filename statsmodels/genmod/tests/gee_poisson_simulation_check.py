@@ -6,12 +6,13 @@ This script checks Poisson models.
 See the generated file "gee_poisson_simulation_check.txt" for results.
 """
 
-from __future__ import print_function
 import numpy as np
+
+from statsmodels.genmod.cov_struct import Exchangeable, Independence
 from statsmodels.genmod.families import Poisson
-from .gee_gaussian_simulation_check import GEE_simulator
 from statsmodels.genmod.generalized_estimating_equations import GEE
-from statsmodels.genmod.cov_struct import Exchangeable,Independence
+
+from .gee_gaussian_simulation_check import GEE_simulator
 
 
 class Exchangeable_simulator(GEE_simulator):
@@ -122,10 +123,11 @@ class Overdispersed_simulator(GEE_simulator):
         endog, exog, group, time = [], [], [], []
 
         # Get a basis for the orthogonal complement to params.
-        f = np.sum(self.params**2)
-        u,s,vt = np.linalg.svd(np.eye(len(self.params)) -
-                               np.outer(self.params, self.params) / f)
-        params0 = u[:,np.flatnonzero(s > 1e-6)]
+        # Unused, commented out
+        # f = np.sum(self.params**2)
+        # u,s,vt = np.linalg.svd(np.eye(len(self.params)) -
+        #                       np.outer(self.params, self.params) / f)
+        # params0 = u[:,np.flatnonzero(s > 1e-6)]
 
         for i in range(self.ngroups):
 
@@ -179,7 +181,7 @@ if __name__ == "__main__":
     np.set_printoptions(formatter={'all': lambda x: "%8.3f" % x},
                         suppress=True)
 
-    OUT = open("gee_poisson_simulation_check.txt", "w")
+    OUT = open("gee_poisson_simulation_check.txt", "w", encoding="utf-8")
 
     nrep = 100
 

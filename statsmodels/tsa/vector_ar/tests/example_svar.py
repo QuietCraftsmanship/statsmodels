@@ -1,14 +1,16 @@
 import numpy as np
-import statsmodels.api as sm
 import pandas as pd
 
-mdatagen = sm.datasets.macrodata.load().data
+import statsmodels.datasets.macrodata
+from statsmodels.tsa.vector_ar.svar_model import SVAR
+
+mdatagen = statsmodels.datasets.macrodata.load().data
 mdata = mdatagen[['realgdp','realcons','realinv']]
 names = mdata.dtype.names
 start = pd.datetime(1959, 3, 31)
 end = pd.datetime(2009, 9, 30)
 #qtr = pd.DatetimeIndex(start=start, end=end, freq=pd.datetools.BQuarterEnd())
-qtr = pd.DatetimeIndex(start=start, end=end, freq='BQ-MAR')
+qtr = pd.date_range(start=start, end=end, freq='BQ-MAR')
 data = pd.DataFrame(mdata, index=qtr)
 data = (np.log(data)).diff().dropna()
 

@@ -4,7 +4,7 @@ no failures but needs cleanup
 update 2012-09-09:
    added test after fixing bug in covariance
    TODOs:
-     - I don't remember what all the commented out code is doing
+     - I do not remember what all the commented out code is doing
      - should be refactored to use generator or inherited tests
      - still gaps in test coverage
        - value/diff in ttest_ind is tested in test_tost.py
@@ -16,27 +16,28 @@ License: BSD (3-clause)
 '''
 
 import numpy as np
-from scipy import stats
+from numpy.testing import assert_, assert_allclose, assert_almost_equal
 import pandas as pd
-from numpy.testing import (assert_, assert_almost_equal, assert_equal,
-                           assert_allclose)
+from scipy import stats
 
-from statsmodels.stats.weightstats import (DescrStatsW, CompareMeans,
-                                           ttest_ind, ztest, zconfint)
-# import statsmodels.stats.weightstats as smws
-
-
-class Holder(object):
-    pass
+from statsmodels.stats.weightstats import (
+    CompareMeans,
+    DescrStatsW,
+    ttest_ind,
+    zconfint,
+    ztest,
+)
+from statsmodels.tools.testing import Holder
 
 
 # Mixin for tests against other packages.
-class CheckExternalMixin(object):
+class CheckExternalMixin:
 
     @classmethod
     def get_descriptives(cls, ddof=0):
         cls.descriptive = DescrStatsW(cls.data, cls.weights, ddof)
 
+    # TODO: not a test, belongs elsewhere?
     @classmethod
     def save_data(cls, fname="data.csv"):
         # Utility to get data into another package.
@@ -167,7 +168,7 @@ class TestSim2(CheckExternalMixin):
         cls.get_descriptives()
 
 
-class TestWeightstats(object):
+class TestWeightstats:
 
     @classmethod
     def setup_class(cls):
@@ -186,19 +187,17 @@ class TestWeightstats(object):
 
     def test_weightstats_1(self):
         x1, x2 = self.x1, self.x2
-        w1, w2 = self.w1, self.w2
         w1_ = 2. * np.ones(len(x1))
         w2_ = 2. * np.ones(len(x2))
 
-        d1 = DescrStatsW(x1)
-#        print ttest_ind(x1, x2)
-#        print ttest_ind(x1, x2, usevar='unequal')
-#        #print ttest_ind(x1, x2, usevar='unequal')
-#        print stats.ttest_ind(x1, x2)
-#        print ttest_ind(x1, x2, usevar='unequal', alternative='larger')
-#        print ttest_ind(x1, x2, usevar='unequal', alternative='smaller')
-#        print ttest_ind(x1, x2, usevar='unequal', weights=(w1_, w2_))
-#        print stats.ttest_ind(np.r_[x1, x1], np.r_[x2,x2])
+        #        print ttest_ind(x1, x2)
+        #        print ttest_ind(x1, x2, usevar='unequal')
+        #        #print ttest_ind(x1, x2, usevar='unequal')
+        #        print stats.ttest_ind(x1, x2)
+        #        print ttest_ind(x1, x2, usevar='unequal', alternative='larger')
+        #        print ttest_ind(x1, x2, usevar='unequal', alternative='smaller')
+        #        print ttest_ind(x1, x2, usevar='unequal', weights=(w1_, w2_))
+        #        print stats.ttest_ind(np.r_[x1, x1], np.r_[x2,x2])
         assert_almost_equal(ttest_ind(x1, x2, weights=(w1_, w2_))[:2],
                             stats.ttest_ind(np.r_[x1, x1], np.r_[x2, x2]))
 
@@ -211,14 +210,14 @@ class TestWeightstats(object):
         d2w = DescrStatsW(x2, weights=w2)
         x1r = d1w.asrepeats()
         x2r = d2w.asrepeats()
-#        print 'random weights'
-#        print ttest_ind(x1, x2, weights=(w1, w2))
-#        print stats.ttest_ind(x1r, x2r)
+        #        print 'random weights'
+        #        print ttest_ind(x1, x2, weights=(w1, w2))
+        #        print stats.ttest_ind(x1r, x2r)
         assert_almost_equal(ttest_ind(x1, x2, weights=(w1, w2))[:2],
                             stats.ttest_ind(x1r, x2r), 14)
         # not the same as new version with random weights/replication
-#        assert x1r.shape[0] == d1w.sum_weights
-#        assert x2r.shape[0] == d2w.sum_weights
+        #        assert x1r.shape[0] == d1w.sum_weights
+        #        assert x2r.shape[0] == d2w.sum_weights
 
         assert_almost_equal(x2r.mean(0), d2w.mean, 14)
         assert_almost_equal(x2r.var(), d2w.var, 14)
@@ -229,10 +228,10 @@ class TestWeightstats(object):
         # TODO: exception in corrcoef (scalar case)
 
         # one-sample tests
-#        print d1.ttest_mean(3)
-#        print stats.ttest_1samp(x1, 3)
-#        print d1w.ttest_mean(3)
-#        print stats.ttest_1samp(x1r, 3)
+        #        print d1.ttest_mean(3)
+        #        print stats.ttest_1samp(x1, 3)
+        #        print d1w.ttest_mean(3)
+        #        print stats.ttest_1samp(x1r, 3)
         assert_almost_equal(d1.ttest_mean(3)[:2], stats.ttest_1samp(x1, 3), 11)
         assert_almost_equal(d1w.ttest_mean(3)[:2],
                             stats.ttest_1samp(x1r, 3), 11)
@@ -252,9 +251,9 @@ class TestWeightstats(object):
         assert_almost_equal(np.cov(x2r_2d.T, bias=1), d2w_2d.cov, 14)
         assert_almost_equal(np.corrcoef(x2r_2d.T), d2w_2d.corrcoef, 14)
 
-#        print d1w_2d.ttest_mean(3)
-#        #scipy.stats.ttest is also vectorized
-#        print stats.ttest_1samp(x1r_2d, 3)
+        #        print d1w_2d.ttest_mean(3)
+        #        #scipy.stats.ttest is also vectorized
+        #        print stats.ttest_1samp(x1r_2d, 3)
         t, p, d = d1w_2d.ttest_mean(3)
         assert_almost_equal([t, p], stats.ttest_1samp(x1r_2d, 3), 11)
         # print [stats.ttest_1samp(xi, 3) for xi in x1r_2d.T]
@@ -263,7 +262,7 @@ class TestWeightstats(object):
         resss = stats.ttest_ind(x1r_2d, x2r_2d)
         assert_almost_equal(ressm[:2], resss, 14)
 
-#        doesn't work for 2d, levene doesn't use weights
+#        does not work for 2d, levene does not use weights
 #        cm = CompareMeans(d1w_2d, d2w_2d)
 #        ressm = cm.test_equal_var()
 #        resss = stats.levene(x1r_2d, x2r_2d)
@@ -336,7 +335,7 @@ class TestWeightstats(object):
         assert_(str(cm1.summary()) == str(cm2.summary()))
 
 
-class CheckWeightstats1dMixin(object):
+class CheckWeightstats1dMixin:
 
     def test_basic(self):
         x1r = self.x1r
@@ -681,13 +680,52 @@ ztest_larger_mu_1s.alternative = 'greater'
 ztest_larger_mu_1s.method = 'One-sample z-Test'
 ztest_larger_mu_1s.data_name = 'x'
 
+# > zt = z.test(x, sigma.x=0.46436662631627995, y, sigma.y=0.7069805008424409)
+# > cat_items(zt, "ztest_unequal.")
+ztest_unequal = Holder()
+ztest_unequal.statistic = 6.12808151466544
+ztest_unequal.p_value = 8.89450168270109e-10
+ztest_unequal.conf_int = np.array([1.19415646579981, 2.31720717056382])
+ztest_unequal.estimate = np.array([7.01818181818182, 5.2625])
+ztest_unequal.null_value = 0
+ztest_unequal.alternative = 'two.sided'
+ztest_unequal.usevar = 'unequal'
+ztest_unequal.method = 'Two-sample z-Test'
+ztest_unequal.data_name = 'x and y'
+
+# > zt = z.test(x, sigma.x=0.46436662631627995, y, sigma.y=0.7069805008424409, alternative="less")
+# > cat_items(zt, "ztest_smaller_unequal.")
+ztest_smaller_unequal = Holder()
+ztest_smaller_unequal.statistic = 6.12808151466544
+ztest_smaller_unequal.p_value = 0.999999999555275
+ztest_smaller_unequal.conf_int = np.array([np.nan, 2.22692874913371])
+ztest_smaller_unequal.estimate = np.array([7.01818181818182, 5.2625])
+ztest_smaller_unequal.null_value = 0
+ztest_smaller_unequal.alternative = 'less'
+ztest_smaller_unequal.usevar = 'unequal'
+ztest_smaller_unequal.method = 'Two-sample z-Test'
+ztest_smaller_unequal.data_name = 'x and y'
+
+# > zt = z.test(x, sigma.x=0.46436662631627995, y, sigma.y=0.7069805008424409, alternative="greater")
+# > cat_items(zt, "ztest_larger_unequal.")
+ztest_larger_unequal = Holder()
+ztest_larger_unequal.statistic = 6.12808151466544
+ztest_larger_unequal.p_value = 4.44725034576265e-10
+ztest_larger_unequal.conf_int = np.array([1.28443488722992, np.nan])
+ztest_larger_unequal.estimate = np.array([7.01818181818182, 5.2625])
+ztest_larger_unequal.null_value = 0
+ztest_larger_unequal.alternative = 'greater'
+ztest_larger_unequal.usevar = 'unequal'
+ztest_larger_unequal.method = 'Two-sample z-Test'
+ztest_larger_unequal.data_name = 'x and y'
+
 
 alternatives = {'less': 'smaller',
                 'greater': 'larger',
                 'two.sided': 'two-sided'}
 
 
-class TestZTest(object):
+class TestZTest:
     # all examples use the same data
     # no weights used in tests
 
@@ -737,6 +775,14 @@ class TestZTest(object):
                           alternative=alternatives[tc.alternative])
             assert_allclose(ci, tc_conf_int - tc.null_value, rtol=1e-10)
 
+        # unequal variances
+        for tc in [ztest_unequal, ztest_smaller_unequal, ztest_larger_unequal]:
+            zstat, pval = ztest(x1, x2, value=tc.null_value,
+                                alternative=alternatives[tc.alternative],
+                                usevar="unequal")
+            assert_allclose(zstat, tc.statistic, rtol=1e-10)
+            assert_allclose(pval, tc.p_value, rtol=1e-10, atol=1e-16)
+
         # 1 sample test copy-paste
         d1 = self.d1
         for tc in [ztest_mu_1s, ztest_smaller_mu_1s, ztest_larger_mu_1s]:
@@ -764,3 +810,25 @@ class TestZTest(object):
 
             ci = d1.zconfint_mean(alternative=alternatives[tc.alternative])
             assert_allclose(ci, tc_conf_int, rtol=1e-10)
+
+
+def test_weightstats_len_1():
+    x1 = [1]
+    w1 = [1]
+    d1 = DescrStatsW(x1, w1)
+    assert (d1.quantile([0.0, 0.5, 1.0]) == 1).all()
+
+
+def test_weightstats_2d_w1():
+    x1 = [[1], [2]]
+    w1 = [[1], [2]]
+    d1 = DescrStatsW(x1, w1)
+    print(len(np.array(w1).shape))
+    assert (d1.quantile([0.5, 1.0]) == 2).all().all()
+
+
+def test_weightstats_2d_w2():
+    x1 = [[1]]
+    w1 = [[1]]
+    d1 = DescrStatsW(x1, w1)
+    assert (d1.quantile([0, 0.5, 1.0]) == 1).all().all()

@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 21 15:42:18 2010
 
 Author: josef-pktd
 """
 
-from __future__ import print_function
 import numpy as np
 from scipy import linalg
 

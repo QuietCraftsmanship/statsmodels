@@ -1,4 +1,3 @@
-
 import numpy as np
 from statsmodels.tsa.arima_process import arma_generate_sample
 from statsmodels.tsa.arma_mle import Arma
@@ -36,7 +35,7 @@ def mcarma22(niter=10, nsample=1000, ar=None, ma=None, sig=0.5):
         #print('sige2a', sige2a,
         #print('cov_x2a.shape', cov_x2a.shape
         #results_bse.append(sige2a * np.sqrt(np.diag(cov_x2a)))
-        if not cov_x2a is None:
+        if cov_x2a is not None:
             results_bse.append(sige2a * np.sqrt(np.diag(cov_x2a)))
         else:
             results_bse.append(np.nan + np.zeros_like(rhohat2a))

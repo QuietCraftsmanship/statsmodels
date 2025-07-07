@@ -4,32 +4,29 @@ Tests for miscellaneous models
 Author: Chad Fulton
 License: Simplified-BSD
 """
-from __future__ import division, absolute_import, print_function
 
 import numpy as np
 import pandas as pd
 import os
-import re
+import pytest
 
-import warnings
 from statsmodels.tsa.statespace import mlemodel, sarimax
 from statsmodels import datasets
-from statsmodels.compat.testing import SkipTest
-from numpy.testing import assert_almost_equal, assert_equal, assert_allclose, assert_raises
-from .results import results_sarimax
+
+from numpy.testing import assert_equal, assert_allclose, assert_raises
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
 
 class Intercepts(mlemodel.MLEModel):
     """
-    Test class for observation and state intercepts (which usually don't
+    Test class for observation and state intercepts (which usually do not
     get tested in other models).
     """
     def __init__(self, endog, **kwargs):
         k_states = 3
         k_posdef = 3
-        super(Intercepts, self).__init__(
+        super().__init__(
             endog, k_states=k_states, k_posdef=k_posdef, **kwargs)
         self['design'] = np.eye(3)
         self['obs_cov'] = np.eye(3)
@@ -47,13 +44,13 @@ class Intercepts(mlemodel.MLEModel):
         return np.arange(6)
 
     def update(self, params, **kwargs):
-        params = super(Intercepts, self).update(params, **kwargs)
+        params = super().update(params, **kwargs)
 
         self['obs_intercept'] = params[:3]
         self['state_intercept'] = params[3:]
 
 
-class TestIntercepts(object):
+class TestIntercepts:
     @classmethod
     def setup_class(cls, which='mixed', **kwargs):
         # Results
@@ -198,7 +195,7 @@ class TestIntercepts(object):
 
 class LargeStateCovAR1(mlemodel.MLEModel):
     """
-    Test class for k_posdef > k_states (which usually don't get tested in
+    Test class for k_posdef > k_states (which usually do not get tested in
     other models).
 
     This is just an AR(1) model with an extra unused state innovation
@@ -206,7 +203,7 @@ class LargeStateCovAR1(mlemodel.MLEModel):
     def __init__(self, endog, **kwargs):
         k_states = 1
         k_posdef = 2
-        super(LargeStateCovAR1, self).__init__(
+        super().__init__(
             endog, k_states=k_states, k_posdef=k_posdef, **kwargs)
         self['design', 0, 0] = 1
         self['selection', 0, 0] = 1
@@ -222,7 +219,7 @@ class LargeStateCovAR1(mlemodel.MLEModel):
         return [0.5, 1]
 
     def update(self, params, **kwargs):
-        params = super(LargeStateCovAR1, self).update(params, **kwargs)
+        params = super().update(params, **kwargs)
 
         self['transition', 0, 0] = params[0]
         self['state_cov', 0, 0] = params[1]
@@ -232,13 +229,14 @@ def test_large_kposdef():
     assert_raises(ValueError, LargeStateCovAR1, np.arange(10))
 
 
-class TestLargeStateCovAR1(object):
+class TestLargeStateCovAR1:
     @classmethod
     def setup_class(cls):
-        # TODO This test is skipped since an exception is currently raised if
-        # k_posdef > k_states. However, this test could be used if models of
-        # those types were allowed.
-        raise SkipTest
+        pytest.skip(
+            'TODO: This test is skipped since an exception is currently '
+            'raised if k_posdef > k_states. However, this test could be '
+            'used if models of those types were allowed'
+        )
 
         # Data: just some sample data
         endog = [0.2, -1.5, -.3, -.1, 1.5, 0.2, -0.3, 0.2, 0.5, 0.8]

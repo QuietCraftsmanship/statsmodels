@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 
@@ -8,21 +7,25 @@ License: BSD
 
 todo:
 change moment calculation, (currently uses default _ppf method - I think)
->>> lognormalg.moment(4)
+# >>> lognormalg.moment(4)
 Warning: The algorithm does not converge.  Roundoff error is detected
   in the extrapolation table.  It is assumed that the requested tolerance
   cannot be achieved, and that the returned result (if full_output = 1) is
   the best which can be obtained.
 array(2981.0032380193438)
 """
-from __future__ import print_function
-import warnings # for silencing, see above...
+import warnings  # for silencing, see above...
+
 import numpy as np
 from numpy.testing import assert_almost_equal
-from scipy import stats, special
-from statsmodels.sandbox.distributions.extras import (
-    lognormalg, squarenormalg, absnormalg, negsquarenormalg, squaretg)
+from scipy import special, stats
 
+from statsmodels.sandbox.distributions.extras import (
+    absnormalg,
+    negsquarenormalg,
+    squarenormalg,
+    squaretg,
+)
 
 # some patches to scipy.stats.distributions so tests work and pass
 # this should be necessary only for older scipy
@@ -32,10 +35,10 @@ stats.distributions.rv_frozen.name = property(lambda self: self.dist.name)
 
 #patch f distribution, correct skew and maybe kurtosis
 def f_stats(self, dfn, dfd):
-    arr, where, inf, sqrt, nan = np.array, np.where, np.inf, np.sqrt, np.nan
+    arr, where, inf, _sqrt, nan = np.array, np.where, np.inf, np.sqrt, np.nan
     v2 = arr(dfd*1.0)
     v1 = arr(dfn*1.0)
-    mu = where (v2 > 2, v2 / arr(v2 - 2), inf)
+    mu = where(v2 > 2, v2 / arr(v2 - 2), inf)
     mu2 = 2*v2*v2*(v2+v1-2)/(v1*(v2-2)**2 * (v2-4))
     mu2 = where(v2 > 4, mu2, inf)
     #g1 = 2*(v2+2*v1-2)/(v2-6)*sqrt((2*v2-4)/(v1*(v2+v1-2)))
@@ -52,7 +55,7 @@ stats.f.__class__._stats = f_stats
 #correct kurtosis by subtracting 3 (Fisher)
 #after this it matches halfnorm for arg close to zero
 def foldnorm_stats(self, c):
-    arr, where, inf, sqrt, nan = np.array, np.where, np.inf, np.sqrt, np.nan
+    sqrt = np.sqrt
     exp = np.exp
     pi = np.pi
 
@@ -79,7 +82,7 @@ stats.foldnorm.__class__._stats = foldnorm_stats
 
 DECIMAL = 5
 
-class Test_Transf2(object):
+class Test_Transf2:
 
     @classmethod
     def setup_class(cls):
@@ -88,21 +91,20 @@ class Test_Transf2(object):
             #The below fails on the SPARC box with scipy 10.1
             #(lognormalg, stats.lognorm(1)),
             #transf2
-           (squarenormalg, stats.chi2(1)),
-           (absnormalg, stats.halfnorm),
-           (absnormalg, stats.foldnorm(1e-5)),  #try frozen
-           #(negsquarenormalg, 1-stats.chi2),  # won't work as distribution
-           (squaretg(10), stats.f(1, 10))
-            ]      #try both frozen
+            (squarenormalg, stats.chi2(1)),
+            (absnormalg, stats.halfnorm),
+            (absnormalg, stats.foldnorm(1e-5)),  #try frozen
+            #(negsquarenormalg, 1-stats.chi2),  # will not work as distribution
+            (squaretg(10), stats.f(1, 10))
+        ]      #try both frozen
 
-        l,s = 0.0, 1.0
         cls.ppfq = [0.1,0.5,0.9]
         cls.xx = [0.95,1.0,1.1]
         cls.nxx = [-0.95,-1.0,-1.1]
 
     def test_equivalent(self):
         xx, ppfq = self.xx, self.ppfq
-        for d1,d2 in self.dist_equivalents:
+        for j,(d1,d2) in enumerate(self.dist_equivalents):
 ##            print d1.name
             assert_almost_equal(d1.cdf(xx), d2.cdf(xx), err_msg='cdf'+d1.name)
             assert_almost_equal(d1.pdf(xx), d2.pdf(xx),
@@ -123,6 +125,8 @@ class Test_Transf2(object):
                 d2mom = d2.dist.moment(3, *d2.args)
             else:
                 d2mom = d2.moment(3)
+            if j==3:
+                print("now")
             assert_almost_equal(d1.moment(3), d2mom,
                                 DECIMAL,
                                 err_msg='moment '+d1.name+d2.name)

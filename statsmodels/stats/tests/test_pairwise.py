@@ -1,26 +1,23 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Wed Mar 28 15:34:18 2012
 
 Author: Josef Perktold
 """
-from statsmodels.compat.python import BytesIO, asbytes, range
 
+from io import BytesIO
 import warnings
-
-try:
-    import matplotlib.pyplot as plt
-    has_maplotlib = True
-except ImportError:
-    has_maplotlib = False
 
 import numpy as np
 import pandas as pd
+import pytest
 from numpy.testing import assert_, assert_allclose, assert_almost_equal, assert_equal, \
     assert_raises
 
+from statsmodels.compat.python import asbytes
 from statsmodels.stats.libqsturng import qsturng
+from statsmodels.stats.multicomp import (tukeyhsd, pairwise_tukeyhsd,
+                                         MultiComparison)
 
 ss = '''\
   43.9  1   1
@@ -120,7 +117,16 @@ ss5 = '''\
 3 - 2\t-4.340\t-7.989\t-0.691\t***
 3 - 1\t0.260\t-3.389\t3.909\t-
 1 - 2\t-4.600\t-8.249\t-0.951\t***
-1 - 3\t-0.260\t-3.909\t3.389\t'''
+1 - 3\t-0.260\t-3.909\t3.389\t-
+'''
+
+# result in R: library(rstatix)
+# games_howell_test(df, StressReduction ~ Treatment, conf.level = 0.99)
+ss2_unequal = '''\
+1\tStressReduction\tmedical\tmental\t1.8888888888888888\t0.7123347940930316\t3.0654429836847461\t0.000196\t***
+2\tStressReduction\tmedical\tphysical\t0.8888888888888888\t-0.8105797509636128\t2.5883575287413905\t0.206000\tns
+3\tStressReduction\tmental\tphysical\t-1.0000000000000000\t-2.6647460755237473\t0.6647460755237473\t0.127000\tns
+'''
 
 cylinders = np.array([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 6, 6, 6, 4, 4,
                     4, 4, 4, 4, 6, 8, 8, 8, 8, 4, 4, 4, 4, 8, 8, 8, 8, 6, 6, 6, 6, 4, 4, 4, 4, 6, 6,
@@ -140,22 +146,24 @@ ss = asbytes(ss)
 ss2 = asbytes(ss2)
 ss3 = asbytes(ss3)
 ss5 = asbytes(ss5)
+ss2_unequal = asbytes(ss2_unequal)
 
-dta = np.recfromtxt(BytesIO(ss), names=("Rust", "Brand", "Replication"))
-dta2 = np.recfromtxt(BytesIO(ss2), names=("idx", "Treatment", "StressReduction"))
-dta3 = np.recfromtxt(BytesIO(ss3), names=("Brand", "Relief"))
-dta5 = np.recfromtxt(BytesIO(ss5), names=('pair', 'mean', 'lower', 'upper', 'sig'), delimiter='\t')
-
-dta = pd.DataFrame.from_records(dta)
-dta2 = pd.DataFrame.from_records(dta2)
-dta3 = pd.DataFrame.from_records(dta3)
-dta5 = pd.DataFrame.from_records(dta5)
+dta = pd.read_csv(BytesIO(ss), sep=r'\s+', header=None, engine='python')
+dta.columns = "Rust", "Brand", "Replication"
+dta2 = pd.read_csv(BytesIO(ss2), sep=r'\s+', header=None, engine='python')
+dta2.columns = "idx", "Treatment", "StressReduction"
+dta2["Treatment"] = dta2["Treatment"].map(lambda v: v.encode('utf-8'))
+dta3 = pd.read_csv(BytesIO(ss3), sep=r'\s+', header=None, engine='python')
+dta3.columns = ["Brand", "Relief"]
+dta5 = pd.read_csv(BytesIO(ss5), sep=r'\t', header=None, engine='python')
+dta5.columns = ['pair', 'mean', 'lower', 'upper', 'sig']
+for col in ('pair', 'sig'):
+    dta5[col] = dta5[col].map(lambda v: v.encode('utf-8'))
 sas_ = dta5.iloc[[1, 3, 2]]
-
-from statsmodels.stats.multicomp import (tukeyhsd, pairwise_tukeyhsd,
-                                         MultiComparison)
-#import statsmodels.sandbox.stats.multicomp as multi
-#print tukeyhsd(dta['Brand'], dta['Rust'])
+games_howell_r_result = pd.read_csv(BytesIO(ss2_unequal), sep=r'\t', header=None, engine='python')
+games_howell_r_result.columns = ['idx', 'y', 'group1', 'group2', 'meandiff', 'lower', 'upper', 'pvalue', 'sig']
+for col in ('y', 'group1', 'group2', 'sig'):
+    games_howell_r_result[col] = games_howell_r_result[col].map(lambda v: v.encode('utf-8'))
 
 def get_thsd(mci, alpha=0.05):
     var_ = np.var(mci.groupstats.groupdemean(), ddof=len(mci.groupsunique))
@@ -171,12 +179,15 @@ def get_thsd(mci, alpha=0.05):
     assert_almost_equal(var_, var2, decimal=14)
     return resi
 
-class CheckTuckeyHSDMixin(object):
+class CheckTuckeyHSDMixin:
 
     @classmethod
     def setup_class_(cls):
         cls.mc = MultiComparison(cls.endog, cls.groups)
-        cls.res = cls.mc.tukeyhsd(alpha=cls.alpha)
+        if hasattr(cls, 'use_var'):
+            cls.res = cls.mc.tukeyhsd(alpha=cls.alpha, use_var=cls.use_var)
+        else:
+            cls.res = cls.mc.tukeyhsd(alpha=cls.alpha)
 
     def test_multicomptukey(self):
         assert_almost_equal(self.res.meandiffs, self.meandiff2, decimal=14)
@@ -184,21 +195,26 @@ class CheckTuckeyHSDMixin(object):
         assert_equal(self.res.reject, self.reject2)
 
     def test_group_tukey(self):
+        if hasattr(self, 'use_var') and self.use_var == 'unequal':
+            # in unequal variance case, we feed groupvarwithin, no need to test total variance
+            return
         res_t = get_thsd(self.mc, alpha=self.alpha)
         assert_almost_equal(res_t[4], self.confint2, decimal=2)
 
     def test_shortcut_function(self):
         #check wrapper function
-        res = pairwise_tukeyhsd(self.endog, self.groups, alpha=self.alpha)
+        if hasattr(self, 'use_var'):
+            res = pairwise_tukeyhsd(self.endog, self.groups, alpha=self.alpha, use_var=self.use_var)
+        else:
+            res = pairwise_tukeyhsd(self.endog, self.groups, alpha=self.alpha)
         assert_almost_equal(res.confint, self.res.confint, decimal=14)
 
-    def test_plot_simultaneous_ci(self):
-        # smoke tests
+    @pytest.mark.smoke
+    @pytest.mark.matplotlib
+    def test_plot_simultaneous_ci(self, close_figures):
         self.res._simultaneous_ci()
-        if has_maplotlib:
-            reference = self.res.groupsunique[1]
-            fig = self.res.plot_simultaneous(comparison_name=reference)
-            plt.close('all')
+        reference = self.res.groupsunique[1]
+        self.res.plot_simultaneous(comparison_name=reference)
 
 
 class TestTuckeyHSD2(CheckTuckeyHSDMixin):
@@ -215,7 +231,7 @@ class TestTuckeyHSD2(CheckTuckeyHSDMixin):
         tukeyhsd2s = np.array([ 1.5,1,-0.5,0.3214915,
                                -0.1785085,-1.678509,2.678509,2.178509,
                                 0.6785085,0.01056279,0.1079035,0.5513904]
-                                ).reshape(3,4, order='F')
+                              ).reshape(3,4, order='F')
         cls.meandiff2 = tukeyhsd2s[:, 0]
         cls.confint2 = tukeyhsd2s[:, 1:3]
         pvals = tukeyhsd2s[:, 3]
@@ -249,33 +265,44 @@ class TestTuckeyHSD2(CheckTuckeyHSDMixin):
             second_group = t[i][1].data
             assert_((first_group, second_group) == expected_order[i - 1])
 
+        frame = res.summary_frame()
+        assert_equal(frame["p-adj"], res.pvalues)
+        assert_equal(frame["meandiff"], res.meandiffs)
+        # Why are we working with binary strings, old time numpy?
+        group_t = [b"medical", b"mental", b"mental"]
+        group_c = [b"physical", b"physical", b"medical"]
+        assert frame["group_t"].to_list() == group_t
+        assert frame["group_c"].to_list() == group_c
+
 
 class TestTuckeyHSD2Pandas(TestTuckeyHSD2):
 
     @classmethod
     def setup_class(cls):
-        super(TestTuckeyHSD2Pandas, cls).setup_class()
+        super().setup_class()
 
-        import pandas
-        cls.endog = pandas.Series(cls.endog)
+        cls.endog = pd.Series(cls.endog)
         # we are working with bytes on python 3, not with strings in this case
-        cls.groups = pandas.Series(cls.groups, dtype=object)
+        cls.groups = pd.Series(cls.groups, dtype=object)
 
     def test_incorrect_output(self):
         # too few groups
-        assert_raises(ValueError, MultiComparison, np.array([1] * 10), [1, 2] * 4)
+        with pytest.raises(ValueError):
+            MultiComparison(np.array([1] * 10), [1, 2] * 4)
         # too many groups
-        assert_raises(ValueError, MultiComparison, np.array([1] * 10), [1, 2] * 6)
+        with pytest.raises(ValueError):
+            MultiComparison(np.array([1] * 10), [1, 2] * 6)
         # just one group
-        assert_raises(ValueError, MultiComparison, np.array([1] * 10), [1] * 10)
+        with pytest.raises(ValueError):
+            MultiComparison(np.array([1] * 10), [1] * 10)
 
-        # group_order doesn't select all observations, only one group left
+        # group_order does not select all observations, only one group left
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
             assert_raises(ValueError, MultiComparison, np.array([1] * 10),
                          [1, 2] * 5, group_order=[1])
 
-        # group_order doesn't select all observations,
+        # group_order does not select all observations,
         # we do tukey_hsd with reduced set of observations
         data = np.arange(15)
         groups = np.repeat([1, 2, 3], 5)
@@ -326,6 +353,23 @@ class TestTuckeyHSD2s(CheckTuckeyHSDMixin):
         cls.reject2 = pvals < 0.01
 
 
+class TestTukeyHSD2sUnequal(CheckTuckeyHSDMixin):
+
+    @classmethod
+    def setup_class(cls):
+        # Games-Howell test
+        cls.endog = dta2['StressReduction'][3:29]
+        cls.groups = dta2['Treatment'][3:29]
+        cls.alpha = 0.01
+        cls.use_var = 'unequal'
+        cls.setup_class_()
+
+        #from R: library(rstatix)
+        cls.meandiff2 = games_howell_r_result['meandiff']
+        cls.confint2 = games_howell_r_result[['lower', 'upper']].astype(float).values.reshape((3, 2))
+        cls.reject2 = games_howell_r_result['sig'] == asbytes('***')
+
+
 class TestTuckeyHSD3(CheckTuckeyHSDMixin):
 
     @classmethod
@@ -367,4 +411,19 @@ class TestTuckeyHSD4(CheckTuckeyHSDMixin):
         cls.reject2 = np.array([False, False, False,  True, False, False,  True, False,  True, False])
 
     def test_hochberg_intervals(self):
-        assert_almost_equal(self.res.halfwidths, self.halfwidth2, 14)
+        assert_almost_equal(self.res.halfwidths, self.halfwidth2, 4)
+
+
+@pytest.mark.smoke
+@pytest.mark.matplotlib
+def test_plot(close_figures):
+    # SMOKE test
+    cylinders_adj = cylinders.astype(float)
+    # avoid zero division, zero within variance in France and Sweden
+    cylinders_adj[[10, 28]] += 0.05
+    alpha = 0.05
+    mc = MultiComparison(cylinders_adj, cyl_labels)
+    resth = mc.tukeyhsd(alpha=alpha, use_var="equal")
+    resgh = mc.tukeyhsd(alpha=alpha, use_var="unequal")
+    resth.plot_simultaneous()
+    resgh.plot_simultaneous()

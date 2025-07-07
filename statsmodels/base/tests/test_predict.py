@@ -1,19 +1,18 @@
-# -*- coding: utf-8 -*-
 """
 Tests for Results.predict
 """
+from statsmodels.compat.pandas import testing as pdt
 
 import numpy as np
-import pandas as pd
-
 from numpy.testing import assert_allclose, assert_equal
-import pandas.util.testing as pdt
+import pandas as pd
+import pytest
 
-from statsmodels.regression.linear_model import OLS
 from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.regression.linear_model import OLS
 
 
-class CheckPredictReturns(object):
+class CheckPredictReturns:
 
     def test_2d(self):
         res = self.res
@@ -27,10 +26,10 @@ class CheckPredictReturns(object):
 
         # plain dict
         xd = dict(zip(data.columns, data.iloc[1:10:2].values.T))
-        pred = res.predict(xd)
+        with pytest.warns(DeprecationWarning, match="Using"):
+            pred = res.predict(xd)
         assert_equal(pred.index, np.arange(len(pred)))
         assert_allclose(pred.values, fitted.values, rtol=1e-13)
-
 
     def test_1d(self):
         # one observation
@@ -39,14 +38,14 @@ class CheckPredictReturns(object):
 
         pred = res.predict(data.iloc[:1])
         pdt.assert_index_equal(pred.index, data.iloc[:1].index)
-        assert_allclose(pred.values, res.fittedvalues[0], rtol=1e-13)
+        fv = np.asarray(res.fittedvalues)
+        assert_allclose(pred.values, fv[0], rtol=1e-13)
 
         fittedm = res.fittedvalues.mean()
         xmean = data.mean()
         pred = res.predict(xmean.to_frame().T)
         assert_equal(pred.index, np.arange(1))
         assert_allclose(pred, fittedm, rtol=1e-13)
-
 
         # Series
         pred = res.predict(data.mean())
@@ -55,11 +54,12 @@ class CheckPredictReturns(object):
 
         # dict with scalar value (is plain dict)
         # Note: this warns about dropped nan, even though there are None -FIXED
-        pred = res.predict(data.mean().to_dict())
+        with pytest.warns(DeprecationWarning, match="Using"):
+            pred = res.predict(data.mean().to_dict())
         assert_equal(pred.index, np.arange(1))
         assert_allclose(pred.values, fittedm, rtol=1e-13)
 
-    def test_nopatsy(self):
+    def test_without_formula(self):
         res = self.res
         data = self.data
         fitted = res.fittedvalues.iloc[1:10:2]
@@ -70,7 +70,7 @@ class CheckPredictReturns(object):
 
         # pandas DataFrame
         x = pd.DataFrame(res.model.exog[1:10:2],
-                         index = data.index[1:10:2],
+                         index=data.index[1:10:2],
                          columns=res.model.exog_names)
         pred = res.predict(x)
         pdt.assert_index_equal(pred.index, fitted.index)
@@ -95,7 +95,7 @@ class TestPredictOLS(CheckPredictReturns):
         x = np.random.randn(nobs, 3)
         y = x.sum(1) + np.random.randn(nobs)
         index = ['obs%02d' % i for i in range(nobs)]
-        # add one extra column to check that it doesn't matter
+        # add one extra column to check that it does not matter
         cls.data = pd.DataFrame(np.round(np.column_stack((y, x)), 4),
                                 columns='y var1 var2 var3'.split(),
                                 index=index)
@@ -112,7 +112,7 @@ class TestPredictGLM(CheckPredictReturns):
         x = np.random.randn(nobs, 3)
         y = x.sum(1) + np.random.randn(nobs)
         index = ['obs%02d' % i for i in range(nobs)]
-        # add one extra column to check that it doesn't matter
+        # add one extra column to check that it does not matter
         cls.data = pd.DataFrame(np.round(np.column_stack((y, x)), 4),
                                 columns='y var1 var2 var3'.split(),
                                 index=index)
@@ -133,7 +133,8 @@ class TestPredictGLM(CheckPredictReturns):
 
         # plain dict
         xd = dict(zip(data.columns, data.iloc[1:10:2].values.T))
-        pred = res.predict(xd, offset=offset)
+        with pytest.warns(DeprecationWarning, match="Using"):
+            pred = res.predict(xd, offset=offset)
         assert_equal(pred.index, np.arange(len(pred)))
         assert_allclose(pred.values, fitted.values, rtol=1e-13)
 
@@ -151,5 +152,5 @@ class TestPredictGLM(CheckPredictReturns):
         pred = res.predict(data2, offset=data2['offset'])
         pdt.assert_index_equal(pred.index, fitted.index)
         fitted_nan = fitted.copy()
-        fitted_nan[0] = np.nan
+        fitted_nan.iloc[0] = np.nan
         assert_allclose(pred.values, fitted_nan.values, rtol=1e-13)

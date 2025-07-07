@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 21 21:45:24 2010
 
 Author: josef-pktd
 """
 
-from __future__ import print_function
 import numpy as np
 from scipy import signal
 
@@ -78,4 +76,3 @@ print(signal.lfilter(np.array([1, -0.1]), np.array([1., 0.8]), np.ones(10), zi=z
 print(signal.filtfilt(np.array([1, -0.8]), np.array([1.]), np.ones(10)))
 
 #todo write examples/test across different versions
-

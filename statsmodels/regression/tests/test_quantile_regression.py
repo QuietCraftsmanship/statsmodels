@@ -1,24 +1,35 @@
-import scipy.stats
 import numpy as np
+from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+import scipy.stats
+
 import statsmodels.api as sm
-from numpy.testing import assert_allclose, assert_equal, assert_almost_equal
-from patsy import dmatrices  # pylint: disable=E0611
+from statsmodels.formula._manager import FormulaManager
 from statsmodels.regression.quantile_regression import QuantReg
-from .results_quantile_regression import (
-    biweight_chamberlain, biweight_hsheather, biweight_bofinger,
-    cosine_chamberlain, cosine_hsheather, cosine_bofinger,
-    gaussian_chamberlain, gaussian_hsheather, gaussian_bofinger,
-    epan2_chamberlain, epan2_hsheather, epan2_bofinger,
-    parzen_chamberlain, parzen_hsheather, parzen_bofinger,
-    # rectangle_chamberlain, rectangle_hsheather, rectangle_bofinger,
-    # triangle_chamberlain, triangle_hsheather, triangle_bofinger,
-    # epanechnikov_chamberlain, epanechnikov_hsheather, epanechnikov_bofinger,
-    epanechnikov_hsheather_q75, Rquantreg)
+
+from .results.results_quantile_regression import (
+    Rquantreg,
+    biweight_bofinger,
+    biweight_chamberlain,
+    biweight_hsheather,
+    cosine_bofinger,
+    cosine_chamberlain,
+    cosine_hsheather,
+    epan2_bofinger,
+    epan2_chamberlain,
+    epan2_hsheather,
+    epanechnikov_hsheather_q75,
+    gaussian_bofinger,
+    gaussian_chamberlain,
+    gaussian_hsheather,
+    parzen_bofinger,
+    parzen_chamberlain,
+    parzen_hsheather,
+)
 
 idx = ['income', 'Intercept']
 
 
-class CheckModelResultsMixin(object):
+class CheckModelResultsMixin:
     def test_params(self):
         assert_allclose(np.ravel(self.res1.params.loc[idx]),
                         self.res2.table[:, 0], rtol=1e-3)
@@ -96,7 +107,9 @@ d = {('biw', 'bofinger'): biweight_bofinger,
 
 def setup_fun(kernel='gau', bandwidth='bofinger'):
     data = sm.datasets.engel.load_pandas().data
-    y, X = dmatrices('foodexp ~ income', data, return_type='dataframe')
+
+    mgr = FormulaManager()
+    y, X = mgr.get_matrices('foodexp ~ income', data)
     statsm = QuantReg(y, X).fit(vcov='iid', kernel=kernel, bandwidth=bandwidth)
     stata = d[(kernel, bandwidth)]
     return statsm, stata
@@ -104,7 +117,10 @@ def setup_fun(kernel='gau', bandwidth='bofinger'):
 
 def test_fitted_residuals():
     data = sm.datasets.engel.load_pandas().data
-    y, X = dmatrices('foodexp ~ income', data, return_type='dataframe')
+
+    mgr = FormulaManager()
+    y, X = mgr.get_matrices('foodexp ~ income', data)
+
     res = QuantReg(y, X).fit(q=.1)
     # Note: maxabs relative error with fitted is 1.789e-09
     assert_almost_equal(np.array(res.fittedvalues), Rquantreg.fittedvalues, 5)
@@ -117,8 +133,10 @@ class TestEpanechnikovHsheatherQ75(CheckModelResultsMixin):
     @classmethod
     def setup_class(cls):
         data = sm.datasets.engel.load_pandas().data
-        y, X = dmatrices('foodexp ~ income', data, return_type='dataframe')
-        cls.res1 = QuantReg(y, X).fit(q=.75, vcov='iid', kernel='epa', bandwidth='hsheather')
+        mgr = FormulaManager()
+        y, X = mgr.get_matrices('foodexp ~ income', data)
+        cls.res1 = QuantReg(y, X).fit(q=.75, vcov='iid', kernel='epa',
+                                      bandwidth='hsheather')
         cls.res2 = epanechnikov_hsheather_q75
 
 
@@ -236,10 +254,16 @@ def test_zero_resid():
     res = QuantReg(y, X).fit(0.5, bandwidth='chamberlain')  # 'bofinger')
     res.summary()
 
-    assert_allclose(res.params, np.array([0.0, 0.96774163]), rtol=1e-4, atol=1e-20)
-    assert_allclose(res.bse, np.array([0.0447576, 0.01154867]), rtol=1e-4, atol=1e-20)
-    assert_allclose(res.resid, np.array([0.0, 3.22583680e-02, -3.22574272e-02,
-                                         9.40732912e-07]), rtol=1e-4, atol=1e-20)
+    assert_allclose(res.params,
+                    np.array([0.0, 0.96774163]),
+                    rtol=1e-4, atol=1e-20)
+    assert_allclose(res.bse,
+                    np.array([0.0447576, 0.01154867]),
+                    rtol=1e-4, atol=1e-20)
+    assert_allclose(res.resid,
+                    np.array([0.0, 3.22583680e-02,
+                              -3.22574272e-02, 9.40732912e-07]),
+                    rtol=1e-4, atol=1e-20)
 
     X = np.array([[1, 0], [0.1, 1], [0, 2.1], [0, 3.1]], dtype=np.float64)
     y = np.array([0, 1, 2, 3], dtype=np.float64)
@@ -249,6 +273,64 @@ def test_zero_resid():
 
     assert_allclose(res.params, np.array([9.99982796e-08, 9.67741630e-01]),
                     rtol=1e-4, atol=1e-20)
-    assert_allclose(res.bse, np.array([0.04455029, 0.01155251]), rtol=1e-4, atol=1e-20)
+    assert_allclose(res.bse, np.array([0.04455029, 0.01155251]), rtol=1e-4,
+                    atol=1e-20)
     assert_allclose(res.resid, np.array([-9.99982796e-08, 3.22583598e-02,
-                                         -3.22574234e-02, 9.46361860e-07]), rtol=1e-4, atol=1e-20)
+                                         -3.22574234e-02, 9.46361860e-07]),
+                    rtol=1e-4, atol=1e-20)
+
+
+def test_use_t_summary():
+    X = np.array([[1, 0], [0, 1], [0, 2.1], [0, 3.1]], dtype=np.float64)
+    y = np.array([0, 1, 2, 3], dtype=np.float64)
+
+    res = QuantReg(y, X).fit(0.5, bandwidth='chamberlain', use_t=True)
+    summ = res.summary()
+    assert 'P>|t|' in str(summ)
+    assert 'P>|z|' not in str(summ)
+
+
+def test_alpha_summary():
+    X = np.array([[1, 0], [0, 1], [0, 2.1], [0, 3.1]], dtype=np.float64)
+    y = np.array([0, 1, 2, 3], dtype=np.float64)
+
+    res = QuantReg(y, X).fit(0.5, bandwidth='chamberlain', use_t=True)
+    summ_20 = res.summary(alpha=.2)
+    assert '[0.025      0.975]' not in str(summ_20)
+    assert '[0.1        0.9]' in str(summ_20)
+
+
+def test_remove_data():
+    X = np.array([[1, 0], [0, 1], [0, 2.1], [0, 3.1]], dtype=np.float64)
+    y = np.array([0, 1, 2, 3], dtype=np.float64)
+
+    res = QuantReg(y, X).fit(0.5)
+    res.remove_data()
+
+
+def test_collinear_matrix():
+    X = np.array([[1, 0, .5], [1, 0, .8],
+                  [1, 0, 1.5], [1, 0, .25]], dtype=np.float64)
+    y = np.array([0, 1, 2, 3], dtype=np.float64)
+
+    res_collinear = QuantReg(y, X).fit(0.5)
+    assert len(res_collinear.params) == X.shape[1]
+
+
+def test_nontrivial_singular_matrix():
+    x_one = np.random.random(1000)
+    x_two = np.random.random(1000)*10
+    x_three = np.random.random(1000)
+    intercept = np.ones(1000)
+
+    y = np.random.random(1000)*5
+    X = np.column_stack((intercept, x_one, x_two, x_three, x_one))
+
+    assert np.linalg.matrix_rank(X) < X.shape[1]
+    res_singular = QuantReg(y, X).fit(0.5)
+    assert len(res_singular.params) == X.shape[1]
+    assert np.linalg.matrix_rank(res_singular.cov_params()) == X.shape[1] - 1
+
+    # prediction is correct even with singular exog
+    res_ns = QuantReg(y, X[:, :-1]).fit(0.5)
+    assert_allclose(res_singular.fittedvalues, res_ns.fittedvalues, rtol=0.01)

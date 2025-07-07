@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Mon Dec 10 08:54:02 2012
@@ -6,11 +5,9 @@ Created on Mon Dec 10 08:54:02 2012
 Author: Josef Perktold
 """
 
-from __future__ import print_function
 import numpy as np
-from numpy.testing import assert_almost_equal
 
-from statsmodels.stats.inter_rater import fleiss_kappa, cohens_kappa, KappaResults
+from statsmodels.stats.inter_rater import fleiss_kappa, cohens_kappa
 
 
 table0 = np.asarray('''\

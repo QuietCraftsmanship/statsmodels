@@ -5,27 +5,27 @@
 @pytest.mark..slow are empirical (test within error limits) and intended to more
 extensively ensure the stability and accuracy of the functions"""
 
-from statsmodels.compat.python import iterkeys, lzip, lmap
-from statsmodels.compat.testing import skip
+from statsmodels.compat.python import lzip, lmap
 
-from numpy.testing import rand, assert_, assert_equal, \
-    assert_almost_equal, assert_array_almost_equal, assert_array_equal, \
-    assert_approx_equal, assert_raises, run_module_suite
+from numpy.testing import (
+    assert_equal,
+    assert_almost_equal, assert_array_almost_equal,
+    assert_raises)
 
 import numpy as np
 import pytest
 
-from statsmodels.stats.libqsturng import qsturng, psturng,p_keys,v_keys
+from statsmodels.stats.libqsturng import qsturng, psturng
 
 
 def read_ch(fname):
-    with open(fname) as f:
+    with open(fname, encoding="utf-8") as f:
         lines = f.readlines()
     ps,rs,vs,qs = lzip(*[L.split(',') for L in lines])
     return lmap(float, ps), lmap(float, rs),lmap(float, vs), lmap(float, qs)
 
 
-class TestQsturng(object):
+class TestQsturng:
     def test_scalar(self):
         # scalar input -> scalar output
         assert_almost_equal(4.43645545899562, qsturng(.9,5,6), 5)
@@ -77,15 +77,16 @@ class TestQsturng(object):
         for p,r,v,q in cases:
             assert_almost_equal(q, qsturng(p,r,v), 5)
 
+    # TODO: do something with this?
     #remove from testsuite, used only for table generation and fails on
     #Debian S390, no idea why
-    @skip
+    @pytest.mark.skip
     def test_all_to_tbl(self):
         from statsmodels.stats.libqsturng.make_tbls import T,R
         ps, rs, vs, qs = [], [], [], []
         for p in T:
             for v in T[p]:
-                for r in iterkeys(R):
+                for r in R.keys():
                     ps.append(p)
                     vs.append(v)
                     rs.append(r)
@@ -132,7 +133,7 @@ class TestQsturng(object):
         errors = np.abs(qs-qsturng(ps,rs,vs))/qs
         assert_equal(np.array([]), np.where(errors > .03)[0])
 
-class TestPsturng(object):
+class TestPsturng:
     def test_scalar(self):
         "scalar input -> scalar output"
         assert_almost_equal(.1, psturng(4.43645545899562,5,6), 5)
@@ -184,20 +185,15 @@ class TestPsturng(object):
             assert_almost_equal(1.-p, psturng(q,r,v), 5)
 
     @pytest.mark.slow
-    def test_100_random_values(self):
+    def test_100_random_values(self, reset_randomstate):
         n = 100
-        ps = np.random.random(n)*(.999 - .1) + .1
-        rs = np.random.random_integers(2, 100, n)
-        vs = np.random.random(n)*998. + 2.
+        random_state = np.random.RandomState(12345)
+        ps = random_state.random_sample(n)*(.999 - .1) + .1
+        rs = random_state.randint(2, 101, n)
+        vs = random_state.random_sample(n)*998. + 2.
         qs = qsturng(ps, rs, vs)
         estimates = psturng(qs, rs, vs)
         actuals = 1. - ps
         errors = estimates - actuals
 
         assert_equal(np.array([]), np.where(errors > 1e-5)[0])
-
-##     def test_more_exotic_stuff(self, level=3):
-##         something_obscure_and_expensive()
-
-if __name__ == '__main__':
-    run_module_suite()

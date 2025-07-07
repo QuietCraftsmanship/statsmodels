@@ -3,12 +3,11 @@
 '''
 
 
-from __future__ import print_function
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+
 import statsmodels.tsa.arima_process as tsp
-from statsmodels.sandbox.tsa.fftarma import ArmaFft as FftArmaProcess
-import statsmodels.tsa.stattools as tss
 from statsmodels.graphics.tsaplots import plotacf
 
 np.set_printoptions(precision=2)
@@ -29,6 +28,7 @@ for arcoef in arcoefs[:-1]:
         ar = np.r_[1., -arcoef]
         ma = np.r_[1.,  macoef]
 
+        #from statsmodels.sandbox.tsa.fftarma import ArmaFft as FftArmaProcess
         #y = tsp.arma_generate_sample(ar,ma,nsample, sig, burnin)
         #armaprocess = FftArmaProcess(ar, ma, nsample) #TODO: make n optional
         #armaprocess.plot4()
@@ -39,7 +39,7 @@ for arcoef in arcoefs[:-1]:
         plotacf(acf, ax=ax)
 ##        ax.set_title('Autocorrelation \nar=%s, ma=%rs' % (ar, ma),
 ##                     size='xx-small')
-        ax.text(0.7, 0.6, 'ar =%s \nma=%s' % (ar, ma),
+        ax.text(0.7, 0.6, f'ar ={ar} \nma={ma}',
                 transform=ax.transAxes,
                 horizontalalignment='left', #'right',
                 size='xx-small')
@@ -49,7 +49,7 @@ for arcoef in arcoefs[:-1]:
         plotacf(pacf, ax=ax)
 ##        ax.set_title('Partial Autocorrelation \nar=%s, ma=%rs' % (ar, ma),
 ##                     size='xx-small')
-        ax.text(0.7, 0.6, 'ar =%s \nma=%s' % (ar, ma),
+        ax.text(0.7, 0.6, f'ar ={ar} \nma={ma}',
                 transform=ax.transAxes,
                 horizontalalignment='left', #'right',
                 size='xx-small')
@@ -62,15 +62,15 @@ axs = fig.axes
 ##   for label in ax.get_yticklabels(): label.set_visible(False)
 
 # turn off all but the bottom xtick labels
-for ax in axs[:-2]:#[:-1,:].flat:
-   for label in ax.get_xticklabels(): label.set_visible(False)
+for ax in axs[:-2]:
+    for label in ax.get_xticklabels():
+        label.set_visible(False)
 
 
 # use a MaxNLocator on the first column y axis if you have a bunch of
 # rows to avoid bunching; example below uses at most 3 ticks
-import matplotlib.ticker as mticker
 for ax in axs: #[::2]:#[:,1].flat:
-   ax.yaxis.set_major_locator( mticker.MaxNLocator(3 ))
+    ax.yaxis.set_major_locator( mticker.MaxNLocator(3 ))
 
 
 

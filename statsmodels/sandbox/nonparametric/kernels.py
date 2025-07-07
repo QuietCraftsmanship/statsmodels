@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 This models contains the Kernels for Kernel smoothing.
 
@@ -18,14 +16,15 @@ http://fedc.wiwi.hu-berlin.de/xplore/ebooks/html/anr/anrhtmlframe62.html
 # pylint: disable-msg=W0142
 # pylint: disable-msg=E1101
 # pylint: disable-msg=E0611
-from statsmodels.compat.python import lzip, lfilter, callable, zip
+from statsmodels.compat.python import lfilter, lzip
+
 import numpy as np
+from numpy import divide, exp, inf, multiply, square, subtract
 import scipy.integrate
-from scipy.misc import factorial
-from numpy import exp, multiply, square, divide, subtract, inf
+from scipy.special import factorial
 
 
-class NdKernel(object):
+class NdKernel:
     """Generic N-dimensial kernel
 
     Parameters
@@ -69,12 +68,12 @@ class NdKernel(object):
 
     def density(self, xs, x):
 
-        n = len(xs)
+        len(xs)
         #xs = self.in_domain( xs, xs, x )[0]
 
         if len(xs)>0:  ## Need to do product of marginal distributions
             #w = np.sum([self(self._Hrootinv * (xx-x).T ) for xx in xs])/n
-            #vectorized doesn't work:
+            #vectorized does not work:
             if self.weights is not None:
                 w = np.mean(self((xs-x) * self._Hrootinv).T * self.weights)/sum(self.weights)
             else:
@@ -105,7 +104,7 @@ class NdKernel(object):
         return self._kernweight(x)
 
 
-class CustomKernel(object):
+class CustomKernel:
     """
     Generic 1D Kernel object.
     Can be constructed by selecting a standard named Kernel,
@@ -120,7 +119,7 @@ class CustomKernel(object):
         """
         shape should be a function taking and returning numeric type.
 
-        For sanity it should always return positive or zero but this isn't
+        For sanity it should always return positive or zero but this is not
         enforced in case you want to do weird things. Bear in mind that the
         statistical tests etc. may not be valid for non-positive kernels.
 
@@ -170,7 +169,7 @@ class CustomKernel(object):
         def isInDomain(xy):
             """Used for filter to check if point is in the domain"""
             u = (xy[0]-x)/self.h
-            return u >= self.domain[0] and u <= self.domain[1]
+            return np.all((u >= self.domain[0]) & (u <= self.domain[1]))
 
         if self.domain is None:
             return (xs, ys)
@@ -256,7 +255,6 @@ class CustomKernel(object):
         This uses the asymptotic normal approximation to the distribution of
         the density estimate. The lower bound can be negative for density
         values close to zero.
-
         """
         from scipy import stats
         crit = stats.norm.isf(alpha / 2.)
@@ -323,7 +321,8 @@ class CustomKernel(object):
     def L2Norm(self):
         """Returns the integral of the square of the kernal from -inf to inf"""
         if self._L2Norm is None:
-            L2Func = lambda x: (self.norm_const*self._shape(x))**2
+            def L2Func(x):
+                return (self.norm_const * self._shape(x)) ** 2
             if self.domain is None:
                 self._L2Norm = scipy.integrate.quad(L2Func, -inf, inf)[0]
             else:
@@ -349,7 +348,8 @@ class CustomKernel(object):
     def kernel_var(self):
         """Returns the second moment of the kernel"""
         if self._kernel_var is None:
-            func = lambda x: x**2 * self.norm_const * self._shape(x)
+            def func(x):
+                return x ** 2 * self.norm_const * self._shape(x)
             if self.domain is None:
                 self._kernel_var = scipy.integrate.quad(func, -inf, inf)[0]
             else:
@@ -450,7 +450,7 @@ class Biweight(CustomKernel):
         xs and y-values ys.
         Not expected to be called by the user.
 
-        Special implementation optimised for Biweight.
+        Special implementation optimized for Biweight.
         """
         xs, ys = self.in_domain(xs, ys, x)
 
@@ -528,7 +528,7 @@ class Gaussian(CustomKernel):
         xs and y-values ys.
         Not expected to be called by the user.
 
-        Special implementation optimised for Gaussian.
+        Special implementation optimized for Gaussian.
         """
         w = np.sum(exp(multiply(square(divide(subtract(xs, x),
                                               self.h)),-0.5)))
@@ -563,4 +563,17 @@ class Cosine2(CustomKernel):
                 , h=h, domain=[-0.5, 0.5], norm = 1.0)
         self._L2Norm = 1.5
         self._kernel_var = 0.03267274151216444  # = 1/12. - 0.5 / np.pi**2
+        self._order = 2
+
+class Tricube(CustomKernel):
+    """
+    Tricube Kernel
+
+    K(u) = 0.864197530864 * (1 - abs(x)**3)**3 between -1.0 and 1.0
+    """
+    def __init__(self,h=1.0):
+        CustomKernel.__init__(self,shape=lambda x: 0.864197530864 * (1 - abs(x)**3)**3,
+                              h=h, domain=[-1.0, 1.0], norm = 1.0)
+        self._L2Norm = 175.0/247.0
+        self._kernel_var = 35.0/243.0
         self._order = 2

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Nov 04 10:51:39 2011
 
@@ -9,11 +8,11 @@ License: BSD-3
 import numpy as np
 from numpy.testing import assert_almost_equal, assert_equal
 
-from statsmodels.sandbox.nonparametric import smoothers, kernels
 from statsmodels.regression.linear_model import OLS, WLS
+from statsmodels.sandbox.nonparametric import smoothers
 
 
-class CheckSmoother(object):
+class CheckSmoother:
 
     def test_predict(self):
         assert_almost_equal(self.res_ps.predict(self.x),
@@ -34,7 +33,7 @@ class CheckSmoother(object):
 
 
 
-class BasePolySmoother(object):
+class BasePolySmoother:
 
     @classmethod
     def setup_class(cls):
@@ -47,14 +46,14 @@ class BasePolySmoother(object):
         cls.exog = exog = x[:,None]**np.arange(order+1)
         y_true = exog.sum(1)
         np.random.seed(987567)
-        cls.y = y = y_true + sigma_noise * np.random.randn(nobs)
+        cls.y = y_true + sigma_noise * np.random.randn(nobs)
 
 
 class TestPolySmoother1(BasePolySmoother, CheckSmoother):
 
     @classmethod
     def setup_class(cls):
-        super(TestPolySmoother1, cls).setup_class() #initialize DGP
+        super().setup_class() #initialize DGP
 
         y, x, exog = cls.y, cls.x, cls.exog
 
@@ -69,7 +68,7 @@ class TestPolySmoother2(BasePolySmoother, CheckSmoother):
 
     @classmethod
     def setup_class(cls):
-        super(TestPolySmoother2, cls).setup_class() #initialize DGP
+        super().setup_class() #initialize DGP
 
         y, x, exog = cls.y, cls.x, cls.exog
 
@@ -85,7 +84,7 @@ class TestPolySmoother3(BasePolySmoother, CheckSmoother):
 
     @classmethod
     def setup_class(cls):
-        super(TestPolySmoother3, cls).setup_class() #initialize DGP
+        super().setup_class() #initialize DGP
 
         y, x, exog = cls.y, cls.x, cls.exog
         nobs = y.shape[0]
@@ -109,4 +108,3 @@ if __name__ == '__main__':
 
     t3 = TestPolySmoother3()
     t3.test_predict()
-

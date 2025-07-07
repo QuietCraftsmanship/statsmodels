@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 
 Created on Sun May 26 13:23:40 2013
@@ -25,7 +24,7 @@ res = multiOLS('GNP + 0', df, ['GNPDEFL', 'TOTEMP', 'POP'])
 print(res.to_string())
 
 
-url = "http://vincentarelbundock.github.com/"
+url = "https://raw.githubusercontent.com/vincentarelbundock/"
 url = url + "Rdatasets/csv/HistData/Guerry.csv"
 df = pd.read_csv(url, index_col=1) #'dept')
 

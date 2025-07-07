@@ -8,7 +8,7 @@ from statsmodels.distributions.mixture_rvs import (mv_mixture_rvs,
 import statsmodels.sandbox.distributions.mv_normal as mvd
 from scipy import stats
 
-class TestMixtureDistributions(object):
+class TestMixtureDistributions:
 
     def test_mixture_rvs_random(self):
         # Test only medium small sample at 1 decimal
@@ -103,8 +103,3 @@ class TestMixtureDistributions(object):
                        [ 3.60521933,  1.57316531,  0.82784584],
                        [ 3.86102275,  0.6211812 ,  1.33016426],
                        [ 3.91074761,  2.037155  ,  2.22247051]]))
-
-
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__, '-vvs', '-x', '--pdb'])

@@ -1,9 +1,12 @@
 """Example: statsmodels.sandbox.sysreg
 """
 #TODO: this is going to change significantly once we have a panel data structure
-from statsmodels.compat.python import lmap, asbytes
+from statsmodels.compat.python import asbytes, lmap
+
 import numpy as np
+
 import statsmodels.api as sm
+from statsmodels.sandbox.regression.gmm import IV2SLS
 from statsmodels.sandbox.sysreg import SUR, Sem2SLS
 
 #for Python 3 compatibility
@@ -131,7 +134,6 @@ print(correct_params)
 print("Compare to output of R script statsmodels/sandbox/tests/macrodata.s")
 
 print('\nUsing IV2SLS')
-from statsmodels.sandbox.regression.gmm import IV2SLS
 miv = IV2SLS(macro_sys[0], macro_sys[1], instruments)
 resiv = miv.fit()
 print("equation 1")
@@ -148,7 +150,7 @@ if run_greene:
     try:
         data3 = np.genfromtxt('/home/skipper/school/MetricsII/Greene \
 TableF5-1.txt', names=True)
-    except:
+    except Exception:
         raise ValueError("Based on Greene TableF5-1.  You should download it "
                          "from his web site and edit this script accordingly.")
 
@@ -176,9 +178,9 @@ TableF5-1.txt', names=True)
         y[:-1]))
     instruments = sm.add_constant(instruments, prepend=False)
     sem_mod = Sem2SLS(sys3, indep_endog = indep_endog, instruments=instruments)
-    sem_params = sem_mod.fit() # first equation is right, but not second?
-                               # should y_t in the diff be instrumented?
-                               # how would R know this in the script?
+    sem_params = sem_mod.fit()  # first equation is right, but not second?
+                                # should y_t in the diff be instrumented?
+                                # how would R know this in the script?
     # well, let's check...
     y_instr = sem_mod.wexog[0][:,0]
     wyd = y_instr - y[:-1]
@@ -205,4 +207,3 @@ instrumented")
 # we are going to need to keep the two equations separate and use
 # a restrictions matrix.  Ugh, is a formula framework really, necessary to get
 # around this?
-

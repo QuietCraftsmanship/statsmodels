@@ -3,9 +3,9 @@
 from pandas
 License: Simplified BSD
 """
-from __future__ import print_function
 import numpy as np
-from statsmodels.regression.linear_model import WLS, GLS, RegressionResults
+from statsmodels.regression.linear_model import GLS, RegressionResults
+
 
 class RLS(GLS):
     """
@@ -13,15 +13,15 @@ class RLS(GLS):
 
     Parameters
     ----------
-    endog: array-like
+    endog : array_like
         n length array containing the dependent variable
-    exog: array-like
+    exog : array_like
         n-by-p array of independent variables
-    constr: array-like
+    constr : array_like
         k-by-p array of linear constraints
-    param (0.): array-like or scalar
+    param : array_like or scalar
         p-by-1 array (or scalar) of constraint parameters
-    sigma (None): scalar or array-like
+    sigma (None): scalar or array_like
         The weighting matrix of the covariance. No scaling by default (OLS).
         If sigma is a scalar, then it is converted into an n-by-n diagonal
         matrix with sigma as each diagonal element.
@@ -149,4 +149,3 @@ if __name__=="__main__":
     rls_mod = RLS(dta['G'],design, constr=[0,0,0,1,1,1,1])
     rls_fit = rls_mod.fit()
     print(rls_fit.params)
-

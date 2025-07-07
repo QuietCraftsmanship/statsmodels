@@ -3,8 +3,8 @@ This script is a basic tutorial on how to conduct empirical
 likelihood estimation and inference in linear regression models.
 """
 
-from __future__ import print_function
 import numpy as np
+
 import statsmodels.api as sm
 
 # Let's generate some regression data
@@ -88,5 +88,5 @@ print(ci_beta2)
 # Finally, since we initiated an EL model, normal inference is not available
 try:
     originfit.conf_int()
-except:
+except Exception:
     print('No normal inference available')

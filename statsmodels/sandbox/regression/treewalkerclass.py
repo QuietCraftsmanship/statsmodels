@@ -74,7 +74,7 @@ TODO
   (? check transformation) to sample frequencies and zeros for slope
   coefficient as starting values for (non-nested) MNL
 * associated test statistics
-  - (I don't think I will fight with the gradient or hessian of the log-like.)
+  - (I do not think I will fight with the gradient or hessian of the log-like.)
   - basic MLE statistics can be generic
   - tests specific to the model (?)
 * nice printouts since I'm currently collecting a lot of information in the tree
@@ -101,10 +101,12 @@ still todo:
 Author: Josef Perktold
 License : BSD (3-clause)
 '''
-from __future__ import print_function
-from statsmodels.compat.python import lzip, iteritems, itervalues, lrange, zip
-import numpy as np
+from statsmodels.compat.python import lrange
+
 from pprint import pprint
+
+import numpy as np
+
 
 def randintw(w, size=1):
     '''generate integer random variables given probabilties
@@ -114,7 +116,7 @@ def randintw(w, size=1):
     Parameters
     ----------
     w : 1d array_like
-        sequence of weights, probabilites. The weights are normalized to add
+        sequence of weights, probabilities. The weights are normalized to add
         to one.
     size : int or tuple of ints
         shape of output array
@@ -193,23 +195,23 @@ def getnodes(tree):
             adeg = []
 
         for st in subtree:
-            b, l, d = getnodes(st)
-            ab.extend(b)
-            al.extend(l)
-            adeg.extend(d)
+            b_val, l_val, d_val = getnodes(st)
+            ab.extend(b_val)
+            al.extend(l_val)
+            adeg.extend(d_val)
         return ab, al, adeg
     return [], [tree], []
 
 
 testxb = 2 #global to class to return strings instead of numbers
 
-class RU2NMNL(object):
+class RU2NMNL:
     '''Nested Multinomial Logit with Random Utility 2 parameterization
 
 
     Parameters
     ----------
-    endog : array
+    endog : ndarray
         not used in this part
     exog : dict_like
         dictionary access to data where keys correspond to branch and leaf
@@ -267,19 +269,19 @@ class RU2NMNL(object):
         #unique, parameter array names,
         #sorted alphabetically, order is/should be only internal
 
-        self.paramsnames = (sorted(set([i for j in itervalues(paramsind)
-                                       for i in j])) +
+        self.paramsnames = (sorted({i for j in paramsind.values()
+                                       for i in j}) +
                             ['tau_%s' % bname for bname in self.branches])
 
         self.nparams = len(self.paramsnames)
 
         #mapping coefficient names to indices to unique/parameter array
-        self.paramsidx = dict((name, idx) for (idx,name) in
-                              enumerate(self.paramsnames))
+        self.paramsidx = {name: idx for (idx,name) in
+                              enumerate(self.paramsnames)}
 
         #mapping branch and leaf names to index in parameter array
-        self.parinddict = dict((k, [self.paramsidx[j] for j in v])
-                               for k,v in iteritems(self.paramsind))
+        self.parinddict = {k: [self.paramsidx[j] for j in v]
+                               for k,v in self.paramsind.items()}
 
         self.recursionparams = 1. + np.arange(len(self.paramsnames))
         #for testing that individual parameters are used in the right place
@@ -305,8 +307,8 @@ class RU2NMNL(object):
 
         Returns
         -------
-        probs : array, (nobs, nchoices)
-            probabilites for all choices for each observation. The order
+        probs : ndarray, (nobs, nchoices)
+            probabilities for all choices for each observation. The order
             is available by attribute leaves. See note in docstring of class
 
 
@@ -327,9 +329,7 @@ class RU2NMNL(object):
 
         #0.5#2 #placeholder for now
         #should be tau=self.taus[name] but as part of params for optimization
-        endog = self.endog
         datadict = self.datadict
-        paramsind = self.paramsind
         branchsum = self.branchsum
 
 
@@ -354,7 +354,7 @@ class RU2NMNL(object):
                 if DEBUG:
                     print(b)
                 bv = self.calc_prob(b, name)
-                bv = np.exp(bv/tau)  #this shouldn't be here, when adding branch data
+                bv = np.exp(bv/tau)  #this should not be here, when adding branch data
                 branchvalue.append(bv)
                 branchsum = branchsum + bv
             self.branchvalues[name] = branchvalue #keep track what was returned
@@ -376,7 +376,7 @@ class RU2NMNL(object):
                     #similar to this is now also in return branch values
                     #depends on what will be returned
                     tmpsum += self.probs[k]
-                    iv = np.log(tmpsum)
+                    np.log(tmpsum)
 
                 for k in self.branchleaves[name]:
                     self.probstxt[k] = self.probstxt[k] + ['*' + name + '-prob' +
@@ -441,7 +441,8 @@ class RU2NMNL(object):
                     tau = self.recursionparams[self.paramsidx['tau_'+name]]
                 else:
                     tau = 1
-                iv = branchxb + tau * branchsum #which tau: name or parent???
+                # Unused result commented out
+                # branchxb + tau * branchsum #which tau: name or parent???
                 return branchxb + tau * np.log(branchsum) #iv
                 #branchsum is now IV, TODO: add effect of branch variables
 
@@ -481,14 +482,13 @@ if __name__ == '__main__':
     ##############  Example similar to Greene
 
     #get pickled data
-    #endog3, xifloat3 = cPickle.load(open('xifloat2.pickle','rb'))
+    #endog3, xifloat3 = pickle.load(open('xifloat2.pickle','rb'))
 
 
     tree0 = ('top',
                 [('Fly',['Air']),
                  ('Ground', ['Train', 'Car', 'Bus'])
-                 ]
-            )
+                 ])
 
     ''' this is with real data from Greene's clogit example
     datadict = dict(zip(['Air', 'Train', 'Bus', 'Car'],
@@ -540,9 +540,7 @@ if __name__ == '__main__':
                         ('B22',['e', 'f', 'g'])
                         ]
                   ),
-                 ('B3',['h'])
-                ]
-             )
+                 ('B3',['h'])])
 
     #Note: dict looses ordering
     paramsind2 = {
@@ -595,7 +593,7 @@ if __name__ == '__main__':
     pprint(modru2.probs)
 
 
-    print('sum of probs', sum(list(itervalues(modru2.probs))))
+    print('sum of probs', sum(list(modru2.probs.values())))
     print('branchvalues')
     print(modru2.branchvalues)
     print(modru.branchvalues)

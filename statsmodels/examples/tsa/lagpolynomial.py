@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Oct 22 08:13:38 2010
 
@@ -6,7 +5,6 @@ Author: josef-pktd
 License: BSD (3-clause)
 """
 
-from __future__ import print_function
 import numpy as np
 from numpy import polynomial as npp
 

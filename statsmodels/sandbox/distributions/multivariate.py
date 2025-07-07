@@ -14,12 +14,11 @@ Reference:
 Genz and Bretz for formula
 
 '''
-from __future__ import print_function
 import numpy as np
 from scipy import integrate, stats, special
-from scipy.stats import chi,chi2
+from scipy.stats import chi
 
-from .extras import mvnormcdf, mvstdnormcdf, mvnormcdf
+from .extras import mvstdnormcdf
 
 from numpy import exp as np_exp
 from numpy import log as np_log
@@ -50,13 +49,13 @@ def funbgh(s, a, b, R, df):
     ret += np_log(mvstdnormcdf(s*a/sqrt_df, s*b/sqrt_df, R,
                                          maxpts=1000000, abseps=1e-6))
     ret = np_exp(ret)
-    return  ret
+    return ret
 
 def funbgh2(s, a, b, R, df):
     n = len(a)
     sqrt_df = np.sqrt(df)
     #np.power(s, df-1) * np_exp(-s*s*0.5)
-    return  np_exp((df-1)*np_log(s)-s*s*0.5) \
+    return np_exp((df-1)*np_log(s)-s*s*0.5) \
            * mvstdnormcdf(s*a/sqrt_df, s*b/sqrt_df, R[np.tril_indices(n, -1)],
                           maxpts=1000000, abseps=1e-4)
 
@@ -65,7 +64,8 @@ def bghfactor(df):
 
 
 def mvstdtprob(a, b, R, df, ieps=1e-5, quadkwds=None, mvstkwds=None):
-    '''probability of rectangular area of standard t distribution
+    """
+    Probability of rectangular area of standard t distribution
 
     assumes mean is zero and R is correlation matrix
 
@@ -74,14 +74,12 @@ def mvstdtprob(a, b, R, df, ieps=1e-5, quadkwds=None, mvstkwds=None):
     This function does not calculate the estimate of the combined error
     between the underlying multivariate normal probability calculations
     and the integration.
-
-    '''
-    kwds = dict(args=(a,b,R,df), epsabs=1e-4, epsrel=1e-2, limit=150)
-    if not quadkwds is None:
+    """
+    kwds = dict(args=(a, b, R, df), epsabs=1e-4, epsrel=1e-2, limit=150)
+    if quadkwds is not None:
         kwds.update(quadkwds)
-    #print kwds
-    res, err = integrate.quad(funbgh2, *chi.ppf([ieps,1-ieps], df),
-                          **kwds)
+    lower, upper = chi.ppf([ieps, 1 - ieps], df)
+    res, err = integrate.quad(funbgh2, lower, upper, **kwds)
     prob = res * bghfactor(df)
     return prob
 
@@ -112,7 +110,7 @@ def multivariate_t_rvs(m, S, df=np.inf, n=1):
     m = np.asarray(m)
     d = len(m)
     if df == np.inf:
-        x = 1.
+        x = np.ones(n)
     else:
         x = np.random.chisquare(df, n)/df
     z = np.random.multivariate_normal(np.zeros(d),S,(n,))
@@ -171,5 +169,3 @@ if __name__ == '__main__':
         [1] 0.4988254
 
     '''
-
-

@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Aug 30 12:26:38 2012
 Author: Josef Perktold
-"""
-'''
+
+
 function jc =  c_sja(n,p)
 % PURPOSE: find critical values for Johansen maximum eigenvalue statistic
 % ------------------------------------------------------------
@@ -35,7 +34,8 @@ function jc =  c_sja(n,p)
 % 2801 W. Bancroft St,
 % Toledo, OH 43606
 % jlesage@spatial-econometrics.com
-'''
+
+"""
 
 import numpy as np
 
@@ -85,6 +85,7 @@ ejcp0 = np.array(ss_ejcp0.split(),float).reshape(-1,3)
 ejcp1 = np.array(ss_ejcp1.split(),float).reshape(-1,3)
 ejcp2 = np.array(ss_ejcp2.split(),float).reshape(-1,3)
 
+
 def c_sja(n, p):
     if ((p > 1) or (p < -1)):
         jc = np.full(3, np.nan)
@@ -99,13 +100,14 @@ def c_sja(n, p):
 
     return jc
 
+
 '''
 function jc = c_sjt(n,p)
 % PURPOSE: find critical values for Johansen trace statistic
 % ------------------------------------------------------------
 % USAGE:  jc = c_sjt(n,p)
 % where:    n = dimension of the VAR system
-%               NOTE: routine doesn't work for n > 12
+%               NOTE: routine does not work for n > 12
 %           p = order of time polynomial in the null-hypothesis
 %                 p = -1, no deterministic part
 %                 p =  0, for constant term
@@ -197,6 +199,7 @@ tjcp0 = np.array(ss_tjcp0.split(),float).reshape(-1,3)
 tjcp1 = np.array(ss_tjcp1.split(),float).reshape(-1,3)
 tjcp2 = np.array(ss_tjcp2.split(),float).reshape(-1,3)
 
+
 def c_sjt(n, p):
     if ((p > 1) or (p < -1)):
         jc = np.full(3, np.nan)
@@ -213,11 +216,10 @@ def c_sjt(n, p):
 
     return jc
 
+
 if __name__ == '__main__':
     for p in range(-2, 3, 1):
         for n in range(12):
             print(n, p)
             print(c_sja(n, p))
             print(c_sjt(n, p))
-
-

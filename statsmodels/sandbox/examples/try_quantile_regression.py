@@ -5,7 +5,8 @@ Author: Josef Perktold
 '''
 
 import numpy as np
-from statsmodels.compat.python import zip
+import matplotlib.pyplot as plt
+
 import statsmodels.api as sm
 
 from statsmodels.regression.quantile_regression import QuantReg
@@ -31,7 +32,6 @@ res_ols = sm.OLS(y, exog).fit()
 params = [res_ols.params, res_qr2.params, res_qr.params, res_qr3.params]
 labels = ['ols', 'qr 0.25', 'qr 0.5', 'qr 0.75']
 
-import matplotlib.pyplot as plt
 #sortidx = np.argsort(y)
 fitted_ols = np.dot(res_ols.model.exog, params[0])
 sortidx = np.argsort(fitted_ols)
@@ -40,7 +40,7 @@ fitted_ols = np.dot(x_sorted, params[0])
 plt.figure()
 plt.plot(y[sortidx], 'o', alpha=0.75)
 for lab, beta in zip(['ols', 'qr 0.25', 'qr 0.5', 'qr 0.75'], params):
-    print('%-8s'%lab, np.round(beta, 4))
+    print('%-8s' % lab, np.round(beta, 4))
     fitted = np.dot(x_sorted, beta)
     lw = 2 if lab == 'ols' else 1
     plt.plot(fitted, lw=lw, label=lab)

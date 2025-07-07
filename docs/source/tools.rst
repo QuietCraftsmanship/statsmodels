@@ -36,7 +36,6 @@ insufficiently tested.
 .. autosummary::
    :toctree: generated/
 
-   tools.categorical
    tools.clean0
    tools.fullrank
    tools.isestimable
@@ -98,5 +97,6 @@ while the second array would be the true or observed values.
    eval_measures.medianbias
    eval_measures.mse
    eval_measures.rmse
+   eval_measures.rmspe
    eval_measures.stde
    eval_measures.vare

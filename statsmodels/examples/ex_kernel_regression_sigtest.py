@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Kernel Regression and Significance Test
 
 Warning: SLOW, 11 minutes on my computer
@@ -33,7 +32,6 @@ times: 8.34599995613 20.6909999847 666.373999834
 
 """
 
-from __future__ import print_function
 import time
 
 import numpy as np

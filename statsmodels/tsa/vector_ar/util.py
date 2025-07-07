@@ -1,20 +1,19 @@
-# -*- coding: utf-8 -*-
 """
 Miscellaneous utility code for VAR estimation
 """
-from __future__ import division
-
-from statsmodels.compat.python import range, string_types, asbytes, long
 from statsmodels.compat.pandas import frequencies
+from statsmodels.compat.python import asbytes
+from statsmodels.tools.validation import array_like, int_like
+
 import numpy as np
-import scipy.stats as stats
-import scipy.linalg.decomp as decomp
 import pandas as pd
+from scipy import stats, linalg
 
 import statsmodels.tsa.tsatools as tsa
 
 #-------------------------------------------------------------------------------
 # Auxiliary functions for estimation
+
 def get_var_endog(y, lags, trend='c', has_constant='skip'):
     """
     Make predictor matrix for VAR(p) process
@@ -31,23 +30,27 @@ def get_var_endog(y, lags, trend='c', has_constant='skip'):
     Z = np.array([y[t-lags : t][::-1].ravel() for t in range(lags, nobs)])
 
     # Add constant, trend, etc.
-    if trend != 'nc':
+    if trend != 'n':
         Z = tsa.add_trend(Z, prepend=True, trend=trend,
                           has_constant=has_constant)
 
     return Z
 
+
 def get_trendorder(trend='c'):
     # Handle constant, etc.
     if trend == 'c':
         trendorder = 1
-    elif trend == 'nc':
+    elif trend in ('n', 'nc'):
         trendorder = 0
     elif trend == 'ct':
         trendorder = 2
     elif trend == 'ctt':
         trendorder = 3
+    else:
+        raise ValueError(f"Unkown trend: {trend}")
     return trendorder
+
 
 def make_lag_names(names, lag_order, trendorder=1, exog=None):
     """
@@ -57,16 +60,15 @@ def make_lag_names(names, lag_order, trendorder=1, exog=None):
     --------
     >>> make_lag_names(['foo', 'bar'], 2, 1)
     ['const', 'L1.foo', 'L1.bar', 'L2.foo', 'L2.bar']
-
     """
     lag_names = []
-    if isinstance(names, string_types):
+    if isinstance(names, str):
         names = [names]
 
     # take care of lagged endogenous names
     for i in range(1, lag_order + 1):
         for name in names:
-            if not isinstance(name, string_types):
+            if not isinstance(name, str):
                 name = str(name) # will need consistent unicode handling
             lag_names.append('L'+str(i)+'.'+name)
 
@@ -78,9 +80,20 @@ def make_lag_names(names, lag_order, trendorder=1, exog=None):
     if trendorder > 2:
         lag_names.insert(2, 'trend**2')
     if exog is not None:
+        if isinstance(exog, pd.Series):
+            exog = pd.DataFrame(exog)
+        elif not hasattr(exog, 'ndim'):
+            exog = np.asarray(exog)
+        if exog.ndim == 1:
+            exog = exog[:, None]
         for i in range(exog.shape[1]):
-            lag_names.insert(trendorder + i, "exog" + str(i))
+            if isinstance(exog, pd.DataFrame):
+                exog_name = str(exog.columns[i])
+            else:
+                exog_name = "exog" + str(i)
+            lag_names.insert(trendorder + i, exog_name)
     return lag_names
+
 
 def comp_matrix(coefs):
     """
@@ -92,17 +105,18 @@ def comp_matrix(coefs):
          0   I_K ... 0     0
          0 ...       I_K   0]
     """
-    p, k, k2 = coefs.shape
-    assert(k == k2)
+    p, k1, k2 = coefs.shape
+    if k1 != k2:
+        raise ValueError('coefs must be 3-d with shape (p, k, k).')
 
-    kp = k * p
+    kp = k1 * p
 
     result = np.zeros((kp, kp))
-    result[:k] = np.concatenate(coefs, axis=1)
+    result[:k1] = np.concatenate(coefs, axis=1)
 
     # Set I_K matrices
     if p > 1:
-        result[np.arange(k, kp), np.arange(kp-k)] = 1
+        result[np.arange(k1, kp), np.arange(kp-k1)] = 1
 
     return result
 
@@ -119,10 +133,9 @@ def parse_lutkepohl_data(path): # pragma: no cover
 
     from collections import deque
     from datetime import datetime
-    import pandas
     import re
 
-    regex = re.compile(asbytes('<(.*) (\w)([\d]+)>.*'))
+    regex = re.compile(asbytes(r'<(.*) (\w)([\d]+)>.*'))
     with open(path, 'rb') as f:
         lines = deque(f)
 
@@ -149,9 +162,9 @@ def parse_lutkepohl_data(path): # pragma: no cover
     year = int(year)
 
     offsets = {
-        asbytes('Q') : frequencies.BQuarterEnd(),
-        asbytes('M') : frequencies.BMonthEnd(),
-        asbytes('A') : frequencies.BYearEnd()
+        asbytes('Q'): frequencies.BQuarterEnd(),
+        asbytes('M'): frequencies.BMonthEnd(),
+        asbytes('A'): frequencies.BYearEnd()
     }
 
     # create an instance
@@ -161,22 +174,9 @@ def parse_lutkepohl_data(path): # pragma: no cover
     start_date = offset.rollforward(datetime(year, 1, 1)) + inc
 
     offset = offsets[freq]
-    from pandas import DatetimeIndex   # pylint: disable=E0611
-    date_range = DatetimeIndex(start=start_date, freq=offset, periods=n)
+    date_range = pd.date_range(start=start_date, freq=offset, periods=n)
 
     return data, date_range
-
-
-def get_logdet(m):
-    from statsmodels.tools.linalg import logdet_symm
-    return logdet_symm(m)
-
-
-get_logdet = np.deprecate(get_logdet,
-                          "statsmodels.tsa.vector_ar.util.get_logdet",
-                          "statsmodels.tools.linalg.logdet_symm",
-                          "get_logdet is deprecated and will be removed in "
-                          "0.8.0")
 
 
 def norm_signif_level(alpha=0.05):
@@ -189,7 +189,7 @@ def acf_to_acorr(acf):
     return acf / np.sqrt(np.outer(diag, diag))
 
 
-def varsim(coefs, intercept, sig_u, steps=100, initvalues=None, seed=None):
+def varsim(coefs, intercept, sig_u, steps=100, initial_values=None, seed=None, nsimulations=None):
     """
     Simulate VAR(p) process, given coefficients and assuming Gaussian noise
 
@@ -209,56 +209,82 @@ def varsim(coefs, intercept, sig_u, steps=100, initvalues=None, seed=None):
     sig_u : ndarray
         Covariance matrix of the residuals or innovations.
         If sig_u is None, then an identity matrix is used.
-    steps : None or int
+    steps : {None, int}
         number of observations to simulate, this includes the initial
         observations to start the autoregressive process.
         If offset is not None, then exog of the model are used if they were
         provided in the model
-    seed : None or integer
+    initial_values : array_like, optional
+        Initial values for use in the simulation. Shape should be
+        (nlags, neqs) or (neqs,). Values should be ordered from less to
+        most recent. Note that this values will be returned by the
+        simulation as the first values of `endog_simulated` and they
+        will count for the total number of steps.
+    seed : {None, int}
         If seed is not None, then it will be used with for the random
         variables generated by numpy.random.
+    nsimulations : {None, int}
+        Number of simulations to perform. If `nsimulations` is None it will
+        perform one simulation and return value will have shape (steps, neqs).
 
     Returns
     -------
     endog_simulated : nd_array
-        Endog of the simulated VAR process
-
+        Endog of the simulated VAR process. Shape will be (nsimulations, steps, neqs)
+        or (steps, neqs) if `nsimulations` is None.
     """
     rs = np.random.RandomState(seed=seed)
     rmvnorm = rs.multivariate_normal
     p, k, k = coefs.shape
+    nsimulations= int_like(nsimulations, "nsimulations", optional=True)
+    if isinstance(nsimulations, int) and nsimulations <= 0:
+        raise ValueError("nsimulations must be a positive integer if provided")
+    if nsimulations is None:
+        result_shape = (steps, k)
+        nsimulations = 1
+    else:
+        result_shape = (nsimulations, steps, k)
     if sig_u is None:
         sig_u = np.eye(k)
-    ugen = rmvnorm(np.zeros(len(sig_u)), sig_u, steps)
-    result = np.zeros((steps, k))
+    ugen = rmvnorm(np.zeros(len(sig_u)), sig_u, steps*nsimulations).reshape(nsimulations, steps, k)
+    result = np.zeros((nsimulations, steps, k))
     if intercept is not None:
         # intercept can be 2-D like an offset variable
         if np.ndim(intercept) > 1:
-            if not len(intercept) == len(ugen):
+            if not len(intercept) == ugen.shape[1]:
                 raise ValueError('2-D intercept needs to have length `steps`')
         # add intercept/offset also to intial values
         result += intercept
-        result[p:] += ugen[p:]
+        result[:,p:] += ugen[:,p:]
     else:
-        result[p:] = ugen[p:]
+        result[:,p:] = ugen[:,p:]
+
+    initial_values = array_like(initial_values, "initial_values", optional=True, maxdim=2)
+    if initial_values is not None:
+        if not (initial_values.shape == (p, k) or initial_values.shape == (k,)):
+            raise ValueError("initial_values should have shape (p, k) or (k,) where p is the number of lags and k is the number of equations.")
+        result[:,:p] = initial_values
 
     # add in AR terms
     for t in range(p, steps):
-        ygen = result[t]
+        ygen = result[:,t]
         for j in range(p):
-            ygen += np.dot(coefs[j], result[t-j-1])
+            ygen += np.dot(coefs[j], result[:,t-j-1].T).T
 
-    return result
+    return result.reshape(result_shape)
+
 
 def get_index(lst, name):
     try:
         result = lst.index(name)
     except Exception:
-        if not isinstance(name, (int, long)):
+        if not isinstance(name, int):
             raise
         result = name
     return result
-    #method used repeatedly in Sims-Zha error bands
+
+
+#method used repeatedly in Sims-Zha error bands
 def eigval_decomp(sym_array):
     """
     Returns
@@ -268,9 +294,10 @@ def eigval_decomp(sym_array):
     k: largest eigenvector
     """
     #check if symmetric, do not include shock period
-    eigva, W = decomp.eig(sym_array, left=True, right=False)
+    eigva, W = linalg.eig(sym_array, left=True, right=False)
     k = np.argmax(eigva)
     return W, eigva, k
+
 
 def vech(A):
     """

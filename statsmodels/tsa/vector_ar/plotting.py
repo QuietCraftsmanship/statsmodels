@@ -1,8 +1,11 @@
-from statsmodels.compat.python import lrange, range
+from statsmodels.compat.python import lrange
+
 import numpy as np
+
 import statsmodels.tsa.vector_ar.util as util
 
-class MPLConfigurator(object):
+
+class MPLConfigurator:
 
     def __init__(self):
         self._inverse_actions = []
@@ -20,6 +23,7 @@ class MPLConfigurator(object):
             mpl.rcParams['font.size'] = old_size
 
         self._inverse_actions.append(revert)
+
 
 #-------------------------------------------------------------------------------
 # Plotting functions
@@ -49,6 +53,7 @@ def plot_mts(Y, names=None, index=None):
 
     return fig
 
+
 def plot_var_forc(prior, forc, err_upper, err_lower,
                   index=None, names=None, plot_stderr=True,
                   legend_options=None):
@@ -66,13 +71,13 @@ def plot_var_forc(prior, forc, err_upper, err_lower,
     for j in range(k):
         ax = plt.subplot(rows, cols, j+1)
 
-        p1 = ax.plot(prange, prior[:, j], 'k', label='Observed')
-        p2 = ax.plot(rng_f, np.r_[prior[-1:, j], forc[:, j]], 'k--',
-                        label='Forecast')
+        ax.plot(prange, prior[:, j], 'k', label='Observed')
+        ax.plot(rng_f, np.r_[prior[-1:, j], forc[:, j]], 'k--',
+                     label='Forecast')
 
         if plot_stderr:
-            p3 = ax.plot(rng_err, err_upper[:, j], 'k-.',
-                            label='Forc 2 STD err')
+            ax.plot(rng_err, err_upper[:, j], 'k-.',
+                         label='Forc 2 STD err')
             ax.plot(rng_err, err_lower[:, j], 'k-.')
 
         if names is not None:
@@ -83,6 +88,7 @@ def plot_var_forc(prior, forc, err_upper, err_lower,
         ax.legend(**legend_options)
     return fig
 
+
 def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
                     error_fmt='k--', alpha=0.05, stderr_type = 'asym'):
     """
@@ -92,7 +98,6 @@ def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
     ----------
     y :
     error : array or None
-
     """
     import matplotlib.pyplot as plt
 
@@ -100,7 +105,10 @@ def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
         axes = plt.gca()
 
     x = x if x is not None else lrange(len(y))
-    plot_action = lambda y, fmt: axes.plot(x, y, fmt)
+
+    def plot_action(y, fmt):
+        return axes.plot(x, y, fmt)
+
     plot_action(y, value_fmt)
 
     #changed this
@@ -113,15 +121,13 @@ def plot_with_error(y, error, x=None, axes=None, value_fmt='k',
             plot_action(error[0], error_fmt)
             plot_action(error[1], error_fmt)
 
+
 def plot_full_acorr(acorr, fontsize=8, linewidth=8, xlabel=None,
                     err_bound=None):
     """
 
     Parameters
     ----------
-
-
-
     """
     import matplotlib.pyplot as plt
 
@@ -146,6 +152,7 @@ def plot_full_acorr(acorr, fontsize=8, linewidth=8, xlabel=None,
 
     return fig
 
+
 def acorr_plot(acorr, linewidth=8, xlabel=None, ax=None):
     import matplotlib.pyplot as plt
 
@@ -163,8 +170,10 @@ def acorr_plot(acorr, linewidth=8, xlabel=None, ax=None):
     # hack?
     ax.set_xlim([-1, xlabel[-1] + 1])
 
+
 def plot_acorr_with_error():
-    pass
+    raise NotImplementedError
+
 
 def adjust_subplots(**kwds):
     import matplotlib.pyplot as plt
@@ -174,6 +183,7 @@ def adjust_subplots(**kwds):
                        hspace=0.2)
     passed_kwds.update(kwds)
     plt.subplots_adjust(**passed_kwds)
+
 
 #-------------------------------------------------------------------------------
 # Multiple impulse response (cum_effects, etc.) cplots
@@ -219,11 +229,11 @@ def irf_grid_plot(values, stderr, impcol, rescol, names, title,
             if stderr_type == 'asym':
                 sig = np.sqrt(stderr[:, j * k + i, j * k + i])
                 plot_with_error(values[:, i, j], sig, x=rng, axes=ax,
-                            alpha=signif, value_fmt='b', stderr_type=stderr_type)
+                                alpha=signif, value_fmt='b', stderr_type=stderr_type)
             if stderr_type in ('mc','sz1','sz2','sz3'):
                 errs = stderr[0][:, i, j], stderr[1][:, i, j]
                 plot_with_error(values[:, i, j], errs, x=rng, axes=ax,
-                            alpha=signif, value_fmt='b', stderr_type=stderr_type)
+                                alpha=signif, value_fmt='b', stderr_type=stderr_type)
         else:
             plot_with_error(values[:, i, j], None, x=rng, axes=ax,
                             value_fmt='b')
@@ -265,5 +275,3 @@ def _get_irf_plot_config(names, impcol, rescol):
 
 #-------------------------------------------------------------------------------
 # Forecast error variance decomposition
-
-

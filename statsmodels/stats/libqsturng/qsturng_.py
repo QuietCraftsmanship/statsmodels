@@ -22,13 +22,13 @@ see:
     Studentized range distribution.
     http://www.stata.com/stb/stb46/dm64/sturng.pdf
 """
-from __future__ import print_function
-from statsmodels.compat.python import lrange, map
-import math
-import scipy.stats
-import numpy as np
+from statsmodels.compat.python import lrange
 
+import math
+
+import numpy as np
 from scipy.optimize import fminbound
+import scipy.stats
 
 inf = np.inf
 
@@ -49,7 +49,7 @@ __version__ = '0.2.3'
 # r values for combinations of p and v. In total there are 206
 # estimates over p-values of .5, .75, .9, .95, .975, .99, .995,
 # and .999, and over v (degrees of freedom) of (1) - 20, 24, 30, 40,
-# 60, 120, and inf. combinations with p < .95 don't have coefficients
+# 60, 120, and inf. combinations with p < .95 do not have coefficients
 # for v = 1. Hence the parentheses. These coefficients allow us to
 # form f-hat. f-hat with the inverse t transform of tinv(p,v) yields
 # a fairly accurate estimate of the studentized range distribution
@@ -381,7 +381,7 @@ def _isfloat(x):
     """
     try:
         float(x)
-    except:
+    except Exception:
         return False
 
     return True
@@ -392,9 +392,8 @@ def _isfloat(x):
 
 def _phi( p ):
     # this function is faster than using scipy.stats.norm.isf(p)
-    # but the permissity of the license isn't explicitly listed.
+    # but the permissity of the license is not explicitly listed.
     # using scipy.stats.norm.isf(p) is an acceptable alternative
-
     """
     Modified from the author's original perl code (original comments follow below)
     by dfield@yahoo-inc.com.  May 3, 2004.
@@ -439,14 +438,14 @@ def _phi( p ):
 
     # Rational approximation for lower region:
     if p < plow:
-       q  = math.sqrt(-2*math.log(p))
-       return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
-               ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
+        q  = math.sqrt(-2*math.log(p))
+        return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
+                 ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
 
     # Rational approximation for upper region:
     if phigh < p:
-       q  = math.sqrt(-2*math.log(1-p))
-       return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
+        q  = math.sqrt(-2*math.log(1-p))
+        return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
                 ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
 
     # Rational approximation for central region:
@@ -475,9 +474,11 @@ def _func(a, p, r, v):
         f += -0.002 / (1. + 12. * _phi(p)**2)
 
         if v <= 4.364:
-            f += 1./517. - 1./(312.*(v,1e38)[np.isinf(v)])
+            v = v if not np.isinf(v) else 1e38
+            f += 1. / 517. - 1. / (312. * v)
         else:
-            f += 1./(191.*(v,1e38)[np.isinf(v)])
+            v = v if not np.isinf(v) else 1e38
+            f += 1. / (191. * v)
 
     return -f
 
@@ -529,6 +530,7 @@ def _interpolate_p(p, r, v):
         y0 = _func(A[(p0, v)], p0, r, v) + 1.
     except:
         print(p,r,v)
+        raise
     y1 = _func(A[(p1, v)], p1, r, v) + 1.
     y2 = _func(A[(p2, v)], p2, r, v) + 1.
 
@@ -578,10 +580,11 @@ def _interpolate_p(p, r, v):
 
     else:
         # linear interpolation in q and p
+        v = min(v, 1e38)
         q0 = math.sqrt(2) * -y0 * \
-             scipy.stats.t.isf((1.+p0)/2., (v,1e38)[v>1e38])
+             scipy.stats.t.isf((1.+p0)/2., v)
         q1 = math.sqrt(2) * -y1 * \
-             scipy.stats.t.isf((1.+p1)/2., (v,1e38)[v>1e38])
+             scipy.stats.t.isf((1.+p1)/2., v)
 
         d1 = (q1-q0)/(p1-p0)
         d0 = q0
@@ -590,8 +593,7 @@ def _interpolate_p(p, r, v):
         q = d1 * (p-p0) + d0
 
         # transform back to y
-        y = -q / (math.sqrt(2) * \
-                  scipy.stats.t.isf((1.+p)/2., (v,1e38)[v>1e38]))
+        y = -q / (math.sqrt(2) * scipy.stats.t.isf((1.+p)/2., v))
 
     return y
 
@@ -624,7 +626,6 @@ def _select_vs(v, p):
     return vi - 1, vi, vi + 1
 
 def _interpolate_v(p, r, v):
-
     """
     interpolates v based on the values in the A table for the
     scalar value of r and th
@@ -646,7 +647,8 @@ def _interpolate_v(p, r, v):
 
     # if v2 is inf set to a big number so interpolation
     # calculations will work
-    if v2 > 1e38: v2 = 1e38
+    if v2 > 1e38:
+        v2 = 1e38
 
     # transform v
     v_, v0_, v1_, v2_ = 1./v, 1./v0, 1./v1, 1./v2
@@ -670,7 +672,7 @@ def _qsturng(p, r, v):
 ##    print 'q',p
     # r is interpolated through the q to y here we only need to
     # account for when p and/or v are not found in the table.
-    global A, p_keys, v_keys
+    # global A, p_keys, v_keys
 
     if p < .1 or p > .999:
         raise ValueError('p must be between .1 and .999')
@@ -751,8 +753,8 @@ def _qsturng(p, r, v):
     elif p not in p_keys:
         y = _interpolate_p(p, r, v)
 
-    return math.sqrt(2) * -y * \
-           scipy.stats.t.isf((1.+p)/2., (v,1e38)[v>1e38])
+    v = min(v, 1e38)
+    return math.sqrt(2) * -y * scipy.stats.t.isf((1. + p) / 2., v)
 
 # make a qsturng functinon that will accept list-like objects
 _vqsturng = np.vectorize(_qsturng)
@@ -784,7 +786,6 @@ def qsturng(p, r, v):
     -------
     q : (scalar, array_like)
         approximation of the Studentized Range
-
     """
 
     if all(map(_isfloat, [p, r, v])):
@@ -821,22 +822,28 @@ def _psturng(q, r, v):
     if q < 0.:
         raise ValueError('q should be >= 0')
 
-    opt_func = lambda p, r, v : abs(_qsturng(p, r, v) - q)
+    def opt_func(p, r, v):
+        return np.squeeze(abs(_qsturng(p, r, v) - q))
 
     if v == 1:
         if q < _qsturng(.9, r, 1):
             return .1
         elif q > _qsturng(.999, r, 1):
             return .001
-        return 1. - fminbound(opt_func, .9, .999, args=(r,v))
+        soln = 1. - fminbound(opt_func, .9, .999, args=(r,v))
+        return np.atleast_1d(soln)
     else:
         if q < _qsturng(.1, r, v):
             return .9
         elif q > _qsturng(.999, r, v):
             return .001
-        return 1. - fminbound(opt_func, .1, .999, args=(r,v))
+        soln = 1. - fminbound(opt_func, .1, .999, args=(r,v))
+        return np.atleast_1d(soln)
 
-_vpsturng = np.vectorize(_psturng)
+def _psturng_scalar(q, r, v):
+    return np.squeeze(_psturng(q, r, v))
+
+_vpsturng = np.vectorize(_psturng_scalar)
 _vpsturng.__doc__ = """vector version of psturng"""
 
 def psturng(q, r, v):
@@ -866,7 +873,6 @@ def psturng(q, r, v):
         distribution. When v == 1, p is bound between .001
         and .1, when v > 1, p is bound between .001 and .9.
         Values between .5 and .9 are 1st order appoximations.
-
     """
     if all(map(_isfloat, [q, r, v])):
         return _psturng(q, r, v)

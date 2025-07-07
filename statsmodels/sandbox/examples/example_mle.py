@@ -3,13 +3,14 @@
 TODO: compare standard error of parameter estimates
 '''
 
-from scipy import optimize
 import numpy as np
-import statsmodels.base.model as models
+from scipy import optimize
+
+import statsmodels.api as sm
+from statsmodels.datasets.longley import load
 
 print('\nExample 1: Artificial Data')
 print('--------------------------\n')
-import statsmodels.api as sm
 
 np.random.seed(54321)
 X = np.random.rand(40,2)
@@ -18,7 +19,8 @@ beta = np.array((3.5, 5.7, 150))
 Y = np.dot(X,beta) + np.random.standard_normal(40)
 mod2 = sm.OLS(Y,X)
 res2 = mod2.fit()
-f2 = lambda params: -1*mod2.loglike(params)
+def f2(params):
+    return -1 * mod2.loglike(params)
 resfmin = optimize.fmin(f2, np.ones(3), ftol=1e-10)
 print('OLS')
 print(res2.params)
@@ -30,12 +32,13 @@ print(resfmin)
 print('\nExample 2: Longley Data, high multicollinearity')
 print('-----------------------------------------------\n')
 
-from statsmodels.datasets.longley import load
 data = load()
 data.exog = sm.add_constant(data.exog, prepend=False)
 mod = sm.OLS(data.endog, data.exog)
-f = lambda params: -1*mod.loglike(params)
-score = lambda params: -1*mod.score(params)
+def f(params):
+    return -1 * mod.loglike(params)
+def score(params):
+    return -1 * mod.score(params)
 
 #now you're set up to try and minimize or root find, but I couldn't get this one to work
 #note that if you want to get the results, it's also a property of mod, so you can do
@@ -48,7 +51,7 @@ print('MLE')
 #resfmin2 = optimize.fmin(f, mod.results.params*0.9, maxfun=5000, maxiter=5000, xtol=1e-10, ftol= 1e-10)
 resfmin2 = optimize.fmin(f, np.ones(7), maxfun=5000, maxiter=5000, xtol=1e-10, ftol= 1e-10)
 print(resfmin2)
-# there isn't a unique solution?  Is this due to the multicollinearity? Improved with use of analytically
+# there is not a unique solution?  Is this due to the multicollinearity? Improved with use of analytically
 # defined score function?
 
 #check X'X matrix

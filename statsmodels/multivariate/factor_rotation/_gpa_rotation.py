@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This file contains a Python version of the gradient projection rotation
 algorithms (GPA) developed by Bernaards, C.A. and Jennrich, R.I.
@@ -22,13 +21,12 @@ Psychometrika, 67, 7-19.
 [5] http://www.stat.ucla.edu/research/gpa/GPderfree.txt
 """
 
-from __future__ import division
 import numpy as np
 
 
 def GPA(A, ff=None, vgQ=None, T=None, max_tries=501,
         rotation_method='orthogonal', tol=1e-5):
-    """
+    r"""
     The gradient projection algorithm (GPA) minimizes a target function
     :math:`\phi(L)`, where :math:`L` is a matrix with rotated factors.
 
@@ -53,9 +51,9 @@ def GPA(A, ff=None, vgQ=None, T=None, max_tries=501,
         criterion :math:`\phi` to optimize and its derivative. Should have
          A, T, L as keyword arguments and mapping to a tuple containing a
         float and vector. Can be omitted if ff is provided.
-    max_tries : integer (default 501)
+    max_tries : int (default 501)
         maximum number of iterations
-    rotation_method : string
+    rotation_method : str
         should be one of {orthogonal, oblique}
     tol : float
         stop criterion, algorithm stops if Frobenius norm of gradient is
@@ -69,7 +67,10 @@ def GPA(A, ff=None, vgQ=None, T=None, max_tries=501,
         if ff is None:
             raise ValueError('ff should be provided if vgQ is not')
         derivative_free = True
-        Gff = lambda x: Gf(x, lambda y: ff(T=y, A=A, L=None))
+
+        def Gff(x):
+            return Gf(x, lambda y: ff(T=y, A=A, L=None))
+
     else:
         derivative_free = False
     if T is None:
@@ -239,13 +240,13 @@ def oblimin_objective(L=None, A=None, T=None, gamma=0,
         rotation matrix
     gamma : float (default 0)
         a parameter
-    rotation_method : string
+    rotation_method : str
         should be one of {orthogonal, oblique}
-    return_gradient : boolean (default True)
+    return_gradient : bool (default True)
         toggles return of gradient
     """
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method=rotation_method)
     p, k = L.shape
     L2 = L**2
@@ -304,12 +305,12 @@ def orthomax_objective(L=None, A=None, T=None, gamma=0, return_gradient=True):
         rotation matrix
     gamma : float (default 0)
         a parameter
-    return_gradient : boolean (default True)
+    return_gradient : bool (default True)
         toggles return of gradient
     """
     assert 0 <= gamma <= 1, "Gamma should be between 0 and 1"
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method='orthogonal')
     p, k = L.shape
     L2 = L**2
@@ -385,14 +386,14 @@ def CF_objective(L=None, A=None, T=None, kappa=0,
         rotation matrix
     gamma : float (default 0)
         a parameter
-    rotation_method : string
+    rotation_method : str
         should be one of {orthogonal, oblique}
-    return_gradient : boolean (default True)
+    return_gradient : bool (default True)
         toggles return of gradient
     """
     assert 0 <= kappa <= 1, "Kappa should be between 0 and 1"
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method=rotation_method)
     p, k = L.shape
     L2 = L**2
@@ -453,11 +454,11 @@ def vgQ_target(H, L=None, A=None, T=None, rotation_method='orthogonal'):
         non rotated factors
     T : numpy matrix (default None)
         rotation matrix
-    rotation_method : string
+    rotation_method : str
         should be one of {orthogonal, oblique}
     """
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method=rotation_method)
     q = np.linalg.norm(L-H, 'fro')**2
     Gq = 2*(L-H)
@@ -496,11 +497,11 @@ def ff_target(H, L=None, A=None, T=None, rotation_method='orthogonal'):
         non rotated factors
     T : numpy matrix (default None)
         rotation matrix
-    rotation_method : string
+    rotation_method : str
         should be one of {orthogonal, oblique}
     """
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method=rotation_method)
     return np.linalg.norm(L-H, 'fro')**2
 
@@ -546,7 +547,7 @@ def vgQ_partial_target(H, W=None, L=None, A=None, T=None):
     if W is None:
         return vgQ_target(H, L=L, A=A, T=T)
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method='orthogonal')
     q = np.linalg.norm(W*(L-H), 'fro')**2
     Gq = 2*W*(L-H)
@@ -588,7 +589,7 @@ def ff_partial_target(H, W=None, L=None, A=None, T=None):
     if W is None:
         return ff_target(H, L=L, A=A, T=T)
     if L is None:
-        assert(A is not None and T is not None)
+        assert A is not None and T is not None
         L = rotateA(A, T, rotation_method='orthogonal')
     q = np.linalg.norm(W*(L-H), 'fro')**2
     return q
