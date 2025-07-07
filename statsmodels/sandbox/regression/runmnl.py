@@ -22,12 +22,12 @@ Koppelman, Frank S., and Chandra Bhat with technical support from Vaneet Sethi,
 Author: josef-pktd
 License: BSD (simplified)
 '''
-
-
 import numpy as np
 import numpy.lib.recfunctions as recf
+from scipy import optimize
 
-class TryCLogit(object):
+
+class TryCLogit:
     '''
     Conditional Logit, data handling test
 
@@ -74,8 +74,9 @@ class TryCLogit(object):
         self.beta_indices = beta_indices
 
         #for testing only
-        beta = np.arange(7)
-        betaidx_bychoices = [beta[idx] for idx in beta_indices]
+        # Unused code commented out
+        # beta = np.arange(7)
+        # betaidx_bychoices = [beta[idx] for idx in beta_indices]
 
 
     def xbetas(self, params):
@@ -92,8 +93,9 @@ class TryCLogit(object):
         #normalization ?
         xb = self.xbetas(params)
         expxb = np.exp(xb)
-        sumexpxb = expxb.sum(1)#[:,None]
-        probs = expxb/expxb.sum(1)[:,None]  #we don't really need this for all
+        # Unused code commented out
+        # sumexpxb = expxb.sum(1)#[:,None]
+        probs = expxb/expxb.sum(1)[:,None]  #we do not really need this for all
         loglike = (self.endog * np.log(probs)).sum(1)
         #is this the same: YES
         #self.logliketest = (self.endog * xb).sum(1) - np.log(sumexpxb)
@@ -106,11 +108,11 @@ class TryCLogit(object):
         return optimize.fmin(self.loglike, start_params, maxfun=10000)
 
 
-class TryNCLogit(object):
+class TryNCLogit:
     '''
     Nested Conditional Logit (RUNMNL), data handling test
 
-    unfinished, doesn't do anything yet
+    unfinished, does not do anything yet
 
     '''
 
@@ -130,8 +132,9 @@ class TryNCLogit(object):
         self.beta_indices = beta_indices
 
         #for testing only
-        beta = np.arange(7)
-        betaidx_bychoices = [beta[idx] for idx in beta_indices]
+        # Unused code commented out
+        # beta = np.arange(7)
+        # betaidx_bychoices = [beta[idx] for idx in beta_indices]
 
 
     def xbetas(self, params):
@@ -150,33 +153,35 @@ class TryNCLogit(object):
         xb = self.xbetas(params)
         expxb = np.exp(xb/tau)
         sumexpxb = expxb.sum(1)#[:,None]
-        logsumexpxb = np.log(sumexpxb)
-        #loglike = (self.endog * xb).sum(1) - logsumexpxb
+        # Unused code commented out
+        # logsumexpxb = np.log(sumexpxb)
+        # loglike = (self.endog * xb).sum(1) - logsumexpxb
         probs = expxb/sumexpxb[:,None]
-        return probs, logsumexpxp
+        return probs, logsumexpxp  # noqa:F821  See GH#5756
         #if self.endog where index then xb[self.endog]
         #return -loglike.sum()   #return sum for now not for each observation
 
     def loglike_branch(self, params, tau):
         #not yet sure how to keep track of branches during walking of tree
         ivs = []
-        for b in branches:
-            probs, iv = loglike_leafbranch(self, params, tau)
+        for b in branches:  # noqa:F821  See GH#5756
+            probs, iv = self.loglike_leafbranch(params, tau)
             ivs.append(iv)
 
         #ivs = np.array(ivs)   #note ivs is (nobs,nbranchchoices)
-        ivs = np.column_stack(ivs) # this way ?
-        exptiv = np.exp(tau*ivs)
-        sumexptiv = exptiv.sum(1)
-        logsumexpxb = np.log(sumexpxb)
-        probs = exptiv/sumexptiv[:,None]
+        # Unused code commented out
+        # ivs = np.column_stack(ivs) # this way ?
+        # exptiv = np.exp(tau*ivs)
+        # sumexptiv = exptiv.sum(1)
+        # logsumexpxb = np.log(sumexpxb)  # noqa:F821  See GH#5756
+        # probs = exptiv/sumexptiv[:,None]
 
 
 ####### obsolete version to try out attaching data,
 ####### new in treewalkerclass.py, copy new version to replace this
 ####### problem with bzr I will disconnect history when copying
 testxb = 0 #global to class
-class RU2NMNL(object):
+class RU2NMNL:
     '''Nested Multinomial Logit with Random Utility 2 parameterization
 
     '''
@@ -194,26 +199,22 @@ class RU2NMNL(object):
     def calc_prob(self, tree, keys=None):
         '''walking a tree bottom-up based on dictionary
         '''
-        endog = self.endog
         datadict = self.datadict
-        paramsind = self.paramsind
-        branchsum = self.branchsum
 
-
-        if type(tree) == tuple:   #assumes leaves are int for choice index
+        if isinstance(tree, tuple):   #assumes leaves are int for choice index
             name, subtree = tree
-            print name, datadict[name]
-            print 'subtree', subtree
+            print(name, datadict[name])
+            print('subtree', subtree)
             keys = []
             if testxb:
                 branchsum = datadict[name]
             else:
                 branchsum = name  #0
             for b in subtree:
-                print b
+                print(b)
                 #branchsum += branch2(b)
                 branchsum = branchsum + self.calc_prob(b, keys)
-            print 'branchsum', branchsum, keys
+            print('branchsum', branchsum, keys)
             for k in keys:
                 self.probs[k] = self.probs[k] + ['*' + name + '-prob']
 
@@ -222,13 +223,13 @@ class RU2NMNL(object):
             self.probs[tree] = [tree + '-prob' +
                                 '(%s)' % ', '.join(self.paramsind[tree])]
             if testxb:
-                leavessum = sum((datadict[bi] for bi in tree))
-                print 'final branch with', tree, ''.join(tree), leavessum #sum(tree)
+                leavessum = sum(datadict[bi] for bi in tree)
+                print('final branch with', tree, ''.join(tree), leavessum) #sum(tree)
                 return leavessum  #sum(xb[tree])
             else:
                 return ''.join(tree) #sum(tree)
 
-        print 'working on branch', tree, branchsum
+        print('working on branch', tree, branchsum)
         return branchsum
 
 
@@ -240,16 +241,16 @@ class RU2NMNL(object):
 dta = np.genfromtxt('TableF23-2.txt', skip_header=1,
                     names='Mode   Ttme   Invc    Invt      GC     Hinc    PSize'.split())
 
-endog = dta['Mode'].reshape(-1,4).copy() #I don't want a view
+endog = dta['Mode'].reshape(-1,4).copy() #I do not want a view
 nobs, nchoices = endog.shape
 datafloat = dta.view(float).reshape(-1,7)
-exog = datafloat[:,1:].reshape(-1,6*nchoices).copy() #I don't want a view
+exog = datafloat[:,1:].reshape(-1,6*nchoices).copy() #I do not want a view
 
-print endog.sum(0)
+print(endog.sum(0))
 varnames = dta.dtype.names
-print varnames[1:]
+print(varnames[1:])
 modes = ['Air', 'Train', 'Bus', 'Car']
-print exog.mean(0).reshape(nchoices, -1) # Greene Table 23.23
+print(exog.mean(0).reshape(nchoices, -1)) # Greene Table 23.23
 
 
 
@@ -289,7 +290,7 @@ xivar = [['GC', 'Ttme', 'Const', 'Hinc'],
 xi = []
 for ii in range(4):
     xi.append(dta1[xivar[ii]][choice_index==ii])
-    #this doesn't change sequence of columns, bug report by Skipper I think
+    #this does not change sequence of columns, bug report by Skipper I think
 
 ncommon = 2
 betaind = [len(xi[ii].dtype.names)-ncommon for ii in range(4)]
@@ -311,7 +312,6 @@ betai = [beta[idx] for idx in betaindices]
 #get exogs as float
 xifloat = [xx.view(float).reshape(nobs,-1) for xx in xi]
 clogit = TryCLogit(endog, xifloat, 2)
-from scipy import optimize
 
 debug = 0
 if debug:
@@ -335,17 +335,16 @@ array([-0.0961246 , -0.0155019 ,  0.01328757,  5.20741244,  3.86905293,
 '''
 res3corr = res3[[1, 0, 2, 3, 4, 5]]
 res3corr[0] *= 10
-print res3corr - tab2324  # diff 1e-5 to 1e-6
-#199.128369 - 199.1284  #llf same up to print precision of Greene
+print(res3corr - tab2324)  # diff 1e-5 to 1e-6
+#199.128369 - 199.1284  #llf same up to print(precision of Greene
 
-print clogit.fit()
+print(clogit.fit())
 
 
 tree0 = ('top',
             [('Fly',['Air']),
              ('Ground', ['Train', 'Car', 'Bus'])
-             ]
-        )
+             ])
 
 datadict = dict(zip(['Air', 'Train', 'Bus', 'Car'],
                     [xifloat[i]for i in range(4)]))
@@ -368,6 +367,6 @@ paramsind = {'top' :   [],
              }
 
 modru = RU2NMNL(endog, datadict, tree0, paramsind)
-print modru.calc_prob(modru.tree)
-print '\nmodru.probs'
-print modru.probs
+print(modru.calc_prob(modru.tree))
+print('\nmodru.probs')
+print(modru.probs)

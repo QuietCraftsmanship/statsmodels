@@ -4,7 +4,7 @@ uses dispatch to mstats version for difficult cases:
   - data is masked array
   - data requires nan handling (masknan=True)
   - data should be trimmed (limit is non-empty)
-handle simple cases directly, which doesn't require apply_along_axis
+handle simple cases directly, which does not require apply_along_axis
 changes compared to mstats: plotting_positions for n-dim with axis argument
 addition: plotting_positions_w1d: with weights, 1d ndarray only
 
@@ -16,12 +16,11 @@ convert examples to tests
 rename alphap, betap for consistency
 timing question: one additional argsort versus apply_along_axis
 weighted plotting_positions
-- I haven't figured out nd version of weighted plotting_positions
+- I have not figured out nd version of weighted plotting_positions
 - add weighted quantiles
 
 
 '''
-
 import numpy as np
 from numpy import ma
 from scipy import stats
@@ -64,9 +63,9 @@ def quantiles(a, prob=list([.25,.5,.75]), alphap=.4, betap=.4, axis=None,
 
     Parameters
     ----------
-    a : array-like
+    a : array_like
         Input data, as a sequence or array of dimension at most 2.
-    prob : array-like, optional
+    prob : array_like, optional
         List of quantiles to compute.
     alpha : float, optional
         Plotting positions parameter, default is 0.4.
@@ -120,7 +119,6 @@ def quantiles(a, prob=list([.25,.5,.75]), alphap=.4, betap=.4, axis=None,
       [False False  True]
       [False False  True]],
            fill_value = 1e+20)
-
     """
 
     if isinstance(a, np.ma.MaskedArray):
@@ -180,7 +178,6 @@ def scoreatpercentile(data, per, limit=(), alphap=.4, betap=.4, axis=0, masknan=
     sequence a.  For example, the score at per=50 is the median.
 
     This function is a shortcut to mquantile
-
     """
     per = np.asarray(per, float)
     if (per < 0).any() or (per > 100.).any():
@@ -263,7 +260,7 @@ def plotting_positions(data, alpha=0.4, beta=0.4, axis=0, masknan=False):
         plpos = np.empty(data.shape, dtype=float)
         plpos[data.argsort()] = (np.arange(1,n+1) - alpha)/(n+1.-alpha-beta)
     else:
-        #nd assignment instead of second argsort doesn't look easy
+        #nd assignment instead of second argsort does not look easy
         plpos = (data.argsort(axis).argsort(axis) + 1. - alpha)/(n+1.-alpha-beta)
     return plpos
 
@@ -315,51 +312,51 @@ def edf_normal_inverse_transformed(x, alpha=3./8, beta=3./8, axis=0):
     '''rank based normal inverse transformed cdf
     '''
     from scipy import stats
-    ranks = plotting_positions(data, alpha=alpha, beta=alpha, axis=0, masknan=False)
+    ranks = plotting_positions(x, alpha=alpha, beta=alpha, axis=0, masknan=False)
     ranks_transf = stats.norm.ppf(ranks)
     return ranks_transf
 
 if __name__ == '__main__':
 
     x = np.arange(5)
-    print plotting_positions(x)
+    print(plotting_positions(x))
     x = np.arange(10).reshape(-1,2)
-    print plotting_positions(x)
-    print quantiles(x, axis=0)
-    print quantiles(x, axis=None)
-    print quantiles(x, axis=1)
+    print(plotting_positions(x))
+    print(quantiles(x, axis=0))
+    print(quantiles(x, axis=None))
+    print(quantiles(x, axis=1))
     xm = ma.array(x)
     x2 = x.astype(float)
     x2[1,0] = np.nan
-    print plotting_positions(xm, axis=0)
+    print(plotting_positions(xm, axis=0))
 
     # test 0d, 1d
     for sl1 in [slice(None), 0]:
-        print (plotting_positions(xm[sl1,0]) == plotting_positions(x[sl1,0])).all(),
-        print (quantiles(xm[sl1,0]) == quantiles(x[sl1,0])).all(),
-        print (stats.mstats.mquantiles(ma.fix_invalid(x2[sl1,0])) == quantiles(x2[sl1,0], masknan=1)).all(),
+        print((plotting_positions(xm[sl1,0]) == plotting_positions(x[sl1,0])).all())
+        print((quantiles(xm[sl1,0]) == quantiles(x[sl1,0])).all())
+        print((stats.mstats.mquantiles(ma.fix_invalid(x2[sl1,0])) == quantiles(x2[sl1,0], masknan=1)).all())
 
     #test 2d
     for ax in [0, 1, None, -1]:
-        print (plotting_positions(xm, axis=ax) == plotting_positions(x, axis=ax)).all(),
-        print (quantiles(xm, axis=ax) == quantiles(x, axis=ax)).all(),
-        print (stats.mstats.mquantiles(ma.fix_invalid(x2), axis=ax) == quantiles(x2, axis=ax, masknan=1)).all(),
+        print((plotting_positions(xm, axis=ax) == plotting_positions(x, axis=ax)).all())
+        print((quantiles(xm, axis=ax) == quantiles(x, axis=ax)).all())
+        print((stats.mstats.mquantiles(ma.fix_invalid(x2), axis=ax) == quantiles(x2, axis=ax, masknan=1)).all())
 
-    #stats version doesn't have axis
-    print (stats.mstats.plotting_positions(ma.fix_invalid(x2)) == plotting_positions(x2, axis=None, masknan=1)).all(),
+    #stats version does not have axis
+    print((stats.mstats.plotting_positions(ma.fix_invalid(x2)) == plotting_positions(x2, axis=None, masknan=1)).all())
 
     #test 3d
     x3 = np.dstack((x,x)).T
     for ax in [1,2]:
-        print (plotting_positions(x3, axis=ax)[0] == plotting_positions(x.T, axis=ax-1)).all(),
+        print((plotting_positions(x3, axis=ax)[0] == plotting_positions(x.T, axis=ax-1)).all())
 
     np.testing.assert_equal(plotting_positions(np.arange(10), alpha=0.35, beta=1-0.35), (1+np.arange(10)-0.35)/10)
     np.testing.assert_equal(plotting_positions(np.arange(10), alpha=0.4, beta=0.4), (1+np.arange(10)-0.4)/(10+0.2))
     np.testing.assert_equal(plotting_positions(np.arange(10)), (1+np.arange(10)-0.4)/(10+0.2))
-    print
-    print scoreatpercentile(x, [10,90])
-    print plotting_positions_w1d(x[:,0])
-    print (plotting_positions_w1d(x[:,0]) == plotting_positions(x[:,0])).all()
+    print('')
+    print(scoreatpercentile(x, [10,90]))
+    print(plotting_positions_w1d(x[:,0]))
+    print((plotting_positions_w1d(x[:,0]) == plotting_positions(x[:,0])).all())
 
 
     #weights versus replicating multiple occurencies of same x value

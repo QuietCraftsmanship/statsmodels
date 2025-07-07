@@ -6,56 +6,49 @@
 Regression with Discrete Dependent Variable
 ===========================================
 
-Note: These models have just been moved out of the sandbox. Large parts of the
-statistical results are verified and tested, but this module has not seen much
-use yet and we can still expect some changes.
+Regression models for limited and qualitative dependent variables. The module
+currently allows the estimation of models with binary (Logit, Probit), nominal
+(MNLogit), or count (Poisson, NegativeBinomial) data.
+
+Starting with version 0.9, this also includes new count models, that are still
+experimental in 0.9, NegativeBinomialP, GeneralizedPoisson and zero-inflated
+models, ZeroInflatedPoisson, ZeroInflatedNegativeBinomialP and
+ZeroInflatedGeneralizedPoisson.
+
+See `Module Reference`_ for commands and arguments.
+
+Examples
+--------
+
+.. ipython:: python
+  :okwarning:
+
+  # Load the data from Spector and Mazzeo (1980)
+  import statsmodels.api as sm
+  spector_data = sm.datasets.spector.load_pandas()
+  spector_data.exog = sm.add_constant(spector_data.exog)
+
+  # Logit Model
+  logit_mod = sm.Logit(spector_data.endog, spector_data.exog)
+  logit_res = logit_mod.fit()
+  print(logit_res.summary())
+
+Detailed examples can be found here:
 
 
-Introduction
-------------
+* `Overview <examples/notebooks/generated/discrete_choice_overview.ipynb>`_
+* `Examples <examples/notebooks/generated/discrete_choice_example.ipynb>`_
 
-:mod:discretemod contains regression models for limited dependent and
-qualitative variables.
+Technical Documentation
+-----------------------
 
-This currently includes models when the dependent variable is discrete,
-either binary (Logit, Probit), (ordered) ordinal data (MNLogit) or
-count data (Poisson). Currently all models are estimated by Maximum Likelihood
-and assume independently and identically distributed errors.
+Currently all models are estimated by Maximum Likelihood and assume
+independently and identically distributed errors.
 
 All discrete regression models define the same methods and follow the same
 structure, which is similar to the regression results but with some methods
 specific to discrete models. Additionally some of them contain additional model
 specific methods and attributes.
-
-Example::
-
-  # Load the data from Spector and Mazzeo (1980)
-  spector_data = sm.datasets.spector.load()
-  spector_data.exog = sm.add_constant(spector_data.exog)
-
-  # Linear Probability Model using OLS
-  lpm_mod = sm.OLS(spector_data.endog,spector_data.exog)
-  lpm_res = lpm_mod.fit()
-
-  # Logit Model
-  logit_mod = sm.Logit(spector_data.endog, spector_data.exog)
-  logit_res = logit_mod.fit()
-
-  # Probit Model
-  probit_mod = sm.Probit(spector_data.endog, spector_data.exog)
-  probit_res = probit_mod.fit()
-
-  # Since the parameters have different parameterization across non-linear
-  # models, we can use the average marginal effect instead to compare the
-  # models results.
-
-  >>> lpm_res.params[:-1]
-  array([ 0.46385168,  0.01049512,  0.37855479])
-  >>> logit_res.margeff()
-  array([ 0.36258083,  0.01220841,  0.3051777 ])
-  >>> probit_res.margeff()
-  array([ 0.36078629,  0.01147926,  0.31651986])
-
 
 
 References
@@ -71,16 +64,11 @@ General references for this class of models are::
 
     W. Greene. `Econometric Analysis`. Prentice Hall, 5th. edition. 2003.
 
-
-Examples
-^^^^^^^^
-
-see the `examples` and the `tests` folders, and the docstrings of the
-individual model classes.
-
-
 Module Reference
 ----------------
+
+.. module:: statsmodels.discrete.discrete_model
+   :synopsis: Models for discrete data
 
 The specific model classes are:
 
@@ -91,13 +79,122 @@ The specific model classes are:
    Probit
    MNLogit
    Poisson
+   NegativeBinomial
+   NegativeBinomialP
+   GeneralizedPoisson
+
+.. currentmodule:: statsmodels.discrete.count_model
+.. module:: statsmodels.discrete.count_model
+
+.. autosummary::
+   :toctree: generated/
+
+   ZeroInflatedPoisson
+   ZeroInflatedNegativeBinomialP
+   ZeroInflatedGeneralizedPoisson
+
+.. currentmodule:: statsmodels.discrete.truncated_model
+.. module:: statsmodels.discrete.truncated_model
+
+.. autosummary::
+   :toctree: generated/
+
+   HurdleCountModel
+   TruncatedLFNegativeBinomialP
+   TruncatedLFPoisson
+
+.. currentmodule:: statsmodels.discrete.conditional_models
+.. module:: statsmodels.discrete.conditional_models
+
+.. autosummary::
+   :toctree: generated/
+
+   ConditionalLogit
+   ConditionalMNLogit
+   ConditionalPoisson
+
+The cumulative link model for an ordinal dependent variable is currently
+in miscmodels as it subclasses GenericLikelihoodModel. This will change
+in future versions.
+
+.. currentmodule:: statsmodels.miscmodels.ordinal_model
+.. module:: statsmodels.miscmodels.ordinal_model
+
+.. autosummary::
+   :toctree: generated/
+
+   OrderedModel
+
+The specific result classes are:
+
+.. currentmodule:: statsmodels.discrete.discrete_model
+
+.. autosummary::
+   :toctree: generated/
+
+   LogitResults
+   ProbitResults
+   CountResults
+   MultinomialResults
+   NegativeBinomialResults
+   GeneralizedPoissonResults
+
+.. currentmodule:: statsmodels.discrete.count_model
+
+.. autosummary::
+   :toctree: generated/
+
+   ZeroInflatedPoissonResults
+   ZeroInflatedNegativeBinomialResults
+   ZeroInflatedGeneralizedPoissonResults
+
+.. currentmodule:: statsmodels.discrete.truncated_model
+
+.. autosummary::
+   :toctree: generated/
+
+   HurdleCountResults
+   TruncatedLFPoissonResults
+   TruncatedNegativeBinomialResults
+
+.. currentmodule:: statsmodels.discrete.conditional_models
+
+.. autosummary::
+   :toctree: generated/
+
+   ConditionalResults
+   
+.. currentmodule:: statsmodels.miscmodels.ordinal_model
+
+.. autosummary::
+   :toctree: generated/
+
+   OrderedResults
+
 
 :class:`DiscreteModel` is a superclass of all discrete regression models. The
-estimation results are returned as an instance of :class:`DiscreteResults`
+estimation results are returned as an instance of one of the subclasses of
+:class:`DiscreteResults`. Each category of models, binary, count and
+multinomial, have their own intermediate level of model and results classes.
+This intermediate classes are mostly to facilitate the implementation of the
+methods and attributes defined by :class:`DiscreteModel` and
+:class:`DiscreteResults`.
+
+.. currentmodule:: statsmodels.discrete.discrete_model
 
 .. autosummary::
    :toctree: generated/
 
    DiscreteModel
    DiscreteResults
+   BinaryModel
+   BinaryResults
+   CountModel
+   MultinomialModel
 
+.. currentmodule:: statsmodels.discrete.count_model
+
+.. autosummary::
+   :toctree: generated/
+
+   GenericZeroInflated

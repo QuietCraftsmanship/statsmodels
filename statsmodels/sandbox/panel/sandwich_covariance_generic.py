@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """covariance with (nobs,nobs) loop and general kernel
 
 This is a general implementation that is not efficient for any special cases.
@@ -13,7 +12,6 @@ Author: Josef Perktold
 License: BSD-3
 
 """
-
 import numpy as np
 
 def kernel(d1, d2, r=None, weights=None):
@@ -80,8 +78,8 @@ def aggregate_cov(x, d, r=None, weights=None):
     count = 0 #count non-zero pairs for cross checking, not needed
     res = 0 * np.outer(x[0], x[0])  #get output shape
 
-    for ii in xrange(nobs):
-        for jj in xrange(nobs):
+    for ii in range(nobs):
+        for jj in range(nobs):
             w = kernel(d[ii], d[jj], r=r, weights=weights)
             if w:  #true or non-zero
                 res += w * np.outer(x[0], x[0])

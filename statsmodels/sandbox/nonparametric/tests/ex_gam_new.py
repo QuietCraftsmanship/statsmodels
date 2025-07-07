@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example for GAM with Poisson Model and PolynomialSmoother
 
 This example was written as a test case.
@@ -9,21 +8,18 @@ Created on Fri Nov 04 13:45:43 2011
 
 Author: Josef Perktold
 """
-
+from statsmodels.compat.python import lrange
 import time
 
 import numpy as np
-#import matplotlib.pyplot as plt
-
-np.seterr(all='raise')
 
 from scipy import stats
 
-from statsmodels.sandbox.gam import AdditiveModel
-from statsmodels.sandbox.gam import Model as GAM #?
+from statsmodels.sandbox.gam import Model as GAM
 from statsmodels.genmod.families import family
 from statsmodels.genmod.generalized_linear_model import GLM
 
+np.seterr(all='raise')
 np.random.seed(8765993)
 #seed is chosen for nice result, not randomly
 #other seeds are pretty off in the prediction or end in overflow
@@ -38,7 +34,7 @@ x1 = np.linspace(lb, ub, nobs)
 x2 = np.sin(2*x1)
 x = np.column_stack((x1/x1.max()*1, 1.*x2))
 exog = (x[:,:,None]**np.arange(order+1)[None, None, :]).reshape(nobs, -1)
-idx = range((order+1)*2)
+idx = lrange((order+1)*2)
 del idx[order+1]
 exog_reduced = exog[:,idx]  #remove duplicate constant
 y_true = exog.sum(1) #/ 4.
@@ -49,7 +45,7 @@ y = y_true + sigma_noise * np.random.randn(nobs)
 example = 3
 
 if example == 2:
-    print "binomial"
+    print("binomial")
     f = family.Binomial()
     mu_true = f.link.inverse(z)
     #b = np.asarray([scipy.stats.bernoulli.rvs(p) for p in f.link.inverse(y)])
@@ -59,33 +55,34 @@ if example == 2:
     toc = time.time()
     m.fit(b)
     tic = time.time()
-    print tic-toc
+    print(tic-toc)
     #for plotting
     yp = f.link.inverse(y)
     p = b
 
 
 if example == 3:
-    print "Poisson"
+    print("Poisson")
     f = family.Poisson()
     #y = y/y.max() * 3
     yp = f.link.inverse(z)
-    #p = np.asarray([scipy.stats.poisson.rvs(p) for p in f.link.inverse(y)], float)
-    p = np.asarray([stats.poisson.rvs(p) for p in f.link.inverse(z)], float)
+    p = np.asarray([stats.poisson.rvs(val) for val in f.link.inverse(z)],
+                   float)
     p.shape = y.shape
     m = GAM(p, d, family=f)
     toc = time.time()
     m.fit(p)
     tic = time.time()
-    print tic-toc
+    print(tic-toc)
 
 for ss in m.smoothers:
-    print ss.params
+    print(ss.params)
 
 if example > 1:
     import matplotlib.pyplot as plt
     plt.figure()
-    for i in np.array(m.history[2:15:3]): plt.plot(i.T)
+    for i in np.array(m.history[2:15:3]):
+        plt.plot(i.T)
 
     plt.figure()
     plt.plot(exog)

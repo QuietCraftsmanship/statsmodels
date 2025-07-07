@@ -1,17 +1,15 @@
-
-
+import matplotlib.pyplot as plt
 import numpy as np
-#import statsmodels.linear_model.regression as smreg
-
 from scipy import special
 
 import statsmodels.api as sm
 from statsmodels.datasets.macrodata import data
+
+#import statsmodels.linear_model.regression as smreg
+
+
 dta = data.load()
 gdp = np.log(dta.data['realgdp'])
-
-from numpy import polynomial
-from scipy import special
 
 
 maxorder = 20
@@ -25,9 +23,8 @@ exog = np.column_stack([polybase(i)(t) for i in range(maxorder)])
 fitted = [sm.OLS(gdp, exog[:, :maxr]).fit().fittedvalues for maxr in
           range(2,maxorder)]
 
-print (np.corrcoef(exog[:,1:6], rowvar=0)*10000).astype(int)
+print((np.corrcoef(exog[:,1:6], rowvar=0)*10000).astype(int))
 
-import matplotlib.pyplot as plt
 
 plt.figure()
 plt.plot(gdp, 'o')

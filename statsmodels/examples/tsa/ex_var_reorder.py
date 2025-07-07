@@ -1,4 +1,3 @@
-import statsmodels.api as sm
 from statsmodels.tsa.vector_ar.tests.test_var import TestVARResults
 
 test_VAR = TestVARResults()

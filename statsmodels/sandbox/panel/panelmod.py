@@ -6,19 +6,15 @@ References
 
 Baltagi, Badi H. `Econometric Analysis of Panel Data.` 4th ed. Wiley, 2008.
 """
+from functools import reduce
 
-from statsmodels.tools.tools import categorical
-from statsmodels.regression.linear_model import GLS, WLS
 import numpy as np
+
+from statsmodels.regression.linear_model import GLS
 
 __all__ = ["PanelModel"]
 
-try:
-    from pandas import LongPanel, __version__
-    __version__ >= .1
-except:
-    raise ImportError("While in the sandbox this code depends on the pandas \
-package.  http://code.google.com/p/pandas/")
+from pandas import Panel
 
 
 def group(X):
@@ -34,8 +30,8 @@ def group(X):
     """
     uniq_dict = {}
     group = np.zeros(len(X))
-    for i in xrange(len(X)):
-        if not X[i] in uniq_dict:
+    for i in range(len(X)):
+        if X[i] not in uniq_dict:
             uniq_dict.update({X[i] : len(uniq_dict)})
         group[i] = uniq_dict[X[i]]
     return group
@@ -45,20 +41,20 @@ def repanel_cov(groups, sigmas):
 
     Parameters
     ----------
-    groups : array, (nobs, nre) or (nobs,)
+    groups : ndarray, (nobs, nre) or (nobs,)
         array of group/category observations
-    sigma : array, (nre+1,)
+    sigma : ndarray, (nre+1,)
         array of standard deviations of random effects,
         last element is the standard deviation of the
         idiosyncratic error
 
     Returns
     -------
-    omega : array, (nobs, nobs)
+    omega : ndarray, (nobs, nobs)
         covariance matrix of error
-    omegainv : array, (nobs, nobs)
+    omegainv : ndarray, (nobs, nobs)
         inverse covariance matrix of error
-    omegainvsqrt : array, (nobs, nobs)
+    omegainvsqrt : ndarray, (nobs, nobs)
         squareroot inverse covariance matrix of error
         such that omega = omegainvsqrt * omegainvsqrt.T
 
@@ -77,29 +73,29 @@ def repanel_cov(groups, sigmas):
         groupuniq = np.unique(group)
         dummygr = sigmas[igr] * (group == groupuniq).astype(float)
         omega +=  np.dot(dummygr, dummygr.T)
-    ev, evec = np.linalg.eigh(omega)  #eig doesn't work
+    ev, evec = np.linalg.eigh(omega)  #eig does not work
     omegainv = np.dot(evec, (1/ev * evec).T)
     omegainvhalf = evec/np.sqrt(ev)
     return omega, omegainv, omegainvhalf
 
 
 
-class PanelData(LongPanel):
+class PanelData(Panel):
     pass
 
-class PanelModel(object):
+class PanelModel:
     """
     An abstract statistical model class for panel (longitudinal) datasets.
 
     Parameters
-    ---------
-    endog : array-like or str
+    ----------
+    endog : array_like or str
         If a pandas object is used then endog should be the name of the
         endogenous variable as a string.
 #    exog
 #    panel_arr
 #    time_arr
-    panel_data : pandas.LongPanel object
+    panel_data : pandas.Panel object
 
     Notes
     -----
@@ -108,18 +104,18 @@ class PanelModel(object):
     """
     def __init__(self, endog=None, exog=None, panel=None, time=None,
             xtnames=None, equation=None, panel_data=None):
-        if panel_data == None:
+        if panel_data is None:
 #            if endog == None and exog == None and panel == None and \
 #                    time == None:
 #                raise ValueError("If pandel_data is False then endog, exog, \
 #panel_arr, and time_arr cannot be None.")
-           self.initialize(endog, exog, panel, time, xtnames, equation)
+            self.initialize(endog, exog, panel, time, xtnames, equation)
 #        elif aspandas != False:
 #            if not isinstance(endog, str):
 #                raise ValueError("If a pandas object is supplied then endog \
 #must be a string containing the name of the endogenous variable")
-#            if not isinstance(aspandas, LongPanel):
-#                raise ValueError("Only pandas.LongPanel objects are supported")
+#            if not isinstance(aspandas, Panel):
+#                raise ValueError("Only pandas.Panel objects are supported")
 #            self.initialize_pandas(endog, aspandas, panel_name)
 
 
@@ -184,12 +180,12 @@ class PanelModel(object):
 # on the pandas LongPanel structure for speed and convenience.
 # not sure this part is finished...
 
-#TODO: doesn't conform to new initialize
+#TODO: does not conform to new initialize
     def initialize_pandas(self, panel_data, endog_name, exog_name):
         self.panel_data = panel_data
         endog = panel_data[endog_name].values # does this create a copy?
         self.endog = np.squeeze(endog)
-        if exog_name == None:
+        if exog_name is None:
             exog_name = panel_data.columns.tolist()
             exog_name.remove(endog_name)
         self.exog = panel_data.filterItems(exog_name).values # copy?
@@ -215,20 +211,21 @@ class PanelModel(object):
             uniq = self.timeuniq
         else:
             raise ValueError("index %s not understood" % index)
-
+        print(Y, uniq, uniq[:,None], len(Y), len(uniq), len(uniq[:,None]),
+              index)
         #TODO: use sparse matrices
         dummy = (Y == uniq[:,None]).astype(float)
         if X.ndim > 1:
             mean = np.dot(dummy,X)/dummy.sum(1)[:,None]
         else:
             mean = np.dot(dummy,X)/dummy.sum(1)
-        if counts == False and dummies == False:
+        if counts is False and dummies is False:
             return mean
-        elif counts == True and dummies == False:
+        elif counts is True and dummies is False:
             return mean, dummy.sum(1)
-        elif counts == True and dummies == True:
+        elif counts is True and dummies is True:
             return mean, dummy.sum(1), dummy
-        elif counts == False and dummies == True:
+        elif counts is False and dummies is True:
             return mean, dummy
 
 #TODO: Use kwd arguments or have fit_method methods?
@@ -255,15 +252,16 @@ class PanelModel(object):
 
 
         Notes
-        ------
+        -----
         This is unfinished.  None of the method arguments work yet.
         Only oneway effects should work.
         """
         if method: # get rid of this with default
             method = method.lower()
         model = model.lower()
-        if method and method not in ["lsdv", "demeaned", "mle", "gls", "be",
-            "fe"]: # get rid of if method with default
+        if method and method not in ["lsdv", "demeaned", "mle",
+                                     "gls", "be", "fe"]:
+            # get rid of if method with default
             raise ValueError("%s not a valid method" % method)
 #        if method == "lsdv":
 #            self.fit_lsdv(model)
@@ -291,8 +289,8 @@ class PanelModel(object):
             endog = self._group_mean(self.endog, index=effects)
             exog = self._group_mean(self.exog, index=effects)
         else:
-            raise ValueError("%s effects is not valid for the between \
-estimator" % s)
+            raise ValueError("%s effects is not valid for the between "
+                             "estimator" % effects)
         befit = GLS(endog, exog).fit()
         return befit
 
@@ -334,33 +332,32 @@ class DynamicPanel(PanelModel):
     pass
 
 if __name__ == "__main__":
-    try:
-        import pandas
-        pandas.version >= .1
-    except:
-        raise ImportError("pandas >= .10 not installed")
-    from pandas import LongPanel
-    import statsmodels.api as sm
     import numpy.lib.recfunctions as nprf
+    import pandas
+    from pandas import Panel
+
+    import statsmodels.api as sm
 
     data = sm.datasets.grunfeld.load()
-    # Baltagi doesn't include American Steel
+    # Baltagi does not include American Steel
     endog = data.endog[:-20]
     fullexog = data.exog[:-20]
 #    fullexog.sort(order=['firm','year'])
     panel_arr = nprf.append_fields(fullexog, 'investment', endog, float,
             usemask=False)
-    panel_panda = LongPanel.fromRecords(panel_arr, major_field='year',
-            minor_field='firm')
+
+    panel_df = pandas.DataFrame(panel_arr)
+    panel_panda = panel_df.set_index(['year', 'firm']).to_panel()
+
 
     # the most cumbersome way of doing it as far as preprocessing by hand
     exog = fullexog[['value','capital']].view(float).reshape(-1,2)
-    exog = sm.add_constant(exog)
+    exog = sm.add_constant(exog, prepend=False)
     panel = group(fullexog['firm'])
     year = fullexog['year']
     panel_mod = PanelModel(endog, exog, panel, year, xtnames=['firm','year'],
             equation='invest value capital')
-# note that equation doesn't actually do anything but name the variables
+# note that equation does not actually do anything but name the variables
     panel_ols = panel_mod.fit(model='pooled')
 
     panel_be = panel_mod.fit(model='between', effects='oneway')
@@ -406,18 +403,18 @@ if __name__ == "__main__":
     # omega is the error variance-covariance matrix for the stacked
     # observations
     omega = np.dot(dummyall, dummyall.T) + sigma* np.eye(nobs)
-    print omega
-    print np.linalg.cholesky(omega)
-    ev, evec = np.linalg.eigh(omega)  #eig doesn't work
+    print(omega)
+    print(np.linalg.cholesky(omega))
+    ev, evec = np.linalg.eigh(omega)  #eig does not work
     omegainv = np.dot(evec, (1/ev * evec).T)
     omegainv2 = np.linalg.inv(omega)
     omegacomp = np.dot(evec, (ev * evec).T)
-    print np.max(np.abs(omegacomp - omega))
+    print(np.max(np.abs(omegacomp - omega)))
     #check
-    #print np.dot(omegainv,omega)
-    print np.max(np.abs(np.dot(omegainv,omega) - np.eye(nobs)))
-    omegainvhalf = evec/np.sqrt(ev)  #not sure whether ev shouldn't be column
-    print np.max(np.abs(np.dot(omegainvhalf,omegainvhalf.T) - omegainv))
+    #print(np.dot(omegainv,omega)
+    print(np.max(np.abs(np.dot(omegainv,omega) - np.eye(nobs))))
+    omegainvhalf = evec/np.sqrt(ev)  #not sure whether ev should not be column
+    print(np.max(np.abs(np.dot(omegainvhalf,omegainvhalf.T) - omegainv)))
 
     # now we can use omegainvhalf in GLS (instead of the cholesky)
 
@@ -431,9 +428,9 @@ if __name__ == "__main__":
     sigmas2 = np.array([sigmagr, sigmape, sigma])
     groups2 = np.column_stack((groups, periods))
     omega_, omegainv_, omegainvhalf_ = repanel_cov(groups2, sigmas2)
-    print np.max(np.abs(omega_ - omega))
-    print np.max(np.abs(omegainv_ - omegainv))
-    print np.max(np.abs(omegainvhalf_ - omegainvhalf))
+    print(np.max(np.abs(omega_ - omega)))
+    print(np.max(np.abs(omegainv_ - omegainv)))
+    print(np.max(np.abs(omegainvhalf_ - omegainvhalf)))
 
     # notation Baltagi (3rd) section 9.4.1 (Fixed Effects Model)
     Pgr = reduce(np.dot,[dummygr,
@@ -441,4 +438,4 @@ if __name__ == "__main__":
     Qgr = np.eye(nobs) - Pgr
     # within group effect: np.dot(Qgr, groups)
     # but this is not memory efficient, compared to groupstats
-    print np.max(np.abs(np.dot(Qgr, groups)))
+    print(np.max(np.abs(np.dot(Qgr, groups))))

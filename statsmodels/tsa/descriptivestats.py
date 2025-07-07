@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Descriptive Statistics for Time Series
 
 Created on Sat Oct 30 14:24:08 2010
@@ -7,12 +6,11 @@ Author: josef-pktd
 License: BSD(3clause)
 """
 
-import numpy as np
-import stattools as stt
+from . import stattools as stt
 
 
 #todo: check subclassing for descriptive stats classes
-class TsaDescriptive(object):
+class TsaDescriptive:
     '''collection of descriptive statistical methods for time series
 
     '''
@@ -28,12 +26,12 @@ class TsaDescriptive(object):
         return self.__class__(xfiltered, self.label, self.name + '_filtered')
 
     def detrend(self, order=1):
-        import tsatools
+        from . import tsatools
         xdetrended = tsatools.detrend(self.data, order=order)
         return self.__class__(xdetrended, self.label, self.name + '_detrended')
 
     def fit(self, order=(1,0,1), **kwds):
-        from arima_model import ARMA
+        from .arima_model import ARMA
         self.mod = ARMA(self.data)
         self.res = self.mod.fit(order=order, **kwds)
         #self.estimated_process =
@@ -46,7 +44,7 @@ class TsaDescriptive(object):
         return stt.pacf(self.data, nlags=nlags)
 
     def periodogram(self):
-        #doesn't return frequesncies
+        #does not return frequesncies
         return stt.periodogram(self.data)
 
     # copied from fftarma.py
@@ -54,7 +52,6 @@ class TsaDescriptive(object):
         data = self.data
         acf = self.acf(nacf)
         pacf = self.pacf(nacf)
-        w = np.linspace(0, np.pi, nfreq, endpoint=False)
         spdr = self.periodogram()[:nfreq] #(w)
 
         if fig is None:
@@ -78,5 +75,3 @@ class TsaDescriptive(object):
         ax.set_title('Partial Autocorrelation' + namestr)
 
         return fig
-
-

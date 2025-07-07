@@ -10,14 +10,14 @@ distribution fit, but these are neither general nor verified.
 Author: josef-pktd
 License: Simplified BSD
 '''
+from statsmodels.compat.python import lmap
 
 import numpy as np
-from scipy import stats, optimize, integrate
-
+from scipy import integrate, optimize, stats
 
 ########## patching scipy
 
-#vonmises doesn't define finite bounds, because it is intended for circular
+#vonmises does not define finite bounds, because it is intended for circular
 #support which does not define a proper pdf on the real line
 
 stats.distributions.vonmises.a = -np.pi
@@ -31,7 +31,7 @@ def _fitstart(self, x):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
         data for which the parameters are estimated
 
     Returns
@@ -58,7 +58,7 @@ def _fitstart_beta(self, x, fixed=None):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
         data for which the parameters are estimated
     fixed : None or array_like
         sequence of numbers and np.nan to indicate fixed parameters and parameters
@@ -77,7 +77,7 @@ def _fitstart_beta(self, x, fixed=None):
     References
     ----------
     for method of moment estimator for known loc and scale
-    http://en.wikipedia.org/wiki/Beta_distribution#Parameter_estimation
+    https://en.wikipedia.org/wiki/Beta_distribution#Parameter_estimation
     http://www.itl.nist.gov/div898/handbook/eda/section3/eda366h.htm
     NIST reference also includes reference to MLE in
     Johnson, Kotz, and Balakrishan, Volume II, pages 221-235
@@ -120,7 +120,7 @@ def _fitstart_poisson(self, x, fixed=None):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
         data for which the parameters are estimated
     fixed : None or array_like
         sequence of numbers and np.nan to indicate fixed parameters and parameters
@@ -139,7 +139,7 @@ def _fitstart_poisson(self, x, fixed=None):
     References
     ----------
     MLE :
-    http://en.wikipedia.org/wiki/Poisson_distribution#Maximum_likelihood
+    https://en.wikipedia.org/wiki/Poisson_distribution#Maximum_likelihood
 
     '''
     #todo: separate out this part to be used for other compact support distributions
@@ -173,7 +173,7 @@ def nnlf_fr(self, thetash, x, frmask):
     #   where theta are the parameters (including loc and scale)
     #
     try:
-        if frmask != None:
+        if frmask is not None:
             theta = frmask.copy()
             theta[np.isnan(frmask)] = thetash
         else:
@@ -182,7 +182,7 @@ def nnlf_fr(self, thetash, x, frmask):
         scale = theta[-1]
         args = tuple(theta[:-2])
     except IndexError:
-        raise ValueError, "Not enough input arguments."
+        raise ValueError("Not enough input arguments.")
     if not self._argcheck(*args) or scale <= 0:
         return np.inf
     x = np.array((x-loc) / scale)
@@ -199,7 +199,7 @@ def fit_fr(self, data, *args, **kwds):
 
     Parameters
     ----------
-    data : array, 1d
+    data : ndarray, 1d
         data for which the distribution parameters are estimated,
     args : list ? check
         starting values for optimization
@@ -211,7 +211,7 @@ def fit_fr(self, data, *args, **kwds):
 
     Returns
     -------
-    argest : array
+    argest : ndarray
         estimated parameters
 
 
@@ -252,13 +252,13 @@ def fit_fr(self, data, *args, **kwds):
     * more input checking, args is list ? might also apply to current fit method
 
     '''
-    loc0, scale0 = map(kwds.get, ['loc', 'scale'],[0.0, 1.0])
+    loc0, scale0 = lmap(kwds.get, ['loc', 'scale'],[0.0, 1.0])
     Narg = len(args)
 
     if Narg == 0 and hasattr(self, '_fitstart'):
         x0 = self._fitstart(data)
     elif Narg > self.numargs:
-        raise ValueError, "Too many input arguments."
+        raise ValueError("Too many input arguments.")
     else:
         args += (1.0,)*(self.numargs-Narg)
         # location and scale are at the end
@@ -267,15 +267,23 @@ def fit_fr(self, data, *args, **kwds):
     if 'frozen' in kwds:
         frmask = np.array(kwds['frozen'])
         if len(frmask) != self.numargs+2:
-            raise ValueError, "Incorrect number of frozen arguments."
+            raise ValueError("Incorrect number of frozen arguments.")
         else:
             # keep starting values for not frozen parameters
+            for n in range(len(frmask)):
+                # Troubleshooting ex_generic_mle_tdist
+                if isinstance(frmask[n], np.ndarray) and frmask[n].size == 1:
+                    frmask[n] = frmask[n].item()
+
+            # If there were array elements, then frmask will be object-dtype,
+            #  in which case np.isnan will raise TypeError
+            frmask = frmask.astype(np.float64)
             x0  = np.array(x0)[np.isnan(frmask)]
     else:
         frmask = None
 
-    #print x0
-    #print frmask
+    #print(x0
+    #print(frmask
     return optimize.fmin(self.nnlf_fr, x0,
                 args=(np.ravel(data), frmask), disp=0)
 
@@ -302,7 +310,7 @@ def expect(self, fn=None, args=(), loc=0, scale=1, lb=None, ub=None, conditional
         lb, ub : numbers
            lower and upper bound for integration, default is set to the support
            of the distribution
-        conditional : boolean (False)
+        conditional : bool (False)
            If true then the integral is corrected by the conditional probability
            of the integration interval. The return value is the expectation
            of the function, conditional on being in the given interval.
@@ -351,7 +359,7 @@ def expect_v2(self, fn=None, args=(), loc=0, scale=1, lb=None, ub=None, conditio
         lb, ub : numbers
            lower and upper bound for integration, default is set using
            quantiles of the distribution, see Notes
-        conditional : boolean (False)
+        conditional : bool (False)
            If true then the integral is corrected by the conditional probability
            of the integration interval. The return value is the expectation
            of the function, conditional on being in the given interval.
@@ -434,7 +442,7 @@ def expect_discrete(self, fn=None, args=(), loc=0, lb=None, ub=None,
         lb, ub : numbers
            lower and upper bound for integration, default is set to the support
            of the distribution, lb and ub are inclusive (ul<=k<=ub)
-        conditional : boolean (False)
+        conditional : bool (False)
            If true then the expectation is corrected by the conditional
            probability of the integration interval. The return value is the
            expectation of the function, conditional on being in the given
@@ -501,7 +509,7 @@ def expect_discrete(self, fn=None, args=(), loc=0, lb=None, ub=None,
     low = max(min(-suppnmin, low), lb)
     upp = min(max(suppnmin, upp), ub)
     supp = np.arange(low, upp+1, self.inc) #check limits
-    #print 'low, upp', low, upp
+    #print('low, upp', low, upp
     tot = np.sum(fun(supp))
     diff = 1e100
     pos = upp + self.inc
@@ -525,7 +533,7 @@ def expect_discrete(self, fn=None, args=(), loc=0, lb=None, ub=None,
             count += 1
     if count > maxcount:
         # replace with proper warning
-        print 'sum did not converge'
+        print('sum did not converge')
     return tot/invfac
 
 stats.distributions.rv_continuous.fit_fr = fit_fr
@@ -546,10 +554,10 @@ def distfitbootstrap(sample, distr, nrepl=100):
 
     Parameters
     ----------
-    sample : array
+    sample : ndarray
         original sample data for bootstrap
     distr : distribution instance with fit_fr method
-    nrepl : integer
+    nrepl : int
         number of bootstrap replications
 
     Returns
@@ -560,7 +568,7 @@ def distfitbootstrap(sample, distr, nrepl=100):
     '''
     nobs = len(sample)
     res = np.zeros(nrepl)
-    for ii in xrange(nrepl):
+    for ii in range(nrepl):
         rvsind = np.random.randint(nobs, size=nobs)
         x = sample[rvsind]
         res[ii] = distr.fit_fr(x, frozen=[np.nan, 0.0, 1.0])
@@ -574,10 +582,10 @@ def distfitmc(sample, distr, nrepl=100, distkwds={}):
 
     Parameters
     ----------
-    sample : array
+    sample : ndarray
         original sample data, in Monte Carlo only used to get nobs,
     distr : distribution instance with fit_fr method
-    nrepl : integer
+    nrepl : int
         number of Monte Carlo replications
 
     Returns
@@ -589,21 +597,21 @@ def distfitmc(sample, distr, nrepl=100, distkwds={}):
     arg = distkwds.pop('arg')
     nobs = len(sample)
     res = np.zeros(nrepl)
-    for ii in xrange(nrepl):
+    for ii in range(nrepl):
         x = distr.rvs(arg, size=nobs, **distkwds)
         res[ii] = distr.fit_fr(x, frozen=[np.nan, 0.0, 1.0])
     return res
 
 
 def printresults(sample, arg, bres, kind='bootstrap'):
-    '''calculate and print Bootstrap or Monte Carlo result
+    '''calculate and print(Bootstrap or Monte Carlo result
 
     Parameters
     ----------
-    sample : array
+    sample : ndarray
         original sample data
     arg : float   (for general case will be array)
-    bres : array
+    bres : ndarray
         parameter estimates from Bootstrap or Monte Carlo run
     kind : {'bootstrap', 'montecarlo'}
         output is printed for Mootstrap (default) or Monte Carlo
@@ -626,31 +634,30 @@ def printresults(sample, arg, bres, kind='bootstrap'):
     todo: return results and string instead of printing
 
     '''
-    print 'true parameter value'
-    print arg
-    print 'MLE estimate of parameters using sample (nobs=%d)'% (nobs)
+    print('true parameter value')
+    print(arg)
+    print('MLE estimate of parameters using sample (nobs=%d)'% (nobs))
     argest = distr.fit_fr(sample, frozen=[np.nan, 0.0, 1.0])
-    print argest
+    print(argest)
     if kind == 'bootstrap':
         #bootstrap compares to estimate from sample
-        argorig = arg
         arg = argest
 
-    print '%s distribution of parameter estimate (nrepl=%d)'% (kind, nrepl)
-    print 'mean = %f, bias=%f' % (bres.mean(0), bres.mean(0)-arg)
-    print 'median', np.median(bres, axis=0)
-    print 'var and std', bres.var(0), np.sqrt(bres.var(0))
+    print('%s distribution of parameter estimate (nrepl=%d)'% (kind, nrepl))
+    print(f'mean = {bres.mean(0):f}, bias={bres.mean(0)-arg:f}')
+    print('median', np.median(bres, axis=0))
+    print('var and std', bres.var(0), np.sqrt(bres.var(0)))
     bmse = ((bres - arg)**2).mean(0)
-    print 'mse, rmse', bmse, np.sqrt(bmse)
+    print('mse, rmse', bmse, np.sqrt(bmse))
     bressorted = np.sort(bres)
-    print '%s confidence interval (90%% coverage)' % kind
-    print bressorted[np.floor(nrepl*0.05)], bressorted[np.floor(nrepl*0.95)]
-    print '%s confidence interval (90%% coverage) normal approximation' % kind
-    print stats.norm.ppf(0.05, loc=bres.mean(), scale=bres.std()),
-    print stats.norm.isf(0.05, loc=bres.mean(), scale=bres.std())
-    print 'Kolmogorov-Smirnov test for normality of %s distribution' % kind
-    print ' - estimated parameters, p-values not really correct'
-    print stats.kstest(bres, 'norm', (bres.mean(), bres.std()))
+    print('%s confidence interval (90%% coverage)' % kind)
+    print(bressorted[np.floor(nrepl*0.05)], bressorted[np.floor(nrepl*0.95)])
+    print('%s confidence interval (90%% coverage) normal approximation' % kind)
+    print(stats.norm.ppf(0.05, loc=bres.mean(), scale=bres.std()),)
+    print(stats.norm.isf(0.05, loc=bres.mean(), scale=bres.std()))
+    print('Kolmogorov-Smirnov test for normality of %s distribution' % kind)
+    print(' - estimated parameters, p-values not really correct')
+    print(stats.kstest(bres, 'norm', (bres.mean(), bres.std())))
 
 
 if __name__ == '__main__':
@@ -659,35 +666,35 @@ if __name__ == '__main__':
 
     if 'largenumber' in examplecases:
 
-        print '\nDistribution: vonmises'
+        print('\nDistribution: vonmises')
 
         for nobs in [200]:#[20000, 1000, 100]:
             x = stats.vonmises.rvs(1.23, loc=0, scale=1, size=nobs)
-            print '\nnobs:', nobs
-            print 'true parameter'
-            print '1.23, loc=0, scale=1'
-            print 'unconstraint'
-            print stats.vonmises.fit(x)
-            print stats.vonmises.fit_fr(x, frozen=[np.nan, np.nan, np.nan])
-            print 'with fixed loc and scale'
-            print stats.vonmises.fit_fr(x, frozen=[np.nan, 0.0, 1.0])
+            print('\nnobs:', nobs)
+            print('true parameter')
+            print('1.23, loc=0, scale=1')
+            print('unconstrained')
+            print(stats.vonmises.fit(x))
+            print(stats.vonmises.fit_fr(x, frozen=[np.nan, np.nan, np.nan]))
+            print('with fixed loc and scale')
+            print(stats.vonmises.fit_fr(x, frozen=[np.nan, 0.0, 1.0]))
 
-        print '\nDistribution: gamma'
+        print('\nDistribution: gamma')
         distr = stats.gamma
         arg, loc, scale = 2.5, 0., 20.
 
         for nobs in [200]:#[20000, 1000, 100]:
             x = distr.rvs(arg, loc=loc, scale=scale, size=nobs)
-            print '\nnobs:', nobs
-            print 'true parameter'
-            print '%f, loc=%f, scale=%f' % (arg, loc, scale)
-            print 'unconstraint'
-            print distr.fit(x)
-            print distr.fit_fr(x, frozen=[np.nan, np.nan, np.nan])
-            print 'with fixed loc and scale'
-            print distr.fit_fr(x, frozen=[np.nan, 0.0, 1.0])
-            print 'with fixed loc'
-            print distr.fit_fr(x, frozen=[np.nan, 0.0, np.nan])
+            print('\nnobs:', nobs)
+            print('true parameter')
+            print(f'{arg:f}, loc={loc:f}, scale={scale:f}')
+            print('unconstrained')
+            print(distr.fit(x))
+            print(distr.fit_fr(x, frozen=[np.nan, np.nan, np.nan]))
+            print('with fixed loc and scale')
+            print(distr.fit_fr(x, frozen=[np.nan, 0.0, 1.0]))
+            print('with fixed loc')
+            print(distr.fit_fr(x, frozen=[np.nan, 0.0, np.nan]))
 
 
     ex = ['gamma', 'vonmises'][0]
@@ -706,16 +713,14 @@ if __name__ == '__main__':
 
     sample = distr.rvs(arg, loc=loc, scale=scale, size=nobs)
 
-    print '\nDistribution:', distr
+    print('\nDistribution:', distr)
     if 'bootstrap' in examplecases:
-        print '\nBootstrap'
+        print('\nBootstrap')
         bres = distfitbootstrap(sample, distr, nrepl=nrepl )
         printresults(sample, arg, bres)
 
     if 'montecarlo' in examplecases:
-        print '\nMonteCarlo'
+        print('\nMonteCarlo')
         mcres = distfitmc(sample, distr, nrepl=nrepl,
                           distkwds=dict(arg=arg, loc=loc, scale=scale))
         printresults(sample, arg, mcres, kind='montecarlo')
-
-

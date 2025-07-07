@@ -1,1 +1,1 @@
-#adding test directory to python path
+# Tests for the package behavior of statsmodels

@@ -12,7 +12,7 @@ I thought I saw moving stats somewhere in python, maybe not)
 TODO
 
 moving statistics
-- filters don't handle boundary conditions nicely (correctly ?)
+- filters do not handle boundary conditions nicely (correctly ?)
 e.g. minimum order filter uses 0 for out of bounds value
 -> append and prepend with last resp. first value
 - enhance for nd arrays, with axis = 0
@@ -42,13 +42,10 @@ update
 2009-09-06: cosmetic changes, rearrangements
 '''
 
-
 import numpy as np
 from scipy import signal
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
-
-import statsmodels.api as sm
 
 
 def expandarr(x,k):
@@ -63,7 +60,7 @@ def movorder(x, order = 'med', windsize=3, lag='lagged'):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
        time series data
     order : float or 'med', 'min', 'max'
        which order statistic to calculate
@@ -88,7 +85,7 @@ def movorder(x, order = 'med', windsize=3, lag='lagged'):
         lead = -windsize//2 +1
     else:
         raise ValueError
-    if np.isfinite(order) == True: #if np.isnumber(order):
+    if np.isfinite(order): #if np.isnumber(order):
         ord = order   # note: ord is a builtin function
     elif order == 'med':
         ord = (windsize - 1)/2
@@ -149,8 +146,8 @@ def check_movorder():
 ##    takeslice = slice(windowsize-1, n + windowsize-1)
 ##    avgkern = (np.ones(windowsize)/float(windowsize))
 ##    m = np.correlate(x, avgkern, 'same')#[takeslice]
-##    print m.shape
-##    print x.shape
+##    print(m.shape)
+##    print(x.shape)
 ##    xm = x - m
 ##    v = np.correlate(x*x, avgkern, 'same') - m**2
 ##    v1 = np.correlate(xm*xm, avgkern, valid) #not correct for var of window
@@ -163,7 +160,7 @@ def movmean(x, windowsize=3, lag='lagged'):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
        time series data
     windsize : int
        window size
@@ -172,7 +169,7 @@ def movmean(x, windowsize=3, lag='lagged'):
 
     Returns
     -------
-    mk : array
+    mk : ndarray
         moving mean, with same shape as x
 
 
@@ -190,7 +187,7 @@ def movvar(x, windowsize=3, lag='lagged'):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
        time series data
     windsize : int
        window size
@@ -199,7 +196,7 @@ def movvar(x, windowsize=3, lag='lagged'):
 
     Returns
     -------
-    mk : array
+    mk : ndarray
         moving variance, with same shape as x
 
 
@@ -214,7 +211,7 @@ def movmoment(x, k, windowsize=3, lag='lagged'):
 
     Parameters
     ----------
-    x : array
+    x : ndarray
        time series data
     windsize : int
        window size
@@ -223,7 +220,7 @@ def movmoment(x, k, windowsize=3, lag='lagged'):
 
     Returns
     -------
-    mk : array
+    mk : ndarray
         k-th moving non-central moment, with same shape as x
 
 
@@ -255,14 +252,14 @@ def movmoment(x, k, windowsize=3, lag='lagged'):
     #Note: expandarr increases the array size by 2*(windsize-1)
 
     #sl = slice(2*(windsize-1)+1+lead or None, -(2*(windsize-1)+lead)+1 or None)
-    print sl
+    print(sl)
 
     if xext.ndim == 1:
         return np.correlate(xext**k, avgkern, 'full')[sl]
         #return np.correlate(xext**k, avgkern, 'same')[windsize-lead:-(windsize+lead)]
     else:
-        print xext.shape
-        print avgkern[:,None].shape
+        print(xext.shape)
+        print(avgkern[:,None].shape)
 
         # try first with 2d along columns, possibly ndim with axis
         return signal.correlate(xext**k, avgkern[:,None], 'full')[sl,:]
@@ -295,7 +292,7 @@ __all__ = ['movorder', 'movmean', 'movvar', 'movmoment']
 
 if __name__ == '__main__':
 
-    print '\ncheckin moving mean and variance'
+    print('\ncheckin moving mean and variance')
     nobs = 10
     x = np.arange(nobs)
     ws = 3
@@ -314,14 +311,14 @@ if __name__ == '__main__':
                    [ 0.22222222,  0.88888889],
                    [ 0.        ,  0.        ]])
     ave2d = np.c_[ave, 2*ave]
-    print movmean(x, windowsize=ws, lag='lagged')
-    print movvar(x, windowsize=ws, lag='lagged')
-    print [np.var(x[i-ws:i]) for i in range(ws, nobs)]
+    print(movmean(x, windowsize=ws, lag='lagged'))
+    print(movvar(x, windowsize=ws, lag='lagged'))
+    print([np.var(x[i-ws:i]) for i in range(ws, nobs)])
     m1 = movmoment(x, 1, windowsize=3, lag='lagged')
     m2 = movmoment(x, 2, windowsize=3, lag='lagged')
-    print m1
-    print m2
-    print m2 - m1*m1
+    print(m1)
+    print(m2)
+    print(m2 - m1*m1)
 
     # this implicitly also tests moment
     assert_array_almost_equal(va[ws-1:,0],
@@ -333,11 +330,11 @@ if __name__ == '__main__':
 
 
 
-    print '\nchecking moving moment for 2d (columns only)'
+    print('\nchecking moving moment for 2d (columns only)')
     x2d = np.c_[x, 2*x]
-    print movmoment(x2d, 1, windowsize=3, lag='centered')
-    print movmean(x2d, windowsize=ws, lag='lagged')
-    print movvar(x2d, windowsize=ws, lag='lagged')
+    print(movmoment(x2d, 1, windowsize=3, lag='centered'))
+    print(movmean(x2d, windowsize=ws, lag='lagged'))
+    print(movvar(x2d, windowsize=ws, lag='lagged'))
     assert_array_almost_equal(va[ws-1:,:],
                     movvar(x2d, windowsize=3, lag='leading'))
     assert_array_almost_equal(va[ws//2:-ws//2+1,:],
@@ -353,7 +350,7 @@ if __name__ == '__main__':
                     movmean(x2d, windowsize=ws, lag='lagged'))
 
     from scipy import ndimage
-    print ndimage.filters.correlate1d(x2d, np.array([1,1,1])/3., axis=0)
+    print(ndimage.filters.correlate1d(x2d, np.array([1,1,1])/3., axis=0))
 
 
     #regression test check

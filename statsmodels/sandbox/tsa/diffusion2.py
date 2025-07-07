@@ -71,9 +71,9 @@ TODO:
 
 
 random bug (showed up only once, need fuzz-testing to replicate)
-  File "...\diffusion2.py", line 375, in <module>
+  File "../diffusion2.py", line 375, in <module>
     x = jd.simulate(mu,sigma,lambd,a,D,ts,nrepl)
-  File "...\diffusion2.py", line 129, in simulate
+  File "../diffusion2.py", line 129, in simulate
     jumps_ts[n] = CumS[Events]
 IndexError: index out of bounds
 
@@ -83,11 +83,12 @@ CumS is empty array, Events == -1
 """
 
 
-import numpy as np
 #from scipy import stats  # currently only uses np.random
 import matplotlib.pyplot as plt
+import numpy as np
 
-class JumpDiffusionMerton(object):
+
+class JumpDiffusionMerton:
     '''
 
     Example
@@ -153,7 +154,7 @@ class JumpDiffusionMerton(object):
 
         return x
 
-class JumpDiffusionKou(object):
+class JumpDiffusionKou:
 
     def __init__(self):
         pass
@@ -200,7 +201,7 @@ class JumpDiffusionKou(object):
         return x
 
 
-class VG(object):
+class VG:
     '''variance gamma process
     '''
 
@@ -231,18 +232,18 @@ class VG(object):
         x = np.cumsum(dXs,1)
         return x
 
-class IG(object):
+class IG:
     '''inverse-Gaussian ??? used by NIG
     '''
 
     def __init__(self):
         pass
 
-    def simulate(self, l,m,nrepl):
+    def simulate(self, el, m, nrepl):
 
         N = np.random.randn(nrepl,1)
         Y = N**2
-        X = m + (.5*m*m/l)*Y - (.5*m/l)*np.sqrt(4*m*l*Y+m*m*(Y**2))
+        X = m + (.5 * m * m / el) * Y - (.5 * m / el) * np.sqrt(4 * m * el * Y + m * m * (Y ** 2))
         U = np.random.rand(nrepl,1)
 
         ind = U>m/(X+m)
@@ -250,7 +251,7 @@ class IG(object):
         return X.ravel()
 
 
-class NIG(object):
+class NIG:
     '''normal-inverse-Gaussian
     '''
 
@@ -266,9 +267,9 @@ class NIG(object):
             if t>1:
                 Dt=ts[t]-ts[t-1]
 
-            l = 1/k*(Dt**2)
+            lfrac = 1/k*(Dt**2)
             m = Dt
-            DS = IG().simulate(l,m,nrepl)
+            DS = IG().simulate(lfrac, m, nrepl)
             N = np.random.randn(nrepl)
 
             DX = s*N*np.sqrt(DS) + th*DS
@@ -278,7 +279,7 @@ class NIG(object):
         x = np.cumsum(DXs,1)
         return x
 
-class Heston(object):
+class Heston:
     '''Heston Stochastic Volatility
     '''
 
@@ -286,20 +287,16 @@ class Heston(object):
         pass
 
     def simulate(self, m, kappa, eta,lambd,r, ts, nrepl,tratio=1.):
-        T = ts[-1]
         nobs = len(ts)
         dt = np.zeros(nobs) #/tratio
         dt[0] = ts[0]-0
         dt[1:] = np.diff(ts)
-
-        DXs = np.zeros((nrepl,nobs))
 
         dB_1 = np.sqrt(dt) * np.random.randn(nrepl,nobs)
         dB_2u = np.sqrt(dt) * np.random.randn(nrepl,nobs)
         dB_2 = r*dB_1 + np.sqrt(1-r**2)*dB_2u
 
         vt = eta*np.ones(nrepl)
-        v=[]
         dXs = np.zeros((nrepl,nobs))
         vts = np.zeros((nrepl,nobs))
         for t in range(nobs):
@@ -313,7 +310,7 @@ class Heston(object):
         x = np.cumsum(dXs,1)
         return x, vts
 
-class CIRSubordinatedBrownian(object):
+class CIRSubordinatedBrownian:
     '''CIR subordinated Brownian Motion
     '''
 
@@ -321,13 +318,10 @@ class CIRSubordinatedBrownian(object):
         pass
 
     def simulate(self, m, kappa, T_dot,lambd,sigma, ts, nrepl):
-        T = ts[-1]
         nobs = len(ts)
         dtarr = np.zeros(nobs) #/tratio
         dtarr[0] = ts[0]-0
         dtarr[1:] = np.diff(ts)
-
-        DXs = np.zeros((nrepl,nobs))
 
         dB = np.sqrt(dtarr) * np.random.randn(nrepl,nobs)
 
@@ -500,6 +494,3 @@ if __name__ == '__main__':
     plt.title('CIRSubordinatedBrownian')
 
     #plt.show()
-
-
-

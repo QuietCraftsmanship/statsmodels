@@ -11,11 +11,14 @@ License: BSD
 
 """
 
-import numpy as np
 
-import numdifftools as ndt
+try:
+    import numdifftools as ndt
+except ImportError:
+    pass
 
 from statsmodels.base.model import LikelihoodModel
+
 
 #copied from sandbox/regression/mle.py
 #TODO: I take it this is only a stub and should be included in another
@@ -29,7 +32,7 @@ class TSMLEModel(LikelihoodModel):
 
     def __init__(self, endog, exog=None):
         #need to override p,q (nar,nma) correctly
-        super(TSMLEModel, self).__init__(endog, exog)
+        super().__init__(endog, exog)
         #set default arma(1,1)
         self.nar = 1
         self.nma = 1
@@ -42,12 +45,16 @@ class TSMLEModel(LikelihoodModel):
         """
         Loglikelihood for timeseries model
 
+        Parameters
+        ----------
+        params : array_like
+            The model parameters
+
         Notes
         -----
         needs to be overwritten by subclass
         """
         raise NotImplementedError
-
 
     def score(self, params):
         """
@@ -66,7 +73,6 @@ class TSMLEModel(LikelihoodModel):
         Hfun = ndt.Jacobian(self.score, stepMax=1e-4)
         return Hfun(params)[-1]
 
-
     def fit(self, start_params=None, maxiter=5000, method='fmin', tol=1e-08):
         '''estimate model by minimizing negative loglikelihood
 
@@ -75,6 +81,6 @@ class TSMLEModel(LikelihoodModel):
         if start_params is None and hasattr(self, '_start_params'):
             start_params = self._start_params
         #start_params = np.concatenate((0.05*np.ones(self.nar + self.nma), [1]))
-        mlefit = super(TSMLEModel, self).fit(start_params=start_params,
+        mlefit = super().fit(start_params=start_params,
                 maxiter=maxiter, method=method, tol=tol)
         return mlefit

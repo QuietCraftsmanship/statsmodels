@@ -9,20 +9,20 @@ methods.
 
 import numpy as np
 from scipy import stats
-#Note the following import attaches methods to scipy.stats.distributions
+# Note the following import attaches methods to scipy.stats.distributions
 #     and adds bounds to stats.vonmises
-from statsmodels.sandbox.distributions import sppatch
+# from statsmodels.sandbox.distributions import sppatch
 
 
 np.random.seed(12345)
 x = stats.gamma.rvs(2.5, loc=0, scale=1.2, size=200)
 
 #estimate all parameters
-print stats.gamma.fit(x)
-print stats.gamma.fit_fr(x, frozen=[np.nan, np.nan, np.nan])
+print(stats.gamma.fit(x))
+print(stats.gamma.fit_fr(x, frozen=[np.nan, np.nan, np.nan]))
 #estimate shape parameter only
-print stats.gamma.fit_fr(x, frozen=[np.nan, 0., 1.2])
+print(stats.gamma.fit_fr(x, frozen=[np.nan, 0., 1.2]))
 
 np.random.seed(12345)
 x = stats.lognorm.rvs(2, loc=0, scale=2, size=200)
-print stats.lognorm.fit_fr(x, frozen=[np.nan, 0., np.nan])
+print(stats.lognorm.fit_fr(x, frozen=[np.nan, 0., np.nan]))

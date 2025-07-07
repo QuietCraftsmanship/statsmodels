@@ -6,7 +6,7 @@ in the matplotlib-user mailinglist  (links ???)
 Notes
 =====
 
-out of bounds interpolation raises exception and wouldn't be completely
+out of bounds interpolation raises exception and would not be completely
 defined ::
 
 >>> scoreatpercentile(x, [0,25,50,100])
@@ -52,7 +52,7 @@ empirical distribution with higher order interpolation
 * ppf how do I get the inverse function of a higher order spline?
   Chuck: resample and fit spline to inverse function
   this will have an approximation error in the inverse function
-* -> doesn't work: higher order spline doesn't preserve monotonicity
+* -> does not work: higher order spline does not preserve monotonicity
   see mailing list for response to my question
 * pmf from derivative available in spline
 
@@ -80,7 +80,6 @@ Author: josef-pktd, parts based on David Huard
 License: BSD
 
 '''
-
 import scipy.interpolate as interpolate
 import numpy as np
 
@@ -152,7 +151,7 @@ def empiricalcdf(data, method='Hazen'):
     return cdf
 
 
-class HistDist(object):
+class HistDist:
     '''Distribution with piecewise linear cdf, pdf is step function
 
     can be created from empiricial distribution or from a histogram (not done yet)
@@ -247,7 +246,7 @@ class HistDist(object):
         elif method=='Scott':
             width = 3.49 * np.std(self.data) * nobs**(-1./3)
 
-        self.nbin = (self.binlimit.ptp()/width)
+        self.nbin = (np.ptp(self.binlimit)/width)
         return self.nbin
 
 
@@ -261,9 +260,8 @@ if __name__ == '__main__':
     examples = [2]
     if 1 in examples:
         empiricalcdf(x)
-        print percentileofscore(x, 0.5)
-        print scoreatpercentile(x, 50)
-        import matplotlib.pyplot as plt
+        print(percentileofscore(x, 0.5))
+        print(scoreatpercentile(x, 50))
         xsupp = np.linspace(x.min(), x.max())
         pos = percentileofscore(x, xsupp)
         plt.plot(xsupp, pos)
@@ -299,10 +297,10 @@ if __name__ == '__main__':
 
 
     histd = HistDist(x)
-    print histd.optimize_binning()
-    print histd.cdf_emp(histd.binlimit)
-    print histd.ppf_emp([0.25, 0.5, 0.75])
-    print histd.cdf_emp([-0.5, -0.25, 0, 0.25, 0.5])
+    print(histd.optimize_binning())
+    print(histd.cdf_emp(histd.binlimit))
+    print(histd.ppf_emp([0.25, 0.5, 0.75]))
+    print(histd.cdf_emp([-0.5, -0.25, 0, 0.25, 0.5]))
 
 
     xsupp = np.linspace(x.min(), x.max(), 500)
@@ -318,24 +316,13 @@ if __name__ == '__main__':
     ppfs = ppfintp(cdf_ongrid)
     plt.plot(ppfs, cdf_ongrid)
     #ppfemp=interpolate.InterpolatedUnivariateSpline(np.sort(empiricalcdf(x)),np.sort(x),k=3)
-    #Don't use interpolating splines for function approximation
+    #Do not use interpolating splines for function approximation
     #with s=0.03 the spline is monotonic at the evaluated values
     ppfemp=interpolate.UnivariateSpline(np.sort(empiricalcdf(x)),np.sort(x),k=3, s=0.03)
     ppfe = ppfemp(cdf_ongrid)
     plt.plot(ppfe, cdf_ongrid)
 
-    print 'negative density'
-    print '(np.diff(ppfs)).min()', (np.diff(ppfs)).min()
-    print '(np.diff(cdf_ongrid)).min()', (np.diff(cdf_ongrid)).min()
+    print('negative density')
+    print('(np.diff(ppfs)).min()', (np.diff(ppfs)).min())
+    print('(np.diff(cdf_ongrid)).min()', (np.diff(cdf_ongrid)).min())
     #plt.show()
-
-
-
-
-
-
-
-
-
-
-

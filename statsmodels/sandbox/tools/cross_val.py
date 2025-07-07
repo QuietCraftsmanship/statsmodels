@@ -13,30 +13,13 @@ changes to code by josef-pktd:
 
 """
 
-
-
+from statsmodels.compat.python import lrange
 import numpy as np
-
-try:
-    from itertools import combinations
-except: # Using Python < 2.6
-    def combinations(seq, r=None):
-        """Generator returning combinations of items from sequence <seq>
-        taken <r> at a time. Order is not significant. If <r> is not given,
-        the entire sequence is returned.
-        """
-        if r == None:
-            r = len(seq)
-        if r <= 0:
-            yield []
-        else:
-            for i in xrange(len(seq)):
-                for cc in combinations(seq[i+1:], r-1):
-                    yield [seq[i]]+cc
+from itertools import combinations
 
 
 ################################################################################
-class LeaveOneOut(object):
+class LeaveOneOut:
     """
     Leave-One-Out cross validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -72,8 +55,8 @@ class LeaveOneOut(object):
 
     def __iter__(self):
         n = self.n
-        for i in xrange(n):
-            test_index  = np.zeros(n, dtype=np.bool)
+        for i in range(n):
+            test_index  = np.zeros(n, dtype=bool)
             test_index[i] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
@@ -88,11 +71,10 @@ class LeaveOneOut(object):
 
 
 ################################################################################
-class LeavePOut(object):
+class LeavePOut:
     """
     Leave-P-Out cross validation iterator:
     Provides train/test indexes to split data in train test sets
-
     """
 
     def __init__(self, n, p):
@@ -130,9 +112,9 @@ class LeavePOut(object):
     def __iter__(self):
         n = self.n
         p = self.p
-        comb = combinations(range(n), p)
+        comb = combinations(lrange(n), p)
         for idx in comb:
-            test_index = np.zeros(n, dtype=np.bool)
+            test_index = np.zeros(n, dtype=bool)
             test_index[np.array(idx)] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
@@ -148,7 +130,7 @@ class LeavePOut(object):
 
 
 ################################################################################
-class KFold(object):
+class KFold:
     """
     K-Folds cross validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -193,8 +175,8 @@ class KFold(object):
         k = self.k
         j = int(np.ceil(n/k))
 
-        for i in xrange(k):
-            test_index  = np.zeros(n, dtype=np.bool)
+        for i in range(k):
+            test_index  = np.zeros(n, dtype=bool)
             if i<k-1:
                 test_index[i*j:(i+1)*j] = True
             else:
@@ -213,7 +195,7 @@ class KFold(object):
 
 
 ################################################################################
-class LeaveOneLabelOut(object):
+class LeaveOneLabelOut:
     """
     Leave-One-Label_Out cross-validation iterator:
     Provides train/test indexes to split data in train test sets
@@ -249,7 +231,6 @@ class LeaveOneLabelOut(object):
         [[1 2]
         [3 4]] [[5 6]
         [7 8]] [1 2] [1 2]
-
         """
         self.labels = labels
 
@@ -258,14 +239,14 @@ class LeaveOneLabelOut(object):
         # We make a copy here to avoid side-effects during iteration
         labels = np.array(self.labels, copy=True)
         for i in np.unique(labels):
-            test_index  = np.zeros(len(labels), dtype=np.bool)
+            test_index  = np.zeros(len(labels), dtype=bool)
             test_index[labels==i] = True
             train_index = np.logical_not(test_index)
             yield train_index, test_index
 
 
     def __repr__(self):
-        return '%s.%s(labels=%s)' % (
+        return '{}.{}(labels={})'.format(
                                 self.__class__.__module__,
                                 self.__class__.__name__,
                                 self.labels,
@@ -298,7 +279,7 @@ possible to add other arrays of the same shape[0] too
 ################################################################################
 #below: Author: josef-pktd
 
-class KStepAhead(object):
+class KStepAhead:
     """
     KStepAhead cross validation iterator:
     Provides fit/test indexes to split data in sequential sets
@@ -317,14 +298,14 @@ class KStepAhead(object):
             number of steps ahead
         start : int
             initial size of data for fitting
-        kall : boolean
+        kall : bool
             if true. all values for up to k-step ahead are included in the test index.
             If false, then only the k-th step ahead value is returnd
 
 
         Notes
         -----
-        I don't think this is really useful, because it can be done with
+        I do not think this is really useful, because it can be done with
         a very simple loop instead.
         Useful as a plugin, but it could return slices instead for faster array access.
 
@@ -357,7 +338,7 @@ class KStepAhead(object):
         k = self.k
         start = self.start
         if self.return_slice:
-            for i in xrange(start, n-k):
+            for i in range(start, n-k):
                 train_slice = slice(None, i, None)
                 if self.kall:
                     test_slice = slice(i, i+k)
@@ -366,10 +347,10 @@ class KStepAhead(object):
                 yield train_slice, test_slice
 
         else: #for compatibility with other iterators
-            for i in xrange(start, n-k):
-                train_index  = np.zeros(n, dtype=np.bool)
+            for i in range(start, n-k):
+                train_index  = np.zeros(n, dtype=bool)
                 train_index[:i] = True
-                test_index  = np.zeros(n, dtype=np.bool)
+                test_index  = np.zeros(n, dtype=bool)
                 if self.kall:
                     test_index[i:i+k] = True # np.logical_not(test_index)
                 else:
@@ -384,6 +365,3 @@ class KStepAhead(object):
                                 self.__class__.__name__,
                                 self.n,
                                 )
-
-
-

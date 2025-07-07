@@ -1,6 +1,6 @@
 '''VAR and VARMA process
 
-this doesn't actually do much, trying out a version for a time loop
+this does not actually do much, trying out a version for a time loop
 
 alternative representation:
 * textbook, different blocks in matrices
@@ -22,11 +22,8 @@ Author : josefpkt
 License : BSD
 '''
 
-
 import numpy as np
 from scipy import signal
-#import matplotlib.pylab as plt
-from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 
 #NOTE: this just returns that predicted values given the
@@ -45,7 +42,7 @@ def VAR(x,B, const=0):
         B(:,:,k) is lag polynomial matrix for variable k
         B(p,:,k) is pth lag for variable k
         B[p,:,:].T corresponds to A_p in Wikipedia
-    const: float or array (not tested)
+    const : float or array (not tested)
         constant added to autoregression
 
     Returns
@@ -62,17 +59,17 @@ def VAR(x,B, const=0):
 
     References
     ----------
-    http://en.wikipedia.org/wiki/Vector_Autoregression
-    http://en.wikipedia.org/wiki/General_matrix_notation_of_a_VAR(p)
+    https://en.wikipedia.org/wiki/Vector_Autoregression
+    https://en.wikipedia.org/wiki/General_matrix_notation_of_a_VAR(p)
     '''
     p = B.shape[0]
     T = x.shape[0]
     xhat = np.zeros(x.shape)
     for t in range(p,T): #[p+2]:#
-##        print p,T
-##        print x[t-p:t,:,np.newaxis].shape
-##        print B.shape
-        #print x[t-p:t,:,np.newaxis]
+##        print(p,T)
+##        print(x[t-p:t,:,np.newaxis].shape)
+##        print(B.shape)
+        #print(x[t-p:t,:,np.newaxis])
         xhat[t,:] = const + (x[t-p:t,:,np.newaxis]*B).sum(axis=1).sum(axis=0)
     return xhat
 
@@ -94,10 +91,10 @@ def VARMA(x,B,C, const=0):
     e = np.zeros(x.shape)
     start = max(P,Q)
     for t in range(start,T): #[p+2]:#
-##        print p,T
-##        print x[t-p:t,:,np.newaxis].shape
-##        print B.shape
-        #print x[t-p:t,:,np.newaxis]
+##        print(p,T
+##        print(x[t-p:t,:,np.newaxis].shape
+##        print(B.shape
+        #print(x[t-p:t,:,np.newaxis]
         xhat[t,:] =  const + (x[t-P:t,:,np.newaxis]*B).sum(axis=1).sum(axis=0) + \
                      (e[t-Q:t,:,np.newaxis]*C).sum(axis=1).sum(axis=0)
         e[t,:] = x[t,:] - xhat[t,:]
@@ -116,8 +113,8 @@ if __name__ == '__main__':
     #B[:,:,1] = 2
     B[:,:,1] = [[0,0],[0,0],[0,1]]
     xhat = VAR(x,B)
-    print np.all(xhat[P:,0]==np.correlate(x[:-1,0],np.ones(P))*2)
-    #print xhat
+    print(np.all(xhat[P:,0]==np.correlate(x[:-1,0],np.ones(P))*2))
+    #print(xhat)
 
 
     T = 20
@@ -133,19 +130,19 @@ if __name__ == '__main__':
     C = np.zeros((Q,K,K))
     xhat1 = VAR(x,B, const=const)
     xhat2, err2 = VARMA(x,B,C, const=const)
-    print np.all(xhat2 == xhat1)
-    print np.all(xhat2[P:,0] == np.correlate(x[:-1,0],np.ones(P))*2+const)
+    print(np.all(xhat2 == xhat1))
+    print(np.all(xhat2[P:,0] == np.correlate(x[:-1,0],np.ones(P))*2+const))
 
     C[1,1,1] = 0.5
     xhat3, err3 = VARMA(x,B,C)
 
-    x = np.r_[np.zeros((P,K)),x]  #prepend inital conditions
+    x = np.r_[np.zeros((P,K)),x]  #prepend initial conditions
     xhat4, err4 = VARMA(x,B,C)
 
     C[1,1,1] = 1
     B[:,:,1] = [[0,0],[0,0],[0,1]]
     xhat5, err5 = VARMA(x,B,C)
-    #print err5
+    #print(err5)
 
     #in differences
     #VARMA(np.diff(x,axis=0),B,C)
@@ -164,13 +161,12 @@ if __name__ == '__main__':
     xhat0 = VAR(x0,B)
     xcorr00 = signal.correlate(x0,B[:,:,0])#[:,0]
     xcorr01 = signal.correlate(x0,B[:,:,1])
-    print np.all(signal.correlate(x0,B[:,:,0],'valid')[:-1,0]==xhat0[P:,0])
-    print np.all(signal.correlate(x0,B[:,:,1],'valid')[:-1,0]==xhat0[P:,1])
+    print(np.all(signal.correlate(x0,B[:,:,0],'valid')[:-1,0]==xhat0[P:,0]))
+    print(np.all(signal.correlate(x0,B[:,:,1],'valid')[:-1,0]==xhat0[P:,1]))
 
     #import error
     #from movstat import acovf, acf
     from statsmodels.tsa.stattools import acovf, acf
     aav = acovf(x[:,0])
-    print aav[0] == np.var(x[:,0])
+    print(aav[0] == np.var(x[:,0]))
     aac = acf(x[:,0])
-

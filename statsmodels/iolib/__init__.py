@@ -1,5 +1,10 @@
-from foreign import StataReader, genfromdta, savetxt
-from table import SimpleTable, csv2st
+from .foreign import savetxt
+from .table import SimpleTable, csv2st
+from .smpickle import save_pickle, load_pickle
 
-from statsmodels import NoseWrapper as Tester
-test = Tester().test
+from statsmodels.tools._test_runner import PytestTester
+
+__all__ = ['test', 'csv2st', 'SimpleTable', 'savetxt',
+           'save_pickle', 'load_pickle']
+
+test = PytestTester()

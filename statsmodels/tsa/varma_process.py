@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """ Helper and filter functions for VAR and VARMA, and basic VAR class
 
 Created on Mon Jan 11 11:04:23 2010
 Author: josef-pktd
 License: BSD
 
-This is a new version, I didn't look at the old version again, but similar
+This is a new version, I did not look at the old version again, but similar
 ideas.
 
 not copied/cleaned yet:
@@ -28,12 +27,8 @@ Extensions
 see also VAR section in Notes.txt
 
 """
-
 import numpy as np
-from numpy.testing import assert_equal
 from scipy import signal
-#might not (yet) need the following
-from scipy.signal.signaltools import _centered as trim_centered
 
 from statsmodels.tsa.tsatools import lagmat
 
@@ -41,8 +36,8 @@ from statsmodels.tsa.tsatools import lagmat
 def varfilter(x, a):
     '''apply an autoregressive filter to a series x
 
-    Warning: I just found out that convolve doesn't work as I
-       thought, this likely doesn't work correctly for
+    Warning: I just found out that convolve does not work as I
+       thought, this likely does not work correctly for
        nvars>3
 
 
@@ -127,12 +122,11 @@ def varfilter(x, a):
 
     elif a.ndim == 3:
         # case: vector autoregressive with lag matrices
-#        #not necessary:
-#        if np.any(a.shape[1:] != nvar):
-#            raise ValueError('if 3d shape of a has to be (nobs,nvar,nvar)')
+        # Note: we must have shape[1] == shape[2] == nvar
         yf = signal.convolve(x[:,:,None], a)
         yvalid = yf[ntrim:-ntrim, yf.shape[1]//2,:]
         return yvalid
+
 
 def varinversefilter(ar, nobs, version=1):
     '''creates inverse ar filter (MA representation) recursively
@@ -150,13 +144,13 @@ def varinversefilter(ar, nobs, version=1):
 
     Parameters
     ----------
-    ar : array, (nlags,nvars,nvars)
+    ar : ndarray, (nlags,nvars,nvars)
         matrix lagpolynomial, currently no exog
         first row should be identity
 
     Returns
     -------
-    arinv : array, (nobs,nvars,nvars)
+    arinv : ndarray, (nobs,nvars,nvars)
 
 
     Notes
@@ -165,7 +159,7 @@ def varinversefilter(ar, nobs, version=1):
     '''
     nlags, nvars, nvarsex = ar.shape
     if nvars != nvarsex:
-        print 'exogenous variables not implemented not tested'
+        print('exogenous variables not implemented not tested')
     arinv = np.zeros((nobs+1, nvarsex, nvars))
     arinv[0,:,:] = ar[0]
     arinv[1:nlags,:,:] = -ar[1:]
@@ -177,13 +171,14 @@ def varinversefilter(ar, nobs, version=1):
             arinv[i,:,:] = tmp
     if version == 0:
         for i in range(nlags+1,nobs+1):
-            print ar[1:].shape, arinv[i-1:i-nlags:-1,:,:].shape
+            print(ar[1:].shape, arinv[i-1:i-nlags:-1,:,:].shape)
             #arinv[i,:,:] = np.dot(-ar[1:],arinv[i-1:i-nlags:-1,:,:])
-            #print np.tensordot(-ar[1:],arinv[i-1:i-nlags:-1,:,:],axes=([2],[1])).shape
+            #print(np.tensordot(-ar[1:],arinv[i-1:i-nlags:-1,:,:],axes=([2],[1])).shape
             #arinv[i,:,:] = np.tensordot(-ar[1:],arinv[i-1:i-nlags:-1,:,:],axes=([2],[1]))
             raise NotImplementedError('waiting for generalized ufuncs or something')
 
     return arinv
+
 
 def vargenerate(ar, u, initvalues=None):
     '''generate an VAR process with errors u
@@ -226,7 +221,7 @@ def vargenerate(ar, u, initvalues=None):
     nlagsm1 = nlags - 1
     nobs = u.shape[0]
     if nvars != nvarsex:
-        print 'exogenous variables not implemented not tested'
+        print('exogenous variables not implemented not tested')
     if u.shape[1] != nvars:
         raise ValueError('u needs to have nvars columns')
     if initvalues is None:
@@ -274,11 +269,12 @@ def padone(x, front=0, back=0, axis=0, fillvalue=0):
     startind[axis] = front
     endind = startind + shapearr
     myslice = [slice(startind[k], endind[k]) for k in range(len(endind))]
-    #print myslice
-    #print out.shape
-    #print out[tuple(myslice)].shape
+    #print(myslice
+    #print(out.shape
+    #print(out[tuple(myslice)].shape
     out[tuple(myslice)] = x
     return out
+
 
 def trimone(x, front=0, back=0, axis=0):
     '''trim number of array elements along one axis
@@ -296,17 +292,15 @@ def trimone(x, front=0, back=0, axis=0):
     '''
     shape = np.array(x.shape)
     shape[axis] -= (front + back)
-    #print shape, front, back
-    shapearr = np.array(x.shape)
+    #print(shape, front, back
     startind = np.zeros(x.ndim)
     startind[axis] = front
     endind = startind + shape
     myslice = [slice(startind[k], endind[k]) for k in range(len(endind))]
-    #print myslice
-    #print shape, endind
-    #print x[tuple(myslice)].shape
+    #print(myslice
+    #print(shape, endind
+    #print(x[tuple(myslice)].shape
     return x[tuple(myslice)]
-
 
 
 def ar2full(ar):
@@ -314,6 +308,7 @@ def ar2full(ar):
     '''
     nlags, nvar,nvarex = ar.shape
     return np.r_[np.eye(nvar,nvarex)[None,:,:],-ar]
+
 
 def ar2lhs(ar):
     '''convert full (rhs) lagpolynomial into a reduced, left side lagpoly array
@@ -323,13 +318,12 @@ def ar2lhs(ar):
     return -ar[1:]
 
 
-
-class _Var(object):
+class _Var:
     '''obsolete VAR class, use tsa.VAR instead, for internal use only
 
 
-    Example
-    -------
+    Examples
+    --------
 
     >>> v = Var(ar2s)
     >>> v.fit(1)
@@ -346,13 +340,12 @@ class _Var(object):
         self.y = y
         self.nobs, self.nvars = y.shape
 
-
     def fit(self, nlags):
         '''estimate parameters using ols
 
         Parameters
         ----------
-        nlags : integer
+        nlags : int
             number of lags to include in regression, same for all variables
 
         Returns
@@ -381,7 +374,7 @@ class _Var(object):
         lmat = lagmat(self.y, nlags, trim='both', original='in')
         self.yred = lmat[:,:nvars]
         self.xred = lmat[:,nvars:]
-        res = np.linalg.lstsq(self.xred, self.yred)
+        res = np.linalg.lstsq(self.xred, self.yred, rcond=-1)
         self.estresults = res
         self.arlhs = res[0].reshape(nlags, nvars, nvars)
         self.arhat = ar2full(self.arlhs)
@@ -440,7 +433,7 @@ class _Var(object):
         return vargenerate(self.arhat, u, initvalues=self.y)
 
 
-class VarmaPoly(object):
+class VarmaPoly:
     '''class to keep track of Varma polynomial format
 
 
@@ -479,13 +472,12 @@ class VarmaPoly(object):
         self.hasexog = nvarall > nvars
         self.arm1 = -ar[1:]
 
-
     #@property
     def vstack(self, a=None, name='ar'):
         '''stack lagpolynomial vertically in 2d array
 
         '''
-        if not a is None:
+        if a is not None:
             a = a
         elif name == 'ar':
             a = self.ar
@@ -500,7 +492,7 @@ class VarmaPoly(object):
         '''stack lagpolynomial horizontally in 2d array
 
         '''
-        if not a is None:
+        if a is not None:
             a = a
         elif name == 'ar':
             a = self.ar
@@ -515,7 +507,7 @@ class VarmaPoly(object):
         '''stack lagpolynomial vertically in 2d square array with eye
 
         '''
-        if not a is None:
+        if a is not None:
             a = a
         elif name == 'ar':
             a = self.ar
@@ -551,7 +543,7 @@ class VarmaPoly(object):
 
         Returns
         -------
-        isstationary : boolean
+        isstationary : bool
 
         *attaches*
 
@@ -563,7 +555,7 @@ class VarmaPoly(object):
         formula taken from NAG manual
 
         '''
-        if not a is None:
+        if a is not None:
             a = a
         else:
             if self.isstructured:
@@ -580,7 +572,7 @@ class VarmaPoly(object):
 
         Returns
         -------
-        isinvertible : boolean
+        isinvertible : bool
 
         *attaches*
 
@@ -592,7 +584,7 @@ class VarmaPoly(object):
         formula taken from NAG manual
 
         '''
-        if not a is None:
+        if a is not None:
             a = a
         else:
             if self.isindependent:
@@ -603,7 +595,6 @@ class VarmaPoly(object):
             # no ma lags
             self.maeigenvalues = np.array([], np.complex)
             return True
-
 
         amat = self.stacksquare(a)
         ev = np.sort(np.linalg.eigvals(amat))[::-1]
@@ -631,8 +622,6 @@ class VarmaPoly(object):
             a[lag] = np.dot(a0inv, apoly[lag])
 
         return a
-
-
 
 
 if __name__ == "__main__":
@@ -677,17 +666,15 @@ if __name__ == "__main__":
     ut = np.random.randn(1000,2)
     ar2s = vargenerate(a22,ut)
     #res = np.linalg.lstsq(lagmat(ar2s,1)[:,1:], ar2s)
-    res = np.linalg.lstsq(lagmat(ar2s,1), ar2s)
+    res = np.linalg.lstsq(lagmat(ar2s,1), ar2s, rcond=-1)
     bhat = res[0].reshape(1,2,2)
     arhat = ar2full(bhat)
-    #print maxabs(arhat - a22)
+    #print(maxabs(arhat - a22)
 
-
-    v = Var(ar2s)
+    v = _Var(ar2s)
     v.fit(1)
     v.forecast()
     v.forecast(25)[-30:]
-
 
     ar23 = np.array([[[ 1. ,  0. ],
                      [ 0. ,  1. ]],
@@ -714,13 +701,13 @@ if __name__ == "__main__":
                      [ 0.1, -0.1]]])
 
     vp = VarmaPoly(ar23, ma22)
-    print vars(vp)
-    print vp.vstack()
-    print vp.vstack(a24)
-    print vp.hstackarma_minus1()
-    print vp.getisstationary()
-    print vp.getisinvertible()
+    print(vars(vp))
+    print(vp.vstack())
+    print(vp.vstack(a24))
+    print(vp.hstackarma_minus1())
+    print(vp.getisstationary())
+    print(vp.getisinvertible())
 
     vp2 = VarmaPoly(ar23ns)
-    print vp2.getisstationary()
-    print vp2.getisinvertible()  # no ma lags
+    print(vp2.getisstationary())
+    print(vp2.getisinvertible()) # no ma lags

@@ -21,26 +21,25 @@ Could be extended to AR(p) errors, but then requires panel with larger T
 '''
 
 
-
 import numpy as np
 from scipy import optimize
 
 from statsmodels.regression.linear_model import OLS
 
 
-class PanelAR1(object):
+class PanelAR1:
     def __init__(self, endog, exog=None, groups=None):
         #take this from a super class, no checking is done here
-        nobs = endog.shape[0]
+        endog.shape[0]
         self.endog = endog
-        if not exog is None:
+        if exog is not None:
             self.exog = exog
 
         self.groups_start = (np.diff(groups)!=0)
         self.groups_valid = ~self.groups_start
 
     def ar1filter(self, xy, alpha):
-        #print alpha,
+        #print(alpha,)
         return (xy[1:] - alpha * xy[:-1])[self.groups_valid]
 
     def fit_conditional(self, alpha):
@@ -65,7 +64,7 @@ class PanelAR1(object):
 
 if __name__ == '__main__':
 
-    #------------ developement code for groupar1filter and example
+    #------------ development code for groupar1filter and example
     groups = np.array([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,
                        2,2,2,2,2,2,2,2])
     nobs = len(groups)
@@ -75,7 +74,7 @@ if __name__ == '__main__':
 
     y00 = 0.5*np.random.randn(nobs+1)
 
-    # I don't think a trend is handled yet
+    # I do not think a trend is handled yet
     data = np.arange(nobs) + y00[1:] + 0.2*y00[:-1] + 0.1*np.random.randn(nobs)
     #Are these AR(1) or MA(1) errors ???
     data = y00[1:] + 0.6*y00[:-1] #+ 0.1*np.random.randn(nobs)
@@ -90,13 +89,13 @@ if __name__ == '__main__':
     y = data + np.dot(group_dummy, np.array([10, 20, 30]))
     y0 = data0 + np.dot(group_dummy, np.array([10, 20, 30]))
 
-    print groups_valid
-    print np.diff(y)[groups_valid]
+    print(groups_valid)
+    print(np.diff(y)[groups_valid])
 
     alpha = 1  #test with 1
-    print (y0[1:] - alpha*y0[:-1])[groups_valid]
+    print((y0[1:] - alpha*y0[:-1])[groups_valid])
     alpha = 0.2  #test with 1
-    print (y0[1:] - alpha*y0[:-1] + 0.001)[groups_valid]
+    print((y0[1:] - alpha*y0[:-1] + 0.001)[groups_valid])
     #this is now AR(1) for each group separately
 
 
@@ -107,8 +106,7 @@ if __name__ == '__main__':
     exog = np.ones(nobs)
     exog = group_dummy
     mod = PanelAR1(y, exog, groups=groups)
-    #mod = PanelAR1(data, exog, groups=groups) #data doesn't contain different means
-    #print mod.ar1filter(mod.endog, 1)
+    #mod = PanelAR1(data, exog, groups=groups) #data does not contain different means
+    #print(mod.ar1filter(mod.endog, 1))
     resa, reso = mod.fit()
-    print resa[0], reso.params
-
+    print(resa[0], reso.params)

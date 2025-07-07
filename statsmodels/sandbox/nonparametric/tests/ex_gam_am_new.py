@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Example for gam.AdditiveModel and PolynomialSmoother
 
 This example was written as a test case.
@@ -10,20 +9,12 @@ Created on Fri Nov 04 13:45:43 2011
 Author: Josef Perktold
 
 """
-
-import time
+from statsmodels.compat.python import lrange
 
 import numpy as np
-#import matplotlib.pyplot as plt
-from numpy.testing import assert_almost_equal
-
-from scipy import stats
 
 from statsmodels.sandbox.gam import AdditiveModel
-from statsmodels.sandbox.gam import Model as GAM #?
-from statsmodels.genmod import families
-from statsmodels.genmod.generalized_linear_model import GLM
-from statsmodels.regression.linear_model import OLS, WLS
+from statsmodels.regression.linear_model import OLS
 
 np.random.seed(8765993)
 #seed is chosen for nice result, not randomly
@@ -32,13 +23,13 @@ np.random.seed(8765993)
 #DGP: simple polynomial
 order = 3
 sigma_noise = 0.5
-nobs = 1000  #1000 #with 1000, OLS and Additivemodel aggree in params at 2 decimals
+nobs = 1000  #1000 #with 1000, OLS and Additivemodel agree in params at 2 decimals
 lb, ub = -3.5, 4#2.5
 x1 = np.linspace(lb, ub, nobs)
 x2 = np.sin(2*x1)
 x = np.column_stack((x1/x1.max()*2, x2))
 exog = (x[:,:,None]**np.arange(order+1)[None, None, :]).reshape(nobs, -1)
-idx = range((order+1)*2)
+idx = lrange((order+1)*2)
 del idx[order+1]
 exog_reduced = exog[:,idx]  #remove duplicate constant
 y_true = exog.sum(1) / 2.
@@ -56,11 +47,12 @@ if example == 1:
 
 
 for ss in m.smoothers:
-    print ss.params
+    print(ss.params)
 
 res_ols = OLS(y, exog_reduced).fit()
-print res_ols.params
+print(res_ols.params)
 
+#from numpy.testing import assert_almost_equal
 #assert_almost_equal(y_pred, res_ols.fittedvalues, 3)
 
 if example > 0:

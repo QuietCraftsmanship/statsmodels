@@ -6,16 +6,16 @@
 try:
     import pymc
     pymc_installed = 1
-except:
-    print "pymc not imported"
+except ImportError:
+    print("pymc not imported")
     pymc_installed = 0
-from scipy.stats import gamma, beta, invgamma
-import numpy as np
+
 from matplotlib import pyplot as plt
-from scipy import stats
+import numpy as np
+from numpy import exp, log
+from scipy import integrate, stats
+from scipy.special import gammainc, gammaincinv, gammaln
 from scipy.stats import rv_continuous
-from scipy.special import gammaln, gammaincinv, gamma, gammainc
-from numpy import log,exp
 
 #np.random.seed(12345)
 
@@ -32,7 +32,7 @@ class igamma_gen(rv_continuous):
 #CDF
     def _munp(self, n, a, b):
         args = (a,b)
-        super(igamma_gen, self)._munp(self, n, *args)
+        super()._munp(self, n, *args)
 #TODO: is this robust for differential entropy in this case? closed form or
 #shortcuts in special?
     def _entropy(self, *args):
@@ -53,25 +53,24 @@ Inverted gamma distribution
 
 invgamma.pdf(x,a,b) = b**a*x**(-a-1)/gamma(a) * exp(-b/x)
 for x > 0, a > 0, b>0.
-"""
-)
+""")
 
 
 #NOTE: the above is unnecessary.  B takes the same role as the scale parameter
 # in inverted gamma
 
 palpha = np.random.gamma(400.,.005, size=10000)
-print "First moment: %s\nSecond moment: %s" % (palpha.mean(),palpha.std())
+print(f"First moment: {palpha.mean()}\nSecond moment: {palpha.std()}")
 palpha = palpha[0]
 
 prho = np.random.beta(49.5,49.5, size=1e5)
-print "Beta Distribution"
-print "First moment: %s\nSecond moment: %s" % (prho.mean(),prho.std())
+print("Beta Distribution")
+print(f"First moment: {prho.mean()}\nSecond moment: {prho.std()}")
 prho = prho[0]
 
 psigma = igamma.rvs(1.,4.**2/2, size=1e5)
-print "Inverse Gamma Distribution"
-print "First moment: %s\nSecond moment: %s" % (psigma.mean(),psigma.std())
+print("Inverse Gamma Distribution")
+print(f"First moment: {psigma.mean()}\nSecond moment: {psigma.std()}")
 
 # First do the univariate case
 # y_t = theta_t + epsilon_t
@@ -115,7 +114,7 @@ for draw in range(draws):
     theta1 = np.random.uniform(0,1)
     theta2 = np.random.normal(mu_, lambda_**2)
 #    mu = theta2/(1-theta1)
-#don't do this to maintain independence theta2 is the _location_
+#do not do this to maintain independence theta2 is the _location_
 #    y1 = np.random.normal(mu_, lambda_**2)
     y1 = theta2
 #    pmu_pairsp1[draw] = mu, theta1
@@ -181,7 +180,7 @@ fsp.axis([-20,20,-20,20])
 
 #plt.show()
 
-#TODO: this doesn't look the same as the working paper?
+#TODO: this does not look the same as the working paper?
 #NOTE: but it matches the language?  I think mine is right!
 
 # Contour plots.
@@ -228,7 +227,7 @@ if pymc_installed:
 else:
     psigma2 = stats.invgamma.rvs(1., scale=4.0, size=1e6)
 nsims = 500
-y = np.zeros((nsims))
+y = np.zeros(nsims)
 #for i in range(1,nsims):
 #    y[i] = .9*y[i-1] + 1/(1-p1/alpha) + np.random.normal()
 

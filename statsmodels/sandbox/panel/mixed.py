@@ -7,7 +7,7 @@ License: BSD-3
 
 
 Notes
-------
+-----
 
 It's pretty slow if the model is misspecified, in my first example convergence
 in loglike is not reached within 2000 iterations. Added stop criteria based
@@ -17,14 +17,13 @@ With correctly specified model, convergence is fast, in 6 iterations in
 example.
 
 """
-
 import numpy as np
 import numpy.linalg as L
 
 from statsmodels.base.model import LikelihoodModelResults
 from statsmodels.tools.decorators import cache_readonly
 
-class Unit(object):
+class Unit:
     """
     Individual experimental unit for
     EM implementation of (repeated measures)
@@ -56,7 +55,6 @@ class Unit(object):
     mean of the random constants or coefficients are not centered.
     The covariance matrix of the random parameter estimates are not
     centered in this case. (That's how it looks to me. JP)
-
     """
 
 
@@ -140,7 +138,6 @@ class Unit(object):
         -----
         In example where the mean of the random coefficient is not zero, this
         is not a covariance but a non-centered moment. (proof by example)
-
         """
         if Sinv is not None:
             self.compute_P(Sinv)
@@ -175,8 +172,7 @@ class Unit(object):
         return - 2 * self.logL(ML=ML)
 
 
-class OneWayMixed(object):
-
+class OneWayMixed:
     """
     Model for
     EM implementation of (repeated measures)
@@ -234,7 +230,7 @@ class OneWayMixed(object):
 
     convergence criteria for iteration
     Currently convergence in the iterative solver is reached if either the loglikelihood
-    *or* the fixed effects parameter don't change above tolerance.
+    *or* the fixed effects parameter do not change above tolerance.
 
     In some examples, the fixed effects parameters converged to 1e-5 within 150 iterations
     while the log likelihood did not converge within 2000 iterations. This might be
@@ -245,7 +241,6 @@ class OneWayMixed(object):
     The above was with a misspecified model, without a constant. With a
     correctly specified model convergence is fast, within a few iterations
     (6 in example).
-
     """
 
     def __init__(self, units):
@@ -277,7 +272,6 @@ class OneWayMixed(object):
 
         Display (3.1) of
         Laird, Lange, Stram (see help(Mixed)).
-
         """
 
         for unit in self.units:
@@ -298,7 +292,6 @@ class OneWayMixed(object):
         otherwise it corresponds to (3.8).
 
         sigma is the standard deviation of the noise (residual)
-
         """
         sigmasq = 0.
         for unit in self.units:
@@ -321,7 +314,6 @@ class OneWayMixed(object):
 
         If ML, this is (3.7) in Laird, Lange, Stram (see help(Mixed)),
         otherwise it corresponds to (3.9).
-
         """
         D = 0.
         for unit in self.units:
@@ -401,9 +393,8 @@ class OneWayMixed(object):
     def logL(self, ML=False):
         """
         Return log-likelihood, REML by default.
-
         """
-        #I don't know what the difference between REML and ML is here.
+        #I do not know what the difference between REML and ML is here.
         logL = 0.
 
         for unit in self.units:
@@ -415,7 +406,7 @@ class OneWayMixed(object):
     def initialize(self):
         S = sum([np.dot(unit.X.T, unit.X) for unit in self.units])
         Y = sum([np.dot(unit.X.T, unit.Y) for unit in self.units])
-        self.a = L.lstsq(S, Y)[0]
+        self.a = L.lstsq(S, Y, rcond=-1)[0]
 
         D = 0
         t = 0
@@ -423,10 +414,10 @@ class OneWayMixed(object):
         for unit in self.units:
             unit.r = unit.Y - np.dot(unit.X, self.a)
             if self.q > 1:
-                unit.b = L.lstsq(unit.Z, unit.r)[0]
+                unit.b = L.lstsq(unit.Z, unit.r, rcond=-1)[0]
             else:
                 Z = unit.Z.reshape((unit.Z.shape[0], 1))
-                unit.b = L.lstsq(Z, unit.r)[0]
+                unit.b = L.lstsq(Z, unit.r, rcond=-1)[0]
 
             sigmasq += (np.power(unit.Y, 2).sum() -
                         (self.a * np.dot(unit.X.T, unit.Y)).sum() -
@@ -481,7 +472,7 @@ class OneWayMixed(object):
                 break
         else: #if end of loop is reached without break
             self.termination = 'maxiter'
-            print 'Warning: maximum number of iterations reached'
+            print('Warning: maximum number of iterations reached')
 
         self.iterations = i
 
@@ -503,7 +494,7 @@ class OneWayMixedResults(LikelihoodModelResults):
         self.params = model.params
 
 
-    #need to overwrite this because we don't have a standard
+    #need to overwrite this because we do not have a standard
     #model.loglike yet
     #TODO: what todo about REML loglike, logL is not normalized
     @cache_readonly
@@ -520,7 +511,7 @@ class OneWayMixedResults(LikelihoodModelResults):
     def mean_random(self, idx='lastexog'):
         if idx == 'lastexog':
             meanr = self.params[-self.model.k_exog_re:]
-        elif type(idx) == list:
+        elif isinstance(idx, list):
             if not len(idx) == self.model.k_exog_re:
                 raise ValueError('length of idx different from k_exog_re')
             else:
@@ -548,7 +539,7 @@ class OneWayMixedResults(LikelihoodModelResults):
 
         Returns
         -------
-        fig : matplotlib figure instance
+        Figure
             figure with subplots
 
         Notes
@@ -570,7 +561,7 @@ class OneWayMixedResults(LikelihoodModelResults):
             rows, cols = k, 1
         if bins is None:
             #bins = self.model.n_units // 20    #TODO: just roughly, check
-           # bins = np.sqrt(self.model.n_units)
+            #bins = np.sqrt(self.model.n_units)
             bins = 5 + 2 * self.model.n_units**(1./3.)
 
         if use_loc:
@@ -644,8 +635,8 @@ class OneWayMixedResults(LikelihoodModelResults):
             raise ValueError('less than two variables available')
 
         return scatter_ellipse(self.params_random_units,
-                               ell_kwds={'color':'r'})
                                #ell_kwds not implemented yet
+                               ell_kwds={'color':'r'})
 
 #        #note I have written this already as helper function, get it
 #        import matplotlib.pyplot as plt
@@ -666,8 +657,3 @@ class OneWayMixedResults(LikelihoodModelResults):
 #                count += 1
 #
 #        return fig
-
-
-if __name__ == '__main__':
-    #see examples/ex_mixed_lls_1.py
-    pass

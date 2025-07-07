@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Playing with correlation of DJ-30 stock returns
 
 this uses pickled data that needs to be created with findow.py
@@ -8,25 +7,21 @@ to see graphs, uncomment plt.show()
 Created on Sat Jan 30 16:30:18 2010
 Author: josef-pktd
 """
-
-import numpy as np
-import matplotlib.finance as fin
-import matplotlib.pyplot as plt
-import datetime as dt
-
-import pandas as pa
 import pickle
 
-import statsmodels.api as sm
-import statsmodels.sandbox as sb
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+
 import statsmodels.sandbox.tools as sbtools
 
 from statsmodels.graphics.correlation import plot_corr, plot_corr_grid
 
 try:
-    rrdm = pickle.load(file('dj30rr','rb'))
+    with open('dj30rr', 'rb') as fd:
+        rrdm = pickle.load(fd)
 except Exception: #blanket for any unpickling error
-    print "Error with unpickling, a new pickle file can be created with findow_1"
+    print("Error with unpickling, a new pickle file can be created with findow_1")
     raise
 
 ticksym = rrdm.columns.tolist()
@@ -43,7 +38,7 @@ plt.title('Correlation Coefficients')
 
 xreda, facta, evaa, evea  = sbtools.pcasvd(rr)
 evallcs = (evaa).cumsum()
-print evallcs/evallcs[-1]
+print(evallcs/evallcs[-1])
 xred, fact, eva, eve  = sbtools.pcasvd(rr, keepdim=4)
 pcacorr = np.corrcoef(xred, rowvar=0)
 
@@ -70,10 +65,9 @@ ax3 = fig.add_subplot(2,2,4)
 plot_corr(residcorr, xnames=ticksym, title='Correlation Residuals',
           normcolor=normcolor, ax=ax3)
 
-import matplotlib as mpl
-images = [c for ax in fig.axes for c in ax.get_children() if isinstance(c, mpl.image.AxesImage)]
-print images
-print ax.get_children()
+images = [c for fig_ax in fig.axes for c in fig_ax.get_children() if isinstance(c, mpl.image.AxesImage)]
+print(images)
+print(ax.get_children())
 #cax = fig.add_subplot(2,2,2)
 #[0.85, 0.1, 0.075, 0.8]
 fig. subplots_adjust(bottom=0.1, right=0.9, top=0.9)
@@ -83,10 +77,10 @@ fig.savefig('corrmatrixgrid.png', dpi=120)
 
 has_sklearn = True
 try:
-    import sklearn
+    import sklearn  # noqa:F401
 except ImportError:
     has_sklearn = False
-    print 'sklearn not available'
+    print('sklearn not available')
 
 
 def cov2corr(cov):
@@ -121,7 +115,7 @@ if has_sklearn:
         plot_corr(c, xnames=None, title=titles[i],
               normcolor=normcolor, ax=ax)
 
-    images = [c for ax in fig.axes for c in ax.get_children() if isinstance(c, mpl.image.AxesImage)]
+    images = [c for fig_ax in fig.axes for c in fig_ax.get_children() if isinstance(c, mpl.image.AxesImage)]
     fig. subplots_adjust(bottom=0.1, right=0.9, top=0.9)
     cax = fig.add_axes([0.9, 0.1, 0.025, 0.8])
     fig.colorbar(images[0], cax=cax)
@@ -131,9 +125,9 @@ if has_sklearn:
                             for cj in corrli])
     diffsabs = np.array([[np.max(np.abs(ci-cj)) for ci in corrli]
                             for cj in corrli])
-    print diffssq
-    print '\nmaxabs'
-    print diffsabs
+    print(diffssq)
+    print('\nmaxabs')
+    print(diffsabs)
     fig.savefig('corrmatrix_sklearn.png', dpi=120)
 
     fig2 = plot_corr_grid(corrli+[residcorr], ncols=3,
@@ -143,4 +137,3 @@ if has_sklearn:
 
 #plt.show()
 #plt.close('all')
-

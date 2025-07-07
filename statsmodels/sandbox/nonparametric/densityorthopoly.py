@@ -1,4 +1,3 @@
-# -*- coding: cp1252 -*-
 # some cut and paste characters are not ASCII
 '''density estimation based on orthogonal polynomials
 
@@ -15,7 +14,7 @@ other versions need normalization
 TODO:
 
 * check fourier case again:  base is orthonormal,
-  but needs offsetfact = 0 and doesn't integrate to 1, rescaled looks good
+  but needs offsetfact = 0 and does not integrate to 1, rescaled looks good
 * hermite: works but DensityOrthoPoly requires currently finite bounds
   I use it with offsettfactor 0.5 in example
 * not implemented methods:
@@ -37,24 +36,21 @@ enhancements:
 
 
 '''
-
-from scipy import stats
 import numpy as np
-
-
+from scipy import integrate, special, stats
 
 sqr2 = np.sqrt(2.)
 
-class FPoly(object):
+class FPoly:
     '''Orthonormal (for weight=1) Fourier Polynomial on [0,1]
 
-    orthonormal polynomial but density needs corfactor that I don't see what
+    orthonormal polynomial but density needs corfactor that I do not see what
     it is analytically
 
     parameterization on [0,1] from
 
     Sam Efromovich: Orthogonal series density estimation,
-    2010 John Wiley & Sons, Inc. WIREs Comp Stat 2010 2 467–476
+    2010 John Wiley & Sons, Inc. WIREs Comp Stat 2010 2 467-476
 
 
     '''
@@ -70,10 +66,10 @@ class FPoly(object):
         else:
             return sqr2 * np.cos(np.pi * self.order * x)
 
-class F2Poly(object):
+class F2Poly:
     '''Orthogonal (for weight=1) Fourier Polynomial on [0,pi]
 
-    is orthogonal but first component doesn't square-integrate to 1
+    is orthogonal but first component does not square-integrate to 1
     final result seems to need a correction factor of sqrt(pi)
     _corfactor = sqrt(pi) from integrating the density
 
@@ -96,7 +92,7 @@ class F2Poly(object):
         else:
             return sqr2 * np.cos(self.order * x) / np.sqrt(np.pi)
 
-class ChebyTPoly(object):
+class ChebyTPoly:
     '''Orthonormal (for weight=1) Chebychev Polynomial on (-1,1)
 
 
@@ -128,13 +124,9 @@ class ChebyTPoly(object):
             return self.poly(x) / (1-x**2)**(1/4.) /np.sqrt(np.pi) *np.sqrt(2)
 
 
-
-from scipy.misc import factorial
-from scipy import special
-
 logpi2 = np.log(np.pi)/2
 
-class HPoly(object):
+class HPoly:
     '''Orthonormal (for weight=1) Hermite Polynomial, uses finite bounds
 
     for current use with DensityOrthoPoly domain is defined as [-6,6]
@@ -201,7 +193,7 @@ def inner_cont(polys, lower, upper, weight=None):
         for j in range(i+1):
             p1 = polys[i]
             p2 = polys[j]
-            if not weight is None:
+            if weight is not None:
                 innp, err = integrate.quad(lambda x: p1(x)*p2(x)*weight(x),
                                        lower, upper)
             else:
@@ -274,7 +266,7 @@ def is_orthonormal_cont(polys, lower, upper, rtol=0, atol=1e-08):
 #new versions
 
 
-class DensityOrthoPoly(object):
+class DensityOrthoPoly:
     '''Univariate density estimation by orthonormal series expansion
 
 
@@ -286,9 +278,9 @@ class DensityOrthoPoly(object):
     '''
 
     def __init__(self, polybase=None, order=5):
-        if not polybase is None:
+        if polybase is not None:
             self.polybase = polybase
-            self.polys = polys = [polybase(i) for i in range(order)]
+            self.polys = [polybase(i) for i in range(order)]
         #try:
         #self.offsetfac = 0.05
         #self.offsetfac = polys[0].offsetfactor #polys maybe not defined yet
@@ -336,7 +328,7 @@ class DensityOrthoPoly(object):
         xeval = self._transform(xeval)
         if order is None:
             order = len(self.polys)
-        res = sum(c*p(xeval) for c, p in zip(self.coeffs, self.polys)[:order])
+        res = sum(c*p(xeval) for c, p in list(zip(self.coeffs, self.polys))[:order])
         res = self._correction(res)
         return res
 
@@ -386,7 +378,7 @@ class DensityOrthoPoly(object):
         '''
 
         #use domain from first instance
-        #class doesn't have domain  self.polybase.domain[0] AttributeError
+        #class does not have domain  self.polybase.domain[0] AttributeError
         domain = self.polys[0].domain
 
         ilen = (domain[1] - domain[0])
@@ -398,7 +390,6 @@ class DensityOrthoPoly(object):
 
 #old version as a simple function
 def density_orthopoly(x, polybase, order=5, xeval=None):
-    from scipy.special import legendre, hermitenorm, chebyt, chebyu, hermite
     #polybase = legendre  #chebyt #hermitenorm#
     #polybase = chebyt
     #polybase = FPoly
@@ -428,8 +419,11 @@ if __name__ == '__main__':
     nobs = 10000
 
     import matplotlib.pyplot as plt
-    from statsmodels.sandbox.distributions.mixture_rvs import (
-                                                mixture_rvs, MixtureDistribution)
+
+    from statsmodels.distributions.mixture_rvs import (
+        MixtureDistribution,
+        mixture_rvs,
+    )
 
     #np.random.seed(12345)
 ##    obs_dist = mixture_rvs([1/3.,2/3.], size=nobs, dist=[stats.norm, stats.norm],
@@ -451,13 +445,12 @@ if __name__ == '__main__':
         f_hat, grid, coeffs, polys = density_orthopoly(obs_dist, ChebyTPoly, order=20, xeval=None)
         #f_hat /= f_hat.sum() * (grid.max() - grid.min())/len(grid)
         f_hat0 = f_hat
-        from scipy import integrate
         fint = integrate.trapz(f_hat, grid)# dx=(grid.max() - grid.min())/len(grid))
         #f_hat -= fint/2.
-        print 'f_hat.min()', f_hat.min()
+        print('f_hat.min()', f_hat.min())
         f_hat = (f_hat - f_hat.min()) #/ f_hat.max() - f_hat.min
         fint2 = integrate.trapz(f_hat, grid)# dx=(grid.max() - grid.min())/len(grid))
-        print 'fint2', fint, fint2
+        print('fint2', fint, fint2)
         f_hat /= fint2
 
         # note that this uses a *huge* grid by default
@@ -474,10 +467,10 @@ if __name__ == '__main__':
 
         for i,p in enumerate(polys[:5]):
             for j,p2 in enumerate(polys[:5]):
-                print i,j,integrate.quad(lambda x: p(x)*p2(x), -1,1)[0]
+                print(i,j,integrate.quad(lambda x: p(x)*p2(x), -1,1)[0])
 
         for p in polys:
-            print integrate.quad(lambda x: p(x)**2, -1,1)
+            print(integrate.quad(lambda x: p(x)**2, -1,1))
 
 
     #examples using the new class
@@ -486,9 +479,9 @@ if __name__ == '__main__':
         dop = DensityOrthoPoly().fit(obs_dist, ChebyTPoly, order=20)
         grid = np.linspace(obs_dist.min(), obs_dist.max())
         xf = dop(grid)
-        #print 'np.max(np.abs(xf - f_hat0))', np.max(np.abs(xf - f_hat0))
+        #print('np.max(np.abs(xf - f_hat0))', np.max(np.abs(xf - f_hat0))
         dopint = integrate.quad(dop, *dop.limits)[0]
-        print 'dop F integral', dopint
+        print('dop F integral', dopint)
         mpdf = mix.pdf(grid, [1/3.,2/3.], dist=[stats.norm, stats.norm],
                    kwargs=mix_kwds)
 
@@ -507,9 +500,9 @@ if __name__ == '__main__':
         dop = dop.fit(obs_dist, F2Poly, order=30)
         grid = np.linspace(obs_dist.min(), obs_dist.max())
         xf = dop(grid)
-        #print np.max(np.abs(xf - f_hat0))
+        #print(np.max(np.abs(xf - f_hat0))
         dopint = integrate.quad(dop, *dop.limits)[0]
-        print 'dop F integral', dopint
+        print('dop F integral', dopint)
         mpdf = mix.pdf(grid, [1/3.,2/3.], dist=[stats.norm, stats.norm],
                    kwargs=mix_kwds)
 
@@ -523,7 +516,7 @@ if __name__ == '__main__':
             #plt.show()
 
         #check orthonormality:
-        print np.max(np.abs(inner_cont(dop.polys[:5], 0, 1)[0] -np.eye(5)))
+        print(np.max(np.abs(inner_cont(dop.polys[:5], 0, 1)[0] -np.eye(5))))
 
     if "hermite" in examples:
         dop = DensityOrthoPoly()
@@ -531,9 +524,9 @@ if __name__ == '__main__':
         dop = dop.fit(obs_dist, HPoly, order=20)
         grid = np.linspace(obs_dist.min(), obs_dist.max())
         xf = dop(grid)
-        #print np.max(np.abs(xf - f_hat0))
+        #print(np.max(np.abs(xf - f_hat0))
         dopint = integrate.quad(dop, *dop.limits)[0]
-        print 'dop F integral', dopint
+        print('dop F integral', dopint)
 
         mpdf = mix.pdf(grid, [1/3.,2/3.], dist=[stats.norm, stats.norm],
                    kwargs=mix_kwds)
@@ -548,22 +541,21 @@ if __name__ == '__main__':
             plt.show()
 
         #check orthonormality:
-        print np.max(np.abs(inner_cont(dop.polys[:5], 0, 1)[0] -np.eye(5)))
+        print(np.max(np.abs(inner_cont(dop.polys[:5], 0, 1)[0] -np.eye(5))))
 
 
     #check orthonormality
 
     hpolys = [HPoly(i) for i in range(5)]
     inn = inner_cont(hpolys, -6, 6)[0]
-    print np.max(np.abs(inn - np.eye(5)))
-    print (inn*100000).astype(int)
+    print(np.max(np.abs(inn - np.eye(5))))
+    print((inn*100000).astype(int))
 
-    from scipy.special import hermite, chebyt
+    from scipy.special import chebyt, hermite
     htpolys = [hermite(i) for i in range(5)]
     innt = inner_cont(htpolys, -10, 10)[0]
-    print (innt*100000).astype(int)
+    print((innt*100000).astype(int))
 
     polysc = [chebyt(i) for i in range(4)]
     r, e = inner_cont(polysc, -1, 1, weight=lambda x: (1-x*x)**(-1/2.))
-    print np.max(np.abs(r - np.diag(np.diag(r))))
-
+    print(np.max(np.abs(r - np.diag(np.diag(r)))))

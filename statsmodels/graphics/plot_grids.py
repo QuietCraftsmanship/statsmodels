@@ -4,7 +4,7 @@ Author: Josef Perktold
 License: BSD-3
 
 TODO: update script to use sharex, sharey, and visible=False
-    see http://www.scipy.org/Cookbook/Matplotlib/Multiple_Subplots_with_One_Axis_Label
+    see https://www.scipy.org/Cookbook/Matplotlib/Multiple_Subplots_with_One_Axis_Label
     for sharex I need to have the ax of the last_row when editing the earlier
     rows. Or you axes_grid1, imagegrid
     http://matplotlib.sourceforge.net/mpl_toolkits/axes_grid/users/overview.html
@@ -15,7 +15,6 @@ import numpy as np
 from scipy import stats
 
 from . import utils
-
 
 __all__ = ['scatter_ellipse']
 
@@ -29,7 +28,7 @@ def _make_ellipse(mean, cov, ax, level=0.95, color=None):
     angle = np.arctan(u[1]/u[0])
     angle = 180 * angle / np.pi # convert to degrees
     v = 2 * np.sqrt(v * stats.chi2.ppf(level, 2)) #get size corresponding to level
-    ell = Ellipse(mean[:2], v[0], v[1], 180 + angle, facecolor='none',
+    ell = Ellipse(mean[:2], v[0], v[1], angle=180 + angle, facecolor='none',
                   edgecolor=color,
                   #ls='dashed',  #for debugging
                   lw=1.5)
@@ -53,7 +52,7 @@ def scatter_ellipse(data, level=0.9, varnames=None, ell_kwds=None,
         Input data.
     level : scalar, optional
         Default is 0.9.
-    varnames : list of str, optional
+    varnames : list[str], optional
         Variable names.  Used for y-axis labels, and if `add_titles` is True
         also for titles.  If not given, integers 1..data.shape[1] are used.
     ell_kwds : dict, optional
@@ -65,15 +64,28 @@ def scatter_ellipse(data, level=0.9, varnames=None, ell_kwds=None,
         Titles are constructed from `varnames`.
     keep_ticks : bool, optional
         If False (default), remove all axis ticks.
-    fig : Matplotlib figure instance, optional
+    fig : Figure, optional
         If given, this figure is simply returned.  Otherwise a new figure is
         created.
 
     Returns
     -------
-    fig : Matplotlib figure instance
+    Figure
         If `fig` is None, the created figure.  Otherwise `fig` itself.
 
+    Examples
+    --------
+    >>> import statsmodels.api as sm
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+
+    >>> from statsmodels.graphics.plot_grids import scatter_ellipse
+    >>> data = sm.datasets.statecrime.load_pandas().data
+    >>> fig = plt.figure(figsize=(8,8))
+    >>> scatter_ellipse(data, varnames=data.columns, fig=fig)
+    >>> plt.show()
+
+    .. plot:: plots/graphics_plot_grids_scatter_ellipse.py
     """
     fig = utils.create_mpl_fig(fig)
     import matplotlib.ticker as mticker
@@ -96,14 +108,10 @@ def scatter_ellipse(data, level=0.9, varnames=None, ell_kwds=None,
     dcov = np.cov(data, rowvar=0)
 
     for i in range(1, nvars):
-        #print '---'
-        ax_last=None
         for j in range(i):
-            #print i,j, i*(nvars-1)+j+1
             ax = fig.add_subplot(nvars-1, nvars-1, (i-1)*(nvars-1)+j+1)
-##                                 #sharey=ax_last) #sharey doesn't allow empty ticks?
+##                                 #sharey=ax_last) #sharey does not allow empty ticks?
 ##            if j == 0:
-##                print 'new ax_last', j
 ##                ax_last = ax
 ##                ax.set_ylabel(varnames[i])
             #TODO: make sure we have same xlim and ylim
@@ -122,15 +130,15 @@ def scatter_ellipse(data, level=0.9, varnames=None, ell_kwds=None,
                          **ell_kwds_)
 
             if add_titles:
-                ax.set_title('%s-%s' % (varnames[i], varnames[j]))
-            if not ax.is_first_col():
+                ax.set_title(f'{varnames[i]}-{varnames[j]}')
+            if not ax.get_subplotspec().is_first_col():
                 if not keep_ticks:
                     ax.set_yticks([])
                 else:
                     ax.yaxis.set_major_locator(mticker.MaxNLocator(3))
             else:
                 ax.set_ylabel(varnames[i])
-            if ax.is_last_row():
+            if ax.get_subplotspec().is_last_row():
                 ax.set_xlabel(varnames[j])
             else:
                 if not keep_ticks:
@@ -157,10 +165,9 @@ def scatter_ellipse(data, level=0.9, varnames=None, ell_kwds=None,
             ax.text(xt, yt, '$\\rho=%0.2f$'% dc[1,0])
 
     for ax in fig.axes:
-        if ax.is_last_row(): # or ax.is_first_col():
+        if ax.get_subplotspec().is_last_row(): # or ax.is_first_col():
             ax.xaxis.set_major_locator(mticker.MaxNLocator(3))
-        if ax.is_first_col():
-           ax.yaxis.set_major_locator(mticker.MaxNLocator(3))
+        if ax.get_subplotspec().is_first_col():
+            ax.yaxis.set_major_locator(mticker.MaxNLocator(3))
 
     return fig
-

@@ -3,21 +3,50 @@
 
 .. _regression:
 
-Regression
-==========
+Linear Regression
+=================
+
+Linear models with independently and identically distributed errors, and for
+errors with heteroscedasticity or autocorrelation. This module allows
+estimation by ordinary least squares (OLS), weighted least squares (WLS),
+generalized least squares (GLS), and feasible generalized least squares with
+autocorrelated AR(p) errors.
+
+See `Module Reference`_ for commands and arguments.
+
+Examples
+--------
+
+.. ipython:: python
+
+    # Load modules and data
+    import numpy as np
+    import statsmodels.api as sm
+    spector_data = sm.datasets.spector.load()
+    spector_data.exog = sm.add_constant(spector_data.exog, prepend=False)
+
+    # Fit and summarize OLS model
+    mod = sm.OLS(spector_data.endog, spector_data.exog)
+    res = mod.fit()
+    print(res.summary())
+
+Detailed examples can be found here:
 
 
-Introduction
-------------
+* `OLS <examples/notebooks/generated/ols.ipynb>`_
+* `WLS <examples/notebooks/generated/wls.ipynb>`_
+* `GLS <examples/notebooks/generated/gls.ipynb>`_
+* `Recursive LS <examples/notebooks/generated/recursive_ls.ipynb>`_
+* `Rolling LS <examples/notebooks/generated/rolling_ls.ipynb>`_
 
-Regression contains linear models with independently and identically
-distributed errors and for errors with heteroscedasticity or autocorrelation
+Technical Documentation
+-----------------------
 
 The statistical model is assumed to be
 
- :math:`Y = X\beta + \mu`,  where :math:`\mu\sim N\left(0,\sigma^{2}\Sigma\right)`
+ :math:`Y = X\beta + \epsilon`,  where :math:`\epsilon\sim N\left(0,\Sigma\right).`
 
-depending on the assumption on :math:`\Sigma`, we have currently four classes available
+Depending on the properties of :math:`\Sigma`, we have currently four classes available:
 
 * GLS : generalized least squares for arbitrary covariance :math:`\Sigma`
 * OLS : ordinary least squares for i.i.d. errors :math:`\Sigma=\textbf{I}`
@@ -29,85 +58,79 @@ All regression models define the same methods and follow the same structure,
 and can be used in a similar fashion. Some of them contain additional model
 specific methods and attributes.
 
-GLS is the superclass of the other regression classes.
+GLS is the superclass of the other regression classes except for RecursiveLS,
+RollingWLS and RollingOLS.
 
-Class hierachy: TODO
+.. Class hierachy: TODO
 
-yule_walker is not a full model class, but a function that estimate the
-parameters of a univariate autoregressive process, AR(p). It is used in GLSAR,
-but it can also be used independently of any models. yule_walker only
-calculates the estimates and the standard deviation of the lag parameters but
-not the additional regression statistics. We hope to include yule-walker in
-future in a separate univariate time series class. A similar result can be
-obtained with GLSAR if only the constant is included as regressors. In this
-case the parameter estimates of the lag estimates are not reported, however
-additional statistics, for example aic, become available.
+.. yule_walker is not a full model class, but a function that estimate the
+.. parameters of a univariate autoregressive process, AR(p). It is used in GLSAR,
+.. but it can also be used independently of any models. yule_walker only
+.. calculates the estimates and the standard deviation of the lag parameters but
+.. not the additional regression statistics. We hope to include yule-walker in
+.. future in a separate univariate time series class. A similar result can be
+.. obtained with GLSAR if only the constant is included as regressors. In this
+.. case the parameter estimates of the lag estimates are not reported, however
+.. additional statistics, for example aic, become available.
 
+References
+^^^^^^^^^^
+
+General reference for regression models:
+
+* D.C. Montgomery and E.A. Peck. "Introduction to Linear Regression Analysis." 2nd. Ed., Wiley, 1992.
+
+Econometrics references for regression models:
+
+* R.Davidson and J.G. MacKinnon. "Econometric Theory and Methods," Oxford, 2004.
+* W.Green. "Econometric Analysis," 5th ed., Pearson, 2003.
+
+.. toctree::
+..   :maxdepth: 1
+..
+..   regression_techn1
 
 Attributes
 ^^^^^^^^^^
-The following is more verbose description of the attributes which is mostly common to all
-regression classes
+
+The following is more verbose description of the attributes which is mostly
+common to all regression classes
 
 pinv_wexog : array
-    | `pinv_wexog` is the `p` x `n` Moore-Penrose pseudoinverse of the
-    | whitened design matrix. Approximately equal to
-    | :math:`\left(X^{T}\Sigma^{-1}X\right)^{-1}X^{T}\Psi`
-    | where :math:`\Psi` is given by :math:`\Psi\Psi^{T}=\Sigma^{-1}`
+    The `p` x `n` Moore-Penrose pseudoinverse of the whitened design matrix.
+    It is approximately equal to
+    :math:`\left(X^{T}\Sigma^{-1}X\right)^{-1}X^{T}\Psi`, where
+    :math:`\Psi` is defined such that :math:`\Psi\Psi^{T}=\Sigma^{-1}`.
 cholsimgainv : array
-    | n x n upper triangular matrix such that
-    | :math:`\Psi\Psi^{T}=\Sigma^{-1}`
-    | :math:`cholsigmainv=\Psi^{T}`
+    The `n` x `n` upper triangular matrix :math:`\Psi^{T}` that satisfies
+    :math:`\Psi\Psi^{T}=\Sigma^{-1}`.
 df_model : float
-    The model degrees of freedom is equal to `p` - 1, where `p` is the number
-    of regressors.  Note that the intercept is not counted as using a degree
-    of freedom here.
+    The model degrees of freedom. This is equal to `p` - 1, where `p` is the
+    number of regressors. Note that the intercept is not counted as using a
+    degree of freedom here.
 df_resid : float
-    The residual degrees of freedom is equal to the number of observations
-    `n` less the number of parameters `p`.  Note that the intercept is counted as
-    using a degree of freedom here.
+    The residual degrees of freedom. This is equal `n - p` where `n` is the
+    number of observations and `p` is the number of parameters. Note that the
+    intercept is counted as using a degree of freedom here.
 llf : float
     The value of the likelihood function of the fitted model.
 nobs : float
     The number of observations `n`
 normalized_cov_params : array
-    | A `p` x `p` array
-    | :math:`(X^{T}\Sigma^{-1}X)^{-1}`
+    A `p` x `p` array equal to :math:`(X^{T}\Sigma^{-1}X)^{-1}`.
 sigma : array
-    | `sigma` is the n x n strucutre of the covariance matrix of the error terms
-    | :math:`\mu\sim N\left(0,\sigma^{2}\Sigma\right)`
+    The `n` x `n` covariance matrix of the error terms:
+    :math:`\epsilon\sim N\left(0,\Sigma\right)`.
 wexog : array
-    | `wexog` is the whitened design matrix.
-    | :math:`\Psi^{T}X`
+    The whitened design matrix :math:`\Psi^{T}X`.
 wendog : array
-    | The whitened response variable.
-    | :math:`\Psi^{T}Y`
-
-
-
-References
-^^^^^^^^^^
-
-General reference for regression models::
-
-    D.C. Montgomery and E.A. Peck. "Introduction to Linear Regression
-        Analysis." 2nd. Ed., Wiley, 1992.
-
-Econometrics references for regression models::
-
-    R. Davidson and J.G. MacKinnon. "Econometric Theory and Methods," Oxford,
-        2004.
-
-    W. Green.  "Econometric Analysis," 5th ed., Pearson, 2003.
-
-Examples
---------
-
-see also the `examples` and the `tests` folders
-
+    The whitened response variable :math:`\Psi^{T}Y`.
 
 Module Reference
 ----------------
+
+.. module:: statsmodels.regression.linear_model
+   :synopsis: Least squares linear models
 
 Model Classes
 ^^^^^^^^^^^^^
@@ -120,20 +143,117 @@ Model Classes
    WLS
    GLSAR
    yule_walker
+   burg
 
-Results Class
-^^^^^^^^^^^^^
+.. module:: statsmodels.regression.quantile_regression
+   :synopsis: Quantile regression
+
+.. currentmodule:: statsmodels.regression.quantile_regression
+
+.. autosummary::
+   :toctree: generated/
+
+   QuantReg
+
+.. module:: statsmodels.regression.recursive_ls
+   :synopsis: Recursive least squares using the Kalman Filter
+
+.. currentmodule:: statsmodels.regression.recursive_ls
+
+.. autosummary::
+   :toctree: generated/
+
+   RecursiveLS
+
+.. module:: statsmodels.regression.rolling
+   :synopsis: Rolling (moving) least squares
+
+.. currentmodule:: statsmodels.regression.rolling
+
+.. autosummary::
+   :toctree: generated/
+
+   RollingWLS
+   RollingOLS
+
+.. module:: statsmodels.regression.process_regression
+   :synopsis: Process regression
+
+.. currentmodule:: statsmodels.regression.process_regression
+
+.. autosummary::
+   :toctree: generated/
+
+   GaussianCovariance
+   ProcessMLE
+
+.. module:: statsmodels.regression.dimred
+   :synopsis: Dimension reduction methods
+
+.. currentmodule:: statsmodels.regression.dimred
+
+.. autosummary::
+   :toctree: generated/
+
+    SlicedInverseReg
+    PrincipalHessianDirections
+    SlicedAverageVarianceEstimation
+
+
+Results Classes
+^^^^^^^^^^^^^^^
+
+Fitting a linear regression model returns a results class. OLS has a
+specific results class with some additional methods compared to the
+results class of the other linear models.
+
+.. currentmodule:: statsmodels.regression.linear_model
 
 .. autosummary::
    :toctree: generated/
 
    RegressionResults
+   OLSResults
+   PredictionResults
 
+.. currentmodule:: statsmodels.base.elastic_net
 
-Technical Documentation
------------------------
+.. autosummary::
+   :toctree: generated/
 
-.. toctree::
-   :maxdepth: 1
+    RegularizedResults
 
-   regression_techn1
+.. currentmodule:: statsmodels.regression.quantile_regression
+
+.. autosummary::
+   :toctree: generated/
+
+   QuantRegResults
+
+.. currentmodule:: statsmodels.regression.recursive_ls
+
+.. autosummary::
+   :toctree: generated/
+
+   RecursiveLSResults
+
+.. currentmodule:: statsmodels.regression.rolling
+
+.. autosummary::
+   :toctree: generated/
+
+   RollingRegressionResults
+
+.. currentmodule:: statsmodels.regression.process_regression
+
+.. autosummary::
+   :toctree: generated/
+
+   ProcessMLEResults
+
+.. currentmodule:: statsmodels.regression.dimred
+
+.. autosummary::
+   :toctree: generated/
+
+   DimReductionResults

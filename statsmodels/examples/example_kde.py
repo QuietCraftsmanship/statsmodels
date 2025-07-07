@@ -1,8 +1,10 @@
-from scipy import stats
 import numpy as np
-from statsmodels.sandbox.distributions.mixture_rvs import mixture_rvs
-from statsmodels.nonparametric.kde import (kdensity, kdensityfft)
+from scipy import stats
+from statsmodels.distributions.mixture_rvs import mixture_rvs
+from statsmodels.nonparametric.kde import kdensityfft
+from statsmodels.nonparametric import bandwidths
 import matplotlib.pyplot as plt
+
 
 np.random.seed(12345)
 obs_dist = mixture_rvs([.25,.75], size=10000, dist=[stats.norm, stats.norm],
@@ -22,7 +24,6 @@ plt.show()
 
 # do some timings
 # get bw first because they're not streamlined
-from statsmodels.nonparametric import bandwidths
 bw = bandwidths.bw_scott(obs_dist)
 
 #.. timeit kdensity(obs_dist, kernel="gauss", bw=bw, gridsize=2**10)

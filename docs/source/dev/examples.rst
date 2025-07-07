@@ -1,27 +1,55 @@
 .. _examples:
 
-Statsmodels Examples
-====================
+Examples
+========
 
-Examples go in the top-level examples directory. Let's try to have documentation
-and tutorials for as many models and code uses as possible! These are invaluable
-for new users to get up and running. These can also be Cookbook recipes, but there is no wiki yet. For the most part these are just runnable example scripts. However, when the documentation is built, these are converted into ReST files and included in the documentation. There is a bit of magic that can be used to make these look nice.
+Examples are invaluable for new users who hope to get up and running quickly
+with `statsmodels`, and they are extremely useful to those who wish to explore
+new features of `statsmodels`. We hope to provide documentation and tutorials
+for as many models and use-cases as possible! Please consider submitting an
+example with any PR that introduces new functionality.
 
-reStructured Text
-~~~~~~~~~~~~~~~~~
+User-contributed examples/tutorials/recipes can be placed on the
+`statsmodels examples wiki page <https://github.com/statsmodels/statsmodels/wiki/Examples>`_
+That wiki page is freely editable. Please post your cool tricks,
+examples, and recipes on there!
 
-Every example file must have a module level docstring. This docstring should contain the tile of the example, and that's it. You can include ReST markup in the files as comments. Anything that is commented out will be rendered as ReST with a few exceptions noted below. If you want a true comment in the outputed file, then you should use ``#..``. The hash symbol is stripped leaving ``..``, ReST markup for a comment line.
+If you would rather have your example file officially accepted to the
+`statsmodels` distribution and posted on this website, you will need to go
+through the normal `patch submission process <index.html#submitting-a-patch>`_
+and follow the instructions that follow.
 
-Code Snippets
-~~~~~~~~~~~~~
+File Format
+-----------
 
-Code snippets are rendered using the :ref:`ipython_directive` for Sphinx. See
-the documentation for explaining its usage in greater detail. Some of it is 
-explained in :ref:`special_markup`.
+Examples are best contributed as Jupyter Notebooks. Save your notebook with all
+output cells cleared in ``examples/notebooks``.
 
-.. _special_markup:
 
-Special Markup
-~~~~~~~~~~~~~~
+The Example Gallery
+-------------------
 
-Pretty much anything you can do with the IPython directive is supported for the example scripts. The only thing that is not well supported is error handling of SyntaxErrors. Syntax errors in pure Python will raise an error during the build process. You could provide an IPython session instead of pure Python if you want to show a SyntaxError for some reason. Other than this, to suppress a line in the built documentation, follow it with a semicolon. To save a figure, prepend the line directly before the plotting command with ``#@savefig file_name.png width=4in``, for example. You don't need to call show or close. You can also call IPython magic functions. So if you wanted to include some timings you could have a line ``#%timeit X = np.empty((1000,1000))``.
+We have a gallery of example notebooks available
+`here <https://www.statsmodels.org/devel/examples/index.html>`_. If you would
+like your example to show up in this gallery, add a link to the notebook in
+``docs/source/examples/landing.yml``. For the thumbnail, take a screenshot of
+what you think is the best "hook" for the notebook. The image will be displayed
+at 360 x 225 (W x H). It's best to save the image as a PNG with a resolution
+that is some multiple of 360 x 225 (720 x 450 is preferred).
+
+Please remember to shrink the PNG file, if you can.
+`This website <https://tinypng.com>`_ can help with that.
+
+
+Before submitting a PR
+----------------------
+
+To save you some time and to make the new examples nicely fit into the
+existing ones consider the following points.
+
+**Look at examples source code** to get a feel for how statsmodels examples
+should look like.
+
+**Build the docs** by running `make html` from the docs directory to see how
+your example looks in the fully rendered html pages. The html file for your example
+will appear at ``docs/build/html/examples/notebooks/generated``.

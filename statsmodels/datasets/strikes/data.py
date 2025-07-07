@@ -1,5 +1,5 @@
-#! /usr/bin/env python
 """U.S. Strike Duration Data"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -24,32 +24,19 @@ used by Kennan. The data here is data for the months of June only to avoid
 seasonal issues."""
 
 #suggested notes
-NOTE        = """
-Number of observations - 62
+NOTE        = """::
 
-Number of variables - 2
+    Number of observations - 62
 
-Variable name definitions::
+    Number of variables - 2
 
-            duration - duration of the strike in days
-            iprod - unanticipated industrial production
+    Variable name definitions::
+
+                duration - duration of the strike in days
+                iprod - unanticipated industrial production
 """
 
-from numpy import recfromtxt, column_stack, array
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
 
-def load():
-    """
-    Load the strikes data and return a Dataset class instance.
-
-    Returns
-    -------
-    Dataset instance:
-        See DATASET_PROPOSAL.txt for more information.
-    """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=0, dtype=float)
 
 def load_pandas():
     """
@@ -57,14 +44,24 @@ def load_pandas():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=0, dtype=float)
+    return du.process_pandas(data, endog_idx=0)
+
+
+def load():
+    """
+    Load the strikes data and return a Dataset class instance.
+
+    Returns
+    -------
+    Dataset
+        See DATASET_PROPOSAL.txt for more information.
+    """
+    return load_pandas()
+
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/strikes.csv', 'rb'), delimiter=",",
-            names=True, dtype=float)
-    return data
+    return du.load_csv(__file__,'strikes.csv').astype(float)

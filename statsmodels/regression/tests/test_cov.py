@@ -3,9 +3,10 @@
 """
 
 import numpy as np
+from numpy.testing import assert_almost_equal, assert_allclose
+
 import statsmodels.api as sm
 
-from numpy.testing import assert_almost_equal
 
 def test_HC_use():
     np.random.seed(0)
@@ -17,12 +18,10 @@ def test_HC_use():
 
     results = sm.OLS(y, X).fit()
 
-    #test cov_params
-    idx = np.array([1,2])
-    #need to call HC0_se to have cov_HC0 available
-    results.HC0_se
-    cov12 = results.cov_params(column=[1,2], cov_p=results.cov_HC0)
-    assert_almost_equal(cov12, results.cov_HC0[idx[:,None], idx], decimal=15)
+    # test cov_params
+    idx = np.array([1, 2])
+    cov12 = results.cov_params(column=[1, 2], cov_p=results.cov_HC0)
+    assert_almost_equal(cov12, results.cov_HC0[idx[:, None], idx], decimal=15)
 
     #test t_test
     tvals = results.params/results.HC0_se
@@ -36,4 +35,4 @@ def test_HC_use():
     idx = np.array([0,1])
     cov_slopes = results.cov_HC0[idx[:,None], idx]
     fval = np.dot(slopes, np.dot(np.linalg.inv(cov_slopes), slopes))/len(idx)
-    assert_almost_equal(ftest.fvalue, fval, decimal=12)
+    assert_allclose(ftest.fvalue, fval, rtol=12)

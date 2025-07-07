@@ -1,6 +1,9 @@
-from kde import KDE
-#from lowess import lowess #don't do that, shadowing the module
-import bandwidths
+"""
+Tools for nonparametric statistics, mainly density estimation and regression.
 
-from statsmodels import NoseWrapper as Tester
-test = Tester().test
+For an overview of this module, see docs/source/nonparametric.rst
+"""
+
+from statsmodels.tools._test_runner import PytestTester
+
+test = PytestTester()

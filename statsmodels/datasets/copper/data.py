@@ -1,4 +1,5 @@
 """World Copper Prices 1951-1975 dataset."""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -39,36 +40,33 @@ Variable name definitions::
 Years are included in the data file though not returned by load.
 """
 
-from numpy import recfromtxt, column_stack, array
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
-
-def load():
-    """
-    Load the copper data and returns a Dataset class.
-
-    Returns
-    --------
-    Dataset instance:
-        See DATASET_PROPOSAL.txt for more information.
-    """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=0, dtype=float)
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/copper.csv', 'rb'), delimiter=",",
-                      names=True, dtype=float, usecols=(1,2,3,4,5,6))
-    return data
+    data = du.load_csv(__file__, 'copper.csv')
+    data = data.iloc[:, 1:7]
+    return data.astype(float)
+
 
 def load_pandas():
     """
     Load the copper data and returns a Dataset class.
 
     Returns
-    --------
-    Dataset instance:
+    -------
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=0, dtype=float)
+    return du.process_pandas(data, endog_idx=0)
+
+
+def load():
+    """
+    Load the copper data and returns a Dataset class.
+
+    Returns
+    -------
+    Dataset
+        See DATASET_PROPOSAL.txt for more information.
+    """
+    return load_pandas()

@@ -15,18 +15,20 @@ General references:
     Numerische Mathematik, 47(1), 99-106.
 '''
 
-import numpy as np
-import numpy.linalg as L
-
-from scipy.linalg import solveh_banded
-from scipy.optimize import golden
-from models import _hbspline     #removed because this was segfaulting
-
 # Issue warning regarding heavy development status of this module
 import warnings
-_msg = "The bspline code is technology preview and requires significant work\
-on the public API and documentation. The API will likely change in the future"
-warnings.warn(_msg, UserWarning)
+
+from models import _hbspline  # removed because this was segfaulting
+import numpy as np
+import numpy.linalg as L
+from scipy.linalg import solveh_banded
+from scipy.optimize import golden
+
+_msg = """
+The bspline code is technology preview and requires significant work
+on the public API and documentation. The API will likely change in the future
+"""
+warnings.warn(_msg, FutureWarning)
 
 
 def _band2array(a, lower=0, symmetric=False, hermitian=False):
@@ -40,7 +42,6 @@ def _band2array(a, lower=0, symmetric=False, hermitian=False):
        symmetric -- if True, return the original result plus its transpose
        hermitian -- if True (and symmetric False), return the original
                     result plus its conjugate transposed
-
     """
 
     n = a.shape[1]
@@ -51,14 +52,18 @@ def _band2array(a, lower=0, symmetric=False, hermitian=False):
         for j in range(r):
             _b = np.diag(a[r-1-j],k=j)[j:(n+j),j:(n+j)]
             _a += _b
-            if symmetric and j > 0: _a += _b.T
-            elif hermitian and j > 0: _a += _b.conjugate().T
+            if symmetric and j > 0:
+                _a += _b.T
+            elif hermitian and j > 0:
+                _a += _b.conjugate().T
     else:
         for j in range(r):
             _b = np.diag(a[j],k=j)[0:n,0:n]
             _a += _b
-            if symmetric and j > 0: _a += _b.T
-            elif hermitian and j > 0: _a += _b.conjugate().T
+            if symmetric and j > 0:
+                _a += _b.T
+            elif hermitian and j > 0:
+                _a += _b.conjugate().T
         _a = _a.T
 
     return _a
@@ -119,16 +124,19 @@ def _triangle2unit(tb, lower=0):
                 banded and its rows of have been divided by d,
                 else lower is True, b is lower triangular banded
                 and its columns have been divieed by d.
-
     """
 
-    if lower: d = tb[0].copy()
-    else: d = tb[-1].copy()
-
-    if lower: return d, (tb / d)
+    if lower:
+        d = tb[0].copy()
     else:
-        l = _upper2lower(tb)
-        return d, _lower2upper(l / d)
+        d = tb[-1].copy()
+
+    if lower:
+        return d, (tb / d)
+    else:
+        lnum = _upper2lower(tb)
+        return d, _lower2upper(lnum / d)
+
 
 def _trace_symbanded(a, b, lower=0):
     """
@@ -142,7 +150,6 @@ def _trace_symbanded(a, b, lower=0):
 
     OUTPUTS: trace
        trace   -- trace(ab)
-
     """
 
     if lower:
@@ -160,18 +167,19 @@ def _zero_triband(a, lower=0):
     INPUTS:
        a   -- a real symmetric banded matrix (either upper or lower hald)
        lower   -- if True, a is assumed to be the lower half
-
     """
 
     nrow, ncol = a.shape
     if lower:
-        for i in range(nrow): a[i,(ncol-i):] = 0.
+        for i in range(nrow):
+            a[i, (ncol-i):] = 0.
     else:
-        for i in range(nrow): a[i,0:i] = 0.
+        for i in range(nrow):
+            a[i, 0:i] = 0.
     return a
 
 
-class BSpline(object):
+class BSpline:
 
     '''
 
@@ -255,7 +263,6 @@ class BSpline(object):
         BUGS:
            If self has no attribute x, an exception will be raised
            because self has no attribute _basisx.
-
         """
 
         if not args:
@@ -278,7 +285,6 @@ class BSpline(object):
         OUTPUTS: y
            y  -- value of d-th derivative of the i-th basis element
                  of the BSpline at specified x values
-
         """
 
         x = np.asarray(x, np.float64)
@@ -287,7 +293,7 @@ class BSpline(object):
             x.shape = (1,)
         x.shape = (np.product(_shape,axis=0),)
         if i < self.tau.shape[0] - 1:
-           ## TODO: OWNDATA flags...
+            # TODO: OWNDATA flags...
             v = _hbspline.evaluate(x, self.tau, self.m, d, i, i+1)
         else:
             return np.zeros(x.shape, np.float64)
@@ -315,7 +321,6 @@ class BSpline(object):
         OUTPUTS: y
            y  -- value of d-th derivative of the basis elements
                  of the BSpline at specified x values
-
         """
         x = np.asarray(x)
         _shape = x.shape
@@ -378,7 +383,6 @@ class BSpline(object):
         OUTPUTS: gram
            gram -- the matrix of inner products of (derivatives)
                    of the BSpline elements
-
         """
 
         d = np.squeeze(d)
@@ -457,7 +461,7 @@ class SmoothingSpline(BSpline):
         else:
             bt = self.basis(x)
 
-        if pen == 0.: # can't use cholesky for singular matrices
+        if pen == 0.: # cannot use cholesky for singular matrices
             banded = False
 
         if x.shape != y.shape:
@@ -478,7 +482,7 @@ class SmoothingSpline(BSpline):
 
         # throw out rows with zeros (this happens at boundary points!)
 
-        mask = np.flatnonzero(1 - np.alltrue(np.equal(bt, 0), axis=0))
+        mask = np.flatnonzero(1 - np.all(np.equal(bt, 0), axis=0))
 
         bt = bt[:,mask]
         y = y[mask]
@@ -493,7 +497,7 @@ class SmoothingSpline(BSpline):
             _g = _band2array(self.g, lower=1, symmetric=True)
             self.coef, _, self.rank = L.lstsq(self.btb + pen*_g, bty)[0:3]
             self.rank = min(self.rank, self.btb.shape[0])
-            del(_g)
+            del _g
         else:
             self.btb = np.zeros(self.g.shape, np.float64)
             nband, nbasis = self.g.shape
@@ -511,7 +515,9 @@ class SmoothingSpline(BSpline):
         self.resid = y * self.weights - np.dot(self.coef, bt)
         self.pen = pen
 
-        del(bty); del(mask); del(bt)
+        del bty
+        del mask
+        del bt
 
     def smooth(self, y, x=None, weights=None):
 
@@ -553,7 +559,6 @@ class SmoothingSpline(BSpline):
         How many degrees of freedom used in the fit?
 
         self.trace()
-
         """
         return self.trace()
 
@@ -573,7 +578,6 @@ class SmoothingSpline(BSpline):
 
     def fit_target_df(self, y, x=None, df=None, weights=None, tol=1.0e-03,
                       apen=0, bpen=1.0e-03):
-
         """
         Fit smoothing spline with approximately df degrees of freedom
         used in the fit, i.e. so that self.trace() is approximately df.
@@ -596,12 +600,11 @@ class SmoothingSpline(BSpline):
         OUTPUTS: None
            The smoothing spline is determined by self.coef,
            subsequent calls of __call__ will be the smoothing spline.
-
         """
 
         df = df or self.target_df
 
-        olddf = y.shape[0] - self.m
+        y.shape[0] - self.m
 
         if hasattr(self, "pen"):
             self.fit(y, x=x, weights=weights, pen=self.pen)
@@ -650,7 +653,6 @@ class SmoothingSpline(BSpline):
         OUTPUTS: None
            The smoothing spline is determined by self.coef,
            subsequent calls of __call__ will be the smoothing spline.
-
         """
 
         def _gcv(pen, y, x):
@@ -658,4 +660,4 @@ class SmoothingSpline(BSpline):
             a = self.gcv()
             return a
 
-        a = golden(_gcv, args=(y,x), brack=bracket, tol=tol)
+        golden(_gcv, args=(y,x), brack=brack, tol=tol)

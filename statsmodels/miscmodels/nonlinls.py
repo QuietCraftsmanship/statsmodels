@@ -12,7 +12,12 @@ from statsmodels.base.model import Model
 from statsmodels.tools.decorators import cache_readonly
 from statsmodels.regression.linear_model import RegressionResults
 
+
 class NonLinearLSResults(RegressionResults):
+
+
+class Results:
+
     '''just a dummy placeholder for now
     most results from RegressionResults can be used here
     '''
@@ -69,7 +74,7 @@ class NonLinearLSResults(RegressionResults):
 
 
 class NonlinearLS(Model):  #or subclass a model
-    '''Base class for estimation of a non-linear model with least squares
+    r'''Base class for estimation of a non-linear model with least squares
 
     This class is supposed to be subclassed, and the subclass has to provide a method
     `_predict` that defines the non-linear function `f(params) that is predicting the endogenous
@@ -126,11 +131,17 @@ class NonlinearLS(Model):  #or subclass a model
 
 
     '''
-    def __init__(self, endog=None, exog=None, weights=None, sigma=None):
+    #NOTE: This needs to call super for data checking
+    def __init__(self, endog=None, exog=None, weights=None, sigma=None,
+            missing='none'):
         self.endog = endog
         self.exog = exog
+
         self.nobs = len(endog) #check
         if not sigma is None:
+
+        if sigma is not None:
+
             sigma = np.asarray(sigma)
             if sigma.ndim < 2:
                 self.sigma = sigma
@@ -240,14 +251,14 @@ class NonlinearLS(Model):  #or subclass a model
         #I added start_value even if it's empty, not sure about it
         #but it makes a visible placeholder
 
-        if not start_value is None:
+        if start_value is not None:
             p0 = start_value
         else:
             #nesting so that start_value is only calculated if it is needed
             p0 = self.start_value()
-            if not p0 is None:
+            if p0 is not None:
                 pass
-            elif not nparams is None:
+            elif nparams is not None:
                 p0 = 0.1 * np.ones(nparams)
             else:
                 raise ValueError('need information about start values for' +
@@ -293,11 +304,17 @@ class NonlinearLS(Model):  #or subclass a model
         #maybe not anymore, I'm not using pcov of leastsq
         #direct calculation with jac_predict misses the weights
 
+
 ##        if not weights is None
 ##            fitres.wexogw = self.weights * self.jacpredict(popt)
 
         from statsmodels.regression.linear_model import RegressionResults
         #results = RegressionResults
+
+        # if not weights is None
+        #     fitres.wexogw = self.weights * self.jacpredict(popt)
+        from statsmodels.regression import RegressionResults
+
 
         beta = popt
 #        lfit = RegressionResults(self, beta,
@@ -310,10 +327,10 @@ class NonlinearLS(Model):  #or subclass a model
         self._results = lfit
         return lfit
 
-    def fit_minimal(self, start_value):
+    def fit_minimal(self, start_value, **kwargs):
         '''minimal fitting with no extra calculations'''
         func = self.geterrors
-        res = optimize.leastsq(func, start_value, full_output=0, **kw)
+        res = optimize.leastsq(func, start_value, full_output=0, **kwargs)
         return res
 
     def fit_random(self, ntries=10, rvs_generator=None, nparams=None):
@@ -324,7 +341,7 @@ class NonlinearLS(Model):  #or subclass a model
         '''
 
         if nparams is None:
-                nparams = self.nparams
+            nparams = self.nparams
         if rvs_generator is None:
             rvs = np.random.uniform(low=-10, high=10, size=(ntries, nparams))
         else:
@@ -342,8 +359,7 @@ class NonlinearLS(Model):  #or subclass a model
         but is designed to do so.
 
         '''
-        from statsmodels.sandbox.regression.numdiff \
-             import approx_fprime_cs
+        from statsmodels.tools.numdiff import approx_fprime_cs
 
         jaccs_err = approx_fprime_cs(params, self._predict)
         return jaccs_err
@@ -408,8 +424,8 @@ if __name__ == '__main__':
 
     cf_params, cf_pcov = optimize.curve_fit(func0, x, y)
     cf_bse = np.sqrt(np.diag(cf_pcov))
-    print res[0]
-    print cf_params
-    print resmy.params
-    print cf_bse
-    print resmy.bse
+    print(res[0])
+    print(cf_params)
+    print(resmy.params)
+    print(cf_bse)
+    print(resmy.bse)

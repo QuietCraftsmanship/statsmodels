@@ -112,7 +112,7 @@ xo = array([[ -419,  -731, -1306, -1294],
 
 x = xo/1000.
 
-class HoldIt(object):
+class HoldIt:
     def __init__(self, name):
         self.name = name
     def save(self, what=None, filename=None, header=True, useinstant=True,
@@ -122,7 +122,7 @@ class HoldIt(object):
         if header:
             txt = ['import numpy as np\nfrom numpy import array\n\n']
             if useinstant:
-                txt.append('class Holder(object):\n    pass\n\n')
+                txt.append('from statsmodels.tools.testing import Holder\n\n')
         else:
             txt = []
 
@@ -132,19 +132,19 @@ class HoldIt(object):
         else:
             prefix = ''
 
-        if not comment is None:
-            txt.append("%scomment = '%s'" % (prefix, comment))
+        if comment is not None:
+            txt.append(f"{prefix}comment = '{comment}'")
 
         for x in what:
-            txt.append('%s%s = %s' % (prefix, x, repr(getattr(self,x))))
+            txt.append(f'{prefix}{x} = {repr(getattr(self,x))}')
         txt.extend(['','']) #add empty lines at end
-        if not filename is None:
-            file(filename, 'a+').write('\n'.join(txt))
+        if filename is not None:
+            with open(filename, 'a+', encoding="utf-8") as fd:
+                fd.write('\n'.join(txt))
         return txt
 
 def generate_princomp(xo, filen='testsave.py'):
     # import mlabwrap only when run as script
-    import mlabwrap
     from mlabwrap import mlab
     np.set_printoptions(precision=14, linewidth=100)
     data =  HoldIt('data')
@@ -173,7 +173,6 @@ def generate_princomp(xo, filen='testsave.py'):
 
 def generate_armarep(filen='testsave.py'):
     # import mlabwrap only when run as script
-    import mlabwrap
     from mlabwrap import mlab
     res_armarep =  HoldIt('armarep')
     res_armarep.ar = np.array([1.,  -0.5, +0.8])
@@ -189,7 +188,7 @@ def generate_armarep(filen='testsave.py'):
 
 
 
-def exampletest():
+def exampletest(res_armarep):
     from statsmodels.sandbox import tsa
     arrep = tsa.arma_impulse_response(res_armarep.ma, res_armarep.ar, nobs=21)[1:]
     marep = tsa.arma_impulse_response(res_armarep.ar, res_armarep.ma, nobs=21)[1:]
@@ -199,7 +198,6 @@ def exampletest():
 
 
 if __name__ == '__main__':
-    import mlabwrap
     from mlabwrap import mlab
 
     import savedrvs
@@ -241,6 +239,3 @@ if __name__ == '__main__':
     mbaryw = mlab.ar(x1000-x1000.mean(), 20, 'yw')
     res_ywar.arcoef1000 = np.array(mbaryw.a.ravel())
     res_ywar.save(filename=filen, header=False)
-
-
-

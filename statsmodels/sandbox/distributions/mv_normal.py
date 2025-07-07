@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Multivariate Normal and t distributions
 
 
@@ -9,7 +8,7 @@ Created on Sat May 28 15:38:23 2011
 
 TODO:
 * renaming,
-    - after adding t distribution, cov doesn't make sense for Sigma    DONE
+    - after adding t distribution, cov does not make sense for Sigma    DONE
     - should mean also be renamed to mu, if there will be distributions
       with mean != mu
 * not sure about corner cases
@@ -144,11 +143,13 @@ What's currently there?
 'standardize', 'standardized', 'std', 'std_sigma', 'whiten']
 
 """
-
 import numpy as np
+from scipy import special
 
-from statsmodels.sandbox.distributions.multivariate import (
-                mvstdtprob, mvstdnormcdf, mvnormcdf)
+from statsmodels.sandbox.distributions.multivariate import mvstdtprob
+
+from .extras import mvnormcdf
+
 
 def expect_mc(dist, func=lambda x: 1, size=50000):
     '''calculate expected value of function by Monte Carlo integration
@@ -166,7 +167,7 @@ def expect_mc(dist, func=lambda x: 1, size=50000):
 
     Notes
     -----
-    this doesn't batch
+    this does not batch
 
     Returns
     -------
@@ -230,7 +231,7 @@ def expect_mc_bounds(dist, func=lambda x: 1, size=50000, lower=None, upper=None,
 
     Notes
     -----
-    this doesn't batch
+    this does not batch
 
     Returns
     -------
@@ -288,10 +289,11 @@ def expect_mc_bounds(dist, func=lambda x: 1, size=50000, lower=None, upper=None,
         used += rvsok.shape[0]
 
         rvsli.append(rvsok)   #[:remain]) use extras instead
-        print used
-        if used >= size: break
+        print(used)
+        if used >= size:
+            break
     rvs = np.vstack(rvsli)
-    print rvs.shape
+    print(rvs.shape)
     assert used == rvs.shape[0] #saftey check
     mean_conditional = fun(rvs).mean(0)
     if conditional:
@@ -322,7 +324,7 @@ def bivariate_normal(x, mu, cov):
 
 
 
-class BivariateNormal(object):
+class BivariateNormal:
 
 
     #TODO: make integration limits more flexible
@@ -367,15 +369,17 @@ class BivariateNormal(object):
         limits currently hardcoded
 
         '''
-        fun = lambda x : self.logpdf(x) - other.logpdf(x)
+        def fun(x):
+            return self.logpdf(x) - other.logpdf(x)
         return self.expect(fun)
 
     def kl_mc(self, other, size=500000):
-        fun = lambda x : self.logpdf(x) - other.logpdf(x)
+        def fun(x):
+            return self.logpdf(x) - other.logpdf(x)
         rvs = self.rvs(size=size)
         return fun(rvs).mean()
 
-class MVElliptical(object):
+class MVElliptical:
     '''Base Class for multivariate elliptical distributions, normal and t
 
     contains common initialization, and some common methods
@@ -418,7 +422,7 @@ class MVElliptical(object):
             self.sigmainv = np.eye(nvars) / sigma
             self.cholsigmainv = np.eye(nvars) / np.sqrt(sigma)
         elif (sigma.ndim == 1) and (len(sigma) == nvars):
-            #independent heteroscedastic
+            #independent heteroskedastic
             self.sigma = np.diag(sigma)
             self.sigmainv = np.diag(1. / sigma)
             self.cholsigmainv = np.diag( 1. / np.sqrt(sigma))
@@ -468,7 +472,7 @@ class MVElliptical(object):
 
         this should be made to work with 2d x,
         with multivariate normal vector in each row and iid across rows
-        doesn't work now because of dot in whiten
+        does not work now because of dot in whiten
 
         '''
 
@@ -506,8 +510,8 @@ class MVElliptical(object):
         whiten the data by linear transformation
 
         Parameters
-        -----------
-        x : array-like, 1d or 2d
+        ----------
+        x : array_like, 1d or 2d
             Data to be whitened, if 2d then each row contains an independent
             sample of the multivariate random vector
 
@@ -517,13 +521,12 @@ class MVElliptical(object):
 
         Notes
         -----
-        This only does rescaling, it doesn't subtract the mean, use standardize
+        This only does rescaling, it does not subtract the mean, use standardize
         for this instead
 
         See Also
         --------
         standardize : subtract mean and rescale to standardized random variable.
-
         """
         x = np.asarray(x)
         return np.dot(x, self.cholsigmainv.T)
@@ -549,8 +552,8 @@ class MVElliptical(object):
         '''standardize the random variable, i.e. subtract mean and whiten
 
         Parameters
-        -----------
-        x : array-like, 1d or 2d
+        ----------
+        x : array_like, 1d or 2d
             Data to be whitened, if 2d then each row contains an independent
             sample of the multivariate random vector
 
@@ -582,8 +585,8 @@ class MVElliptical(object):
         The distribution will have zero mean and sigma equal to correlation
 
         Parameters
-        -----------
-        x : array-like, 1d or 2d
+        ----------
+        x : array_like, 1d or 2d
             Data to be whitened, if 2d then each row contains an independent
             sample of the multivariate random vector
 
@@ -681,7 +684,7 @@ class MVElliptical(object):
 
 
 #parts taken from linear_model, but heavy adjustments
-class MVNormal0(object):
+class MVNormal0:
     '''Class for Multivariate Normal Distribution
 
     original full version, kept for testing, new version inherits from
@@ -707,7 +710,7 @@ class MVNormal0(object):
             self.covinv = np.eye(nvars) / cov
             self.cholcovinv = np.eye(nvars) / np.sqrt(cov)
         elif (cov.ndim == 1) and (len(cov) == nvars):
-            #independent heteroscedastic
+            #independent heteroskedastic
             self.cov = np.diag(cov)
             self.covinv = np.diag(1. / cov)
             self.cholcovinv = np.diag( 1. / np.sqrt(cov))
@@ -726,8 +729,8 @@ class MVNormal0(object):
         whiten the data by linear transformation
 
         Parameters
-        -----------
-        X : array-like, 1d or 2d
+        ----------
+        X : array_like, 1d or 2d
             Data to be whitened, if 2d then each row contains an independent
             sample of the multivariate random vector
 
@@ -737,13 +740,12 @@ class MVNormal0(object):
 
         Notes
         -----
-        This only does rescaling, it doesn't subtract the mean, use standardize
+        This only does rescaling, it does not subtract the mean, use standardize
         for this instead
 
         See Also
         --------
         standardize : subtract mean and rescale to standardized random variable.
-
         """
         x = np.asarray(x)
         if np.any(self.cov):
@@ -809,7 +811,7 @@ class MVNormal0(object):
 
         this should be made to work with 2d x,
         with multivariate normal vector in each row and iid across rows
-        doesn't work now because of dot in whiten
+        does not work now because of dot in whiten
 
         '''
         x = np.asarray(x)
@@ -873,7 +875,7 @@ class MVNormal(MVElliptical):
 
         this should be made to work with 2d x,
         with multivariate normal vector in each row and iid across rows
-        doesn't work now because of dot in whiten
+        does not work now because of dot in whiten
 
         '''
         x = np.asarray(x)
@@ -925,10 +927,9 @@ class MVNormal(MVElliptical):
 
         Returns
         -------
-        mvt : instance of MVT
-            instance of multivariate t distribution given by affine
+        mvt : instance of MVNormal
+            instance of multivariate normal distribution given by affine
             transformation
-
 
         Notes
         -----
@@ -952,7 +953,7 @@ class MVNormal(MVElliptical):
         return MVNormal(mean_new, sigma_new)
 
     def conditional(self, indices, values):
-        '''return conditional distribution
+        r'''return conditional distribution
 
         indices are the variables to keep, the complement is the conditioning
         set
@@ -982,7 +983,7 @@ class MVNormal(MVElliptical):
         '''
         #indices need to be nd arrays for broadcasting
         keep = np.asarray(indices)
-        given = np.asarray([i for i in range(self.nvars) if not i in keep])
+        given = np.asarray([i for i in range(self.nvars) if i not in keep])
         sigmakk = self.sigma[keep[:, None], keep]
         sigmagg = self.sigma[given[:, None], given]
         sigmakg = self.sigma[keep[:, None], given]
@@ -1000,8 +1001,6 @@ class MVNormal(MVElliptical):
         return MVNormal(mean_new, sigma_new)
 
 
-
-from scipy import special
 #redefine some shortcuts
 np_log = np.log
 np_pi = np.pi
@@ -1028,7 +1027,7 @@ class MVT(MVElliptical):
             currently not used
 
         '''
-        super(MVT, self).__init__(mean, sigma)
+        super().__init__(mean, sigma)
         self.extra_args = ['df']  #overwrites extra_args of super
         self.df = df
 
@@ -1056,7 +1055,7 @@ class MVT(MVElliptical):
 
 
         '''
-        from multivariate import multivariate_t_rvs
+        from .multivariate import multivariate_t_rvs
         return multivariate_t_rvs(self.mean, self.sigma, df=self.df, n=size)
 
 
@@ -1112,7 +1111,7 @@ class MVT(MVElliptical):
         #std_sigma = np.sqrt(np.diag(self.sigma))
         upper = (x - self.mean)/self.std_sigma
         return mvstdtprob(lower, upper, self.corr, self.df, **kwds)
-        #mvstdtcdf doesn't exist yet
+        #mvstdtcdf does not exist yet
         #return mvstdtcdf(lower, x, self.corr, df, **kwds)
 
     @property
@@ -1201,17 +1200,18 @@ if __name__ == '__main__':
     if 'mvn' in examples:
         bvn = BivariateNormal(mu, covx)
         rvs = bvn.rvs(size=1000)
-        print rvs.mean(0)
-        print np.cov(rvs, rowvar=0)
-        print bvn.expect()
-        print bvn.cdf([0,0])
+        print(rvs.mean(0))
+        print(np.cov(rvs, rowvar=0))
+        print(bvn.expect())
+        print(bvn.cdf([0,0]))
         bvn1 = BivariateNormal(mu, np.eye(2))
         bvn2 = BivariateNormal(mu, 4*np.eye(2))
-        fun = lambda(x) : np.log(bvn1.pdf(x)) - np.log(bvn.pdf(x))
-        print bvn1.expect(fun)
-        print bvn1.kl(bvn2), bvn1.kl_mc(bvn2)
-        print bvn2.kl(bvn1), bvn2.kl_mc(bvn1)
-        print bvn1.kl(bvn), bvn1.kl_mc(bvn)
+        def fun(x):
+            return np.log(bvn1.pdf(x)) - np.log(bvn.pdf(x))
+        print(bvn1.expect(fun))
+        print(bvn1.kl(bvn2), bvn1.kl_mc(bvn2))
+        print(bvn2.kl(bvn1), bvn2.kl_mc(bvn1))
+        print(bvn1.kl(bvn), bvn1.kl_mc(bvn))
         mvn = MVNormal(mu, covx)
         mvn.pdf([0,0])
         mvn.pdf(np.zeros((2,2)))
@@ -1247,9 +1247,10 @@ if __name__ == '__main__':
         assert_array_almost_equal( mvn3c.pdf(cov3), r_val, decimal = 16)
 
         mvn3b = MVNormal((0,0,0), 1)
-        fun = lambda(x) : np.log(mvn3.pdf(x)) - np.log(mvn3b.pdf(x))
-        print mvn3.expect_mc(fun)
-        print mvn3.expect_mc(fun, size=200000)
+        def fun(x):
+            return np.log(mvn3.pdf(x)) - np.log(mvn3b.pdf(x))
+        print(mvn3.expect_mc(fun))
+        print(mvn3.expect_mc(fun, size=200000))
 
 
     mvt = MVT((0,0), 1, 5)
@@ -1275,4 +1276,3 @@ if __name__ == '__main__':
     assert_almost_equal(mvt.pdf(cov3),
         [0.000863777424247410, 0.001277510788307594, 0.004156314279452241],
         decimal=17)
-

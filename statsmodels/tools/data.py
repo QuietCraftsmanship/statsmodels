@@ -1,34 +1,55 @@
 """
 Compatibility tools for various data structure inputs
 """
-
-#TODO: question: interpret_data
-# looks good and could/should be merged with other check convertion functions we also have
-# similar also to what Nathaniel mentioned for Formula
-# good: if ndarray check passes then loading pandas is not triggered,
-
+from statsmodels.compat.numpy import NP_LT_2
 
 import numpy as np
+import pandas as pd
 
-def have_pandas():
-    try:
-        import pandas
-        return True
-    except ImportError:
-        return False
-    except Exception:
-        return False
+
+def _check_period_index(x, freq="M"):
+    from pandas import DatetimeIndex, PeriodIndex
+    if not isinstance(x.index, (DatetimeIndex, PeriodIndex)):
+        raise ValueError("The index must be a DatetimeIndex or PeriodIndex")
+
+    if x.index.freq is not None:
+        inferred_freq = x.index.freqstr
+    else:
+        inferred_freq = pd.infer_freq(x.index)
+    if not inferred_freq.startswith(freq):
+        raise ValueError("Expected frequency {}. Got {}".format(freq,
+                                                                inferred_freq))
+
+
+def is_series(obj):
+    return isinstance(obj, pd.Series)
+
 
 def is_data_frame(obj):
-    if not have_pandas():
+    return isinstance(obj, pd.DataFrame)
+
+
+def is_design_matrix(obj):
+    try:
+        from patsy import DesignMatrix
+    except ImportError:
         return False
 
-    import pandas as pn
+    return isinstance(obj, DesignMatrix)
 
-    return isinstance(obj, pn.DataFrame)
+
+def is_model_matrix(obj):
+    try:
+        from formulaic import ModelMatrix
+    except ImportError:
+        return False
+
+    return isinstance(obj, ModelMatrix)
+
 
 def _is_structured_ndarray(obj):
     return isinstance(obj, np.ndarray) and obj.dtype.names is not None
+
 
 def interpret_data(data, colnames=None, rownames=None):
     """
@@ -36,7 +57,7 @@ def interpret_data(data, colnames=None, rownames=None):
 
     Parameters
     ----------
-    data : ndarray-like
+    data : array_like
     colnames : sequence or None
         May be part of data structure
     rownames : sequence or None
@@ -46,12 +67,7 @@ def interpret_data(data, colnames=None, rownames=None):
     (values, colnames, rownames) : (homogeneous ndarray, list)
     """
     if isinstance(data, np.ndarray):
-        if _is_structured_ndarray(data):
-            if colnames is None:
-                colnames = data.dtype.names
-            values = struct_to_ndarray(data)
-        else:
-            values = data
+        values = np.asarray(data)
 
         if colnames is None:
             colnames = ['Y_%d' % i for i in range(values.shape[1])]
@@ -61,8 +77,9 @@ def interpret_data(data, colnames=None, rownames=None):
         values = data.values
         colnames = data.columns
         rownames = data.index
-    else: # pragma: no cover
-        raise Exception('cannot handle other input types at the moment')
+    else:  # pragma: no cover
+        raise TypeError('Cannot handle input type {typ}'
+                        .format(typ=type(data).__name__))
 
     if not isinstance(colnames, list):
         colnames = list(colnames)
@@ -78,37 +95,65 @@ def interpret_data(data, colnames=None, rownames=None):
 
     return values, colnames, rownames
 
+
 def struct_to_ndarray(arr):
-    return arr.view((float, len(arr.dtype.names)))
+    return arr.view((float, (len(arr.dtype.names),)), type=np.ndarray)
+
+
+def _is_using_ndarray_type(endog, exog):
+    return (type(endog) is np.ndarray and
+            (type(exog) is np.ndarray or exog is None))
+
 
 def _is_using_ndarray(endog, exog):
     return (isinstance(endog, np.ndarray) and
             (isinstance(exog, np.ndarray) or exog is None))
 
+
 def _is_using_pandas(endog, exog):
-    from pandas import Series, DataFrame, WidePanel
-    klasses = (Series, DataFrame, WidePanel)
+    from statsmodels.compat.pandas import data_klasses as klasses
     return (isinstance(endog, klasses) or isinstance(exog, klasses))
 
-def _is_using_larry(endog, exog):
-    try:
-        import la
-        return isinstance(endog, la.larry) or isinstance(exog, la.larry)
-    except ImportError:
-        return False
 
-def _is_using_timeseries(endog, exog):
-    try:
-        from scikits.timeseries import TimeSeries as tsTimeSeries
-        return isinstance(endog, tsTimeSeries) or isinstance(exog, tsTimeSeries)
-    except ImportError:
-        # if there is no deprecated scikits.timeseries, it is safe to say NO
-        return False
+def _is_using_patsy(endog, exog):
+    # we get this when a structured array is passed through a formula
+    return (is_design_matrix(endog) and
+            (is_design_matrix(exog) or exog is None))
 
-def _is_array_like(endog, exog):
-    try: # do it like this in case of mixed types, ie., ndarray and list
-        endog = np.asarray(endog)
-        exog = np.asarray(exog)
-        return True
-    except:
-        return False
+
+def _is_using_formulaic(endog, exog):
+    # we get this when a structured array is passed through a formula
+    return (is_model_matrix(endog) and
+            (is_model_matrix(exog) or exog is None))
+
+
+def _is_recarray(data):
+    """
+    Returns true if data is a recarray
+    """
+    if NP_LT_2:
+        return isinstance(data, np.core.recarray)
+    else:
+        return isinstance(data, np.rec.recarray)
+
+
+def _as_array_with_name(obj, default_name):
+    """
+    Call np.asarray() on obj and attempt to get the name if its a Series.
+
+    Parameters
+    ----------
+    obj: pd.Series
+        Series to convert to an array
+    default_name: str
+        The default name to return in case the object isn't a pd.Series or has
+        no name attribute.
+
+    Returns
+    -------
+    array_and_name: tuple[np.ndarray, str]
+        The data casted to np.ndarra and the series name or None
+    """
+    if is_series(obj):
+        return (np.asarray(obj), obj.name)
+    return (np.asarray(obj), default_name)

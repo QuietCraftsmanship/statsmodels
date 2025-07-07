@@ -1,16 +1,10 @@
-.. currentmodule:: statsmodels.sandbox
-
-
 .. _sandbox:
 
 
 Sandbox
 =======
 
-Introduction
-------------
-
-This sandbox contains code that is for various resons not ready to be
+This sandbox contains code that is for various reasons not ready to be
 included in statsmodels proper. It contains modules from the old stats.models
 code that have not been tested, verified and updated to the new statsmodels
 structure: cox survival model, mixed effects model with repeated measures,
@@ -23,14 +17,12 @@ not yet part of the core of statsmodels. The quality and testing of the
 sandbox code varies widely.
 
 
-.. automodule:: statsmodels.sandbox
-
-
 Examples
 --------
-    There are some examples in the `sandbox.examples` folder. Additional
-    examples are directly included in the modules and in subfolders of
-    the sandbox.
+
+There are some examples in the `sandbox.examples` folder. Additional
+examples are directly included in the modules and in subfolders of
+the sandbox.
 
 
 Module Reference
@@ -42,31 +34,34 @@ Time Series analysis :mod:`tsa`
 
 In this part we develop models and functions that will be useful for time
 series analysis. Most of the models and function have been moved to
-:mod:`statsmodels.tsa`. Currently, GARCH models remain in development stage in
-`sandbox.tsa`.
-
-
-.. currentmodule:: statsmodels.sandbox
-
-
+:mod:`statsmodels.tsa`.
 
 Moving Window Statistics
 """"""""""""""""""""""""
 
+Most moving window statistics, like rolling mean, moments (up to 4th order), min,
+max, mean, and variance, are covered by the functions for `Moving (rolling)
+statistics/moments <https://pandas.pydata.org/pandas-docs/stable/user_guide/computation.html#window-functions>`_ in Pandas.
+
+.. module:: statsmodels.sandbox.tsa
+   :synopsis: Experimental time-series analysis models
+
+.. currentmodule:: statsmodels.sandbox.tsa
+
 .. autosummary::
    :toctree: generated/
 
-   tsa.movmean
-   tsa.movmoment
-   tsa.movorder
-   tsa.movstat
-   tsa.movvar
-
-
+   movstat.movorder
+   movstat.movmean
+   movstat.movvar
+   movstat.movmoment
 
 
 Regression and ANOVA
 ^^^^^^^^^^^^^^^^^^^^
+
+.. module:: statsmodels.sandbox.regression.anova_nistcertified
+   :synopsis: Experimental ANOVA estimator
 
 .. currentmodule:: statsmodels.sandbox.regression.anova_nistcertified
 
@@ -90,6 +85,9 @@ The following are helper functions for working with dummy variables and
 generating ANOVA results with OLS. They are best considered as recipes since
 they were written with a specific use in mind. These function will eventually
 be rewritten or reorganized.
+
+.. module:: statsmodels.sandbox.regression
+   :synopsis: Experimental regression tools
 
 .. currentmodule:: statsmodels.sandbox.regression
 
@@ -133,6 +131,9 @@ parameters have been verified as accurate, this code is still very
 experimental, and the usage of the models will very likely change significantly
 before they are added to the main codebase.
 
+.. module:: statsmodels.sandbox.sysreg
+   :synopsis: Experimental system regression models
+
 .. currentmodule:: statsmodels.sandbox.sysreg
 
 .. autosummary::
@@ -143,29 +144,17 @@ before they are added to the main codebase.
 
 Miscellaneous
 ^^^^^^^^^^^^^
- .. currentmodule:: statsmodels.sandbox.tools.tools_tsa
+.. module:: statsmodels.sandbox.tools.tools_tsa
+   :synopsis: Experimental tools for working with time-series
 
-
-Tools for Time Series Analysis
-""""""""""""""""""""""""""""""
-
-nothing left in here
-
-
-Tools: Principal Component Analysis
-"""""""""""""""""""""""""""""""""""
-
-.. currentmodule:: statsmodels.sandbox.tools.tools_pca
-
-.. autosummary::
-   :toctree: generated/
-
-   pca
-   pcasvd
+.. currentmodule:: statsmodels.sandbox.tools.tools_tsa
 
 
 Descriptive Statistics Printing
 """""""""""""""""""""""""""""""
+
+.. module:: statsmodels.sandbox
+   :synopsis: Experimental tools that have not been fully vetted
 
 .. currentmodule:: statsmodels.sandbox
 

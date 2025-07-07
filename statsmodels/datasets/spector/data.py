@@ -1,4 +1,5 @@
 """Spector and Mazzeo (1980) - Program Effectiveness Data"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -17,23 +18,21 @@ system of instruction (PSI) program"""
 
 DESCRLONG   = DESCRSHORT
 
-NOTE        = """
-Number of Observations - 32
+NOTE        = """::
 
-Number of Variables - 4
+    Number of Observations - 32
 
-Variable name definitions::
+    Number of Variables - 4
 
-    Grade - binary variable indicating whether or not a student's grade
-            improved.  1 indicates an improvement.
-    TUCE  - Test score on economics test
-    PSI   - participation in program
-    GPA   - Student's grade point average
+    Variable name definitions::
+
+        Grade - binary variable indicating whether or not a student's grade
+                improved.  1 indicates an improvement.
+        TUCE  - Test score on economics test
+        PSI   - participation in program
+        GPA   - Student's grade point average
 """
 
-import numpy as np
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
 
 def load():
     """
@@ -41,11 +40,11 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=3, dtype=float)
+    return load_pandas()
+
 
 def load_pandas():
     """
@@ -53,15 +52,15 @@ def load_pandas():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=3, dtype=float)
+    return du.process_pandas(data, endog_idx=3)
+
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-##### EDIT THE FOLLOWING TO POINT TO DatasetName.csv #####
-    data = np.recfromtxt(open(filepath + '/spector.csv',"rb"), delimiter=" ",
-                         names=True, dtype=float, usecols=(1,2,3,4))
-    return data
+    data = du.load_csv(__file__, 'spector.csv', sep=r'\s')
+    data = du.strip_column_names(data)
+    data = data.iloc[:, [1, 2, 3, 4]]
+    return data.astype(float)

@@ -1,4 +1,5 @@
 """United States Macroeconomic data"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -21,43 +22,43 @@ DESCRSHORT  = """US Macroeconomic Data for 1959Q1 - 2009Q3"""
 
 DESCRLONG   = DESCRSHORT
 
-NOTE        = """
-Number of Observations - 203
+NOTE        = """::
+    Number of Observations - 203
 
-Number of Variables - 14
+    Number of Variables - 14
 
-Variable name definitions::
+    Variable name definitions::
 
-    year      - 1959q1 - 2009q3
-    quarter   - 1-4
-    realgdp   - Real gross domestic product (Bil. of chained 2005 US$,
-                seasonally adjusted annual rate)
-    realcons  - Real personal consumption expenditures (Bil. of chained 2005
-                US$,
-                seasonally adjusted annual rate)
-    realinv   - Real gross private domestic investment (Bil. of chained 2005
-                US$, seasonally adjusted annual rate)
-    realgovt  - Real federal consumption expenditures & gross investment
-                (Bil. of chained 2005 US$, seasonally adjusted annual rate)
-    realdpi   - Real gross private domestic investment (Bil. of chained 2005
-                US$, seasonally adjusted annual rate)
-    cpi       - End of the quarter consumer price index for all urban
-                consumers: all items (1982-84 = 100, seasonally adjusted).
-    m1        - End of the quarter M1 nominal money stock (Seasonally adjusted)
-    tbilrate  - Quarterly monthly average of the monthly 3-month treasury bill:
-                secondary market rate
-    unemp     - Seasonally adjusted unemployment rate (%)
-    pop       - End of the quarter total population: all ages incl. armed
-                forces over seas
-    infl      - Inflation rate (ln(cpi_{t}/cpi_{t-1}) * 400)
-    realint   - Real interest rate (tbilrate - infl)
+        year      - 1959q1 - 2009q3
+        quarter   - 1-4
+        realgdp   - Real gross domestic product (Bil. of chained 2005 US$,
+                    seasonally adjusted annual rate)
+        realcons  - Real personal consumption expenditures (Bil. of chained
+                    2005 US$, seasonally adjusted annual rate)
+        realinv   - Real gross private domestic investment (Bil. of chained
+                    2005 US$, seasonally adjusted annual rate)
+        realgovt  - Real federal consumption expenditures & gross investment
+                    (Bil. of chained 2005 US$, seasonally adjusted annual rate)
+        realdpi   - Real private disposable income (Bil. of chained 2005
+                    US$, seasonally adjusted annual rate)
+        cpi       - End of the quarter consumer price index for all urban
+                    consumers: all items (1982-84 = 100, seasonally adjusted).
+        m1        - End of the quarter M1 nominal money stock (Seasonally
+                    adjusted)
+        tbilrate  - Quarterly monthly average of the monthly 3-month
+                    treasury bill: secondary market rate
+        unemp     - Seasonally adjusted unemployment rate (%)
+        pop       - End of the quarter total population: all ages incl. armed
+                    forces over seas
+        infl      - Inflation rate (ln(cpi_{t}/cpi_{t-1}) * 400)
+        realint   - Real interest rate (tbilrate - infl)
 """
 
-from numpy import recfromtxt, column_stack, array
-from pandas import DataFrame
 
-from statsmodels.tools import Dataset
-from os.path import dirname, abspath
+def load_pandas():
+    data = _get_data()
+    return du.Dataset(data=data, names=list(data.columns))
+
 
 def load():
     """
@@ -65,25 +66,22 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
 
     Notes
     -----
     The macrodata Dataset instance does not contain endog and exog attributes.
     """
-    data = _get_data()
-    names = data.dtype.names
-    dataset = Dataset(data=data, names=names)
-    return dataset
+    return load_pandas()
 
-def load_pandas():
-    dataset = load()
-    dataset.data = DataFrame(dataset.data)
-    return dataset
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/macrodata.csv', 'rb'), delimiter=",",
-                      names=True, dtype=float)
-    return data
+    return du.load_csv(__file__, 'macrodata.csv').astype(float)
+
+
+variable_names = ["realcons", "realgdp", "realinv"]
+
+
+def __str__():
+    return "macrodata"

@@ -2,9 +2,10 @@
 
 Author: josef-pktd
 '''
-
+from statsmodels.compat.python import lmap
 
 import numpy as np
+
 
 def prob_bv_rectangle(lower, upper, cdf):
     '''helper function for probability of a rectangle in a bivariate distribution
@@ -38,12 +39,12 @@ def prob_mv_grid(bins, cdf, axis=-1):
 
     '''
     if not isinstance(bins, np.ndarray):
-        bins = map(np.asarray, bins)
+        bins = lmap(np.asarray, bins)
         n_dim = len(bins)
         bins_ = []
         #broadcast if binedges are 1d
-        if all(map(np.ndim, bins) == np.ones(n_dim)):
-            for d in xrange(n_dim):
+        if all(lmap(np.ndim, bins) == np.ones(n_dim)):
+            for d in range(n_dim):
                 sl = [None]*n_dim
                 sl[d] = slice(None)
                 bins_.append(bins[d][sl])
@@ -51,10 +52,10 @@ def prob_mv_grid(bins, cdf, axis=-1):
         n_dim = bins.shape[0]
         bins_ = bins
 
-    print len(bins)
+    print(len(bins))
     cdf_values = cdf(bins_)
     probs = cdf_values.copy()
-    for d in xrange(n_dim):
+    for d in range(n_dim):
         probs = np.diff(probs, axis=d)
 
     return probs
@@ -75,7 +76,10 @@ def prob_quantize_cdf(binsx, binsy, cdf):
     ny = len(binsy) - 1
     probs = np.nan * np.ones((nx, ny)) #np.empty(nx,ny)
     cdf_values = cdf(binsx[:,None], binsy)
-    cdf_func = lambda x, y: cdf_values[x,y]
+
+    def cdf_func(x, y):
+        return cdf_values[x, y]
+
     for xind in range(1, nx+1):
         for yind in range(1, ny+1):
             upper = (xind, yind)
@@ -117,7 +121,8 @@ def prob_quantize_cdf_old(binsx, binsy, cdf):
 
 if __name__ == '__main__':
     from numpy.testing import assert_almost_equal
-    unif_2d = lambda x,y: x*y
+    def unif_2d(x, y):
+        return x * y
     assert_almost_equal(prob_bv_rectangle([0,0], [1,0.5], unif_2d), 0.5, 14)
     assert_almost_equal(prob_bv_rectangle([0,0], [0.5,0.5], unif_2d), 0.25, 14)
 
@@ -140,6 +145,3 @@ if __name__ == '__main__':
     arr3b = np.array([[ 0.25,  0.25,  0.25,  0.25]])
     arr3a = prob_quantize_cdf(np.linspace(0,1,2), np.linspace(0,1,5), unif_2d)
     assert_almost_equal(arr3a, arr3b, 14)
-
-
-

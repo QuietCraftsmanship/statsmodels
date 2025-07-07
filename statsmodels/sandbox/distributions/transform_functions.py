@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Nonlinear Transformation classes
 
 
@@ -7,11 +6,10 @@ Created on Sat Apr 16 16:06:11 2011
 Author: Josef Perktold
 License : BSD
 """
-
 import numpy as np
 
 
-class TransformFunction(object):
+class TransformFunction:
 
     def __call__(self, x):
         self.func(x)
@@ -25,7 +23,7 @@ class SquareFunc(TransformFunction):
     '''class to hold quadratic function with inverse function and derivative
 
     using instance methods instead of class methods, if we want extension
-    to parameterized function
+    to parametrized function
     '''
 
     def func(self, x):
@@ -184,8 +182,6 @@ if __name__ == '__main__':
     absf.inverseminus(5) == -5
 
     chainf = ChainFunc(AffineFunc(1,2), BoxCoxNonzeroFunc(2))
-    print chainf.func(3.)
+    print(chainf.func(3.))
     chainf2 = ChainFunc(BoxCoxNonzeroFunc(2), AffineFunc(1,2))
-    print chainf.func(3.)
-
-
+    print(chainf.func(3.))

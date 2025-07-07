@@ -3,31 +3,30 @@
 # Author: Ralf Gommers
 # Based on code by Flavio Coelho and Teemu Ikonen.
 
-
 import numpy as np
 from scipy.stats import gaussian_kde
 
 from . import utils
 
-
 __all__ = ['violinplot', 'beanplot']
 
 
 def violinplot(data, ax=None, labels=None, positions=None, side='both',
-               show_boxplot=True, plot_opts={}):
-    """Make a violin plot of each dataset in the `data` sequence.
+               show_boxplot=True, plot_opts=None):
+    """
+    Make a violin plot of each dataset in the `data` sequence.
 
     A violin plot is a boxplot combined with a kernel density estimate of the
     probability density function per point.
 
     Parameters
     ----------
-    data : sequence of ndarrays
+    data : sequence[array_like]
         Data arrays, one array per value in `positions`.
-    ax : Matplotlib AxesSubplot instance, optional
+    ax : AxesSubplot, optional
         If given, this subplot is used to plot in instead of a new figure being
         created.
-    labels : list of str, optional
+    labels : list[str], optional
         Tick labels for the horizontal axis.  If not given, integers
         ``1..len(data)`` are used.
     positions : array_like, optional
@@ -58,10 +57,12 @@ def violinplot(data, ax=None, labels=None, positions=None, side='both',
           - 'label_fontsize', MPL fontsize.  Adjusts fontsize only if given.
           - 'label_rotation', scalar.  Adjusts label rotation only if given.
                 Specify in degrees.
+          - 'bw_factor', Adjusts the scipy gaussian_kde kernel. default: None.
+                Options for scalar or callable.
 
     Returns
     -------
-    fig : Matplotlib figure instance
+    Figure
         If `ax` is None, the created figure.  Otherwise the figure to which
         `ax` is connected.
 
@@ -120,9 +121,16 @@ def violinplot(data, ax=None, labels=None, positions=None, side='both',
     >>> ax.set_ylabel("Age")
     >>> plt.show()
 
+    .. plot:: plots/graphics_boxplot_violinplot.py
     """
+    plot_opts = {} if plot_opts is None else plot_opts
+    if max([np.size(arr) for arr in data]) == 0:
+        msg = "No Data to make Violin: Try again!"
+        raise ValueError(msg)
+
     fig, ax = utils.create_mpl_ax(ax)
 
+    data = list(map(np.asarray, data))
     if positions is None:
         positions = np.arange(len(data)) + 1
 
@@ -133,11 +141,16 @@ def violinplot(data, ax=None, labels=None, positions=None, side='both',
 
     # Plot violins.
     for pos_data, pos in zip(data, positions):
-        xvals, violin = _single_violin(ax, pos, pos_data, width, side,
-                                       plot_opts)
+        _single_violin(ax, pos, pos_data, width, side, plot_opts)
 
     if show_boxplot:
-        ax.boxplot(data, notch=1, positions=positions, vert=1)
+        try:
+            ax.boxplot(
+                data, notch=1, positions=positions, orientation='vertical'
+            )
+        except TypeError:
+            # Remove after Matplotlib 3.10 is the minimum
+            ax.boxplot(data, notch=1, positions=positions, vert=1)
 
     # Set ticks and tick labels of horizontal axis.
     _set_ticks_labels(ax, data, labels, positions, plot_opts)
@@ -147,6 +160,7 @@ def violinplot(data, ax=None, labels=None, positions=None, side='both',
 
 def _single_violin(ax, pos, pos_data, width, side, plot_opts):
     """"""
+    bw_factor = plot_opts.get('bw_factor', None)
 
     def _violin_range(pos_data, plot_opts):
         """Return array with correct range, with which violins can be plotted."""
@@ -167,7 +181,7 @@ def _single_violin(ax, pos, pos_data, width, side, plot_opts):
 
     pos_data = np.asarray(pos_data)
     # Kernel density estimate for data at this position.
-    kde = gaussian_kde(pos_data)
+    kde = gaussian_kde(pos_data, bw_method=bw_factor)
 
     # Create violin for pos, scaled to the available space.
     xvals = _violin_range(pos_data, plot_opts)
@@ -186,7 +200,7 @@ def _single_violin(ax, pos, pos_data, width, side, plot_opts):
 
     # Draw the violin.
     ax.fill_betweenx(xvals, envelope_l, envelope_r,
-                     facecolor=plot_opts.get('violin_fc', 'y'),
+                     facecolor=plot_opts.get('violin_fc', '#66c2a5'),
                      edgecolor=plot_opts.get('violin_ec', 'k'),
                      lw=plot_opts.get('violin_lw', 1),
                      alpha=plot_opts.get('violin_alpha', 0.5))
@@ -209,7 +223,7 @@ def _set_ticks_labels(ax, data, labels, positions, plot_opts):
     if labels is not None:
         if not len(labels) == len(data):
             msg = "Length of `labels` should equal length of `data`."
-            raise(ValueError, msg)
+            raise ValueError(msg)
 
         xticknames = ax.set_xticklabels(labels)
         if label_fontsize:
@@ -223,7 +237,8 @@ def _set_ticks_labels(ax, data, labels, positions, plot_opts):
 
 def beanplot(data, ax=None, labels=None, positions=None, side='both',
              jitter=False, plot_opts={}):
-    """Make a bean plot of each dataset in the `data` sequence.
+    """
+    Bean plot of each dataset in a sequence.
 
     A bean plot is a combination of a `violinplot` (kernel density estimate of
     the probability density function per point) with a line-scatter plot of all
@@ -231,12 +246,12 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
 
     Parameters
     ----------
-    data : sequence of ndarrays
+    data : sequence[array_like]
         Data arrays, one array per value in `positions`.
-    ax : Matplotlib AxesSubplot instance, optional
+    ax : AxesSubplot
         If given, this subplot is used to plot in instead of a new figure being
         created.
-    labels : list of str, optional
+    labels : list[str], optional
         Tick labels for the horizontal axis.  If not given, integers
         ``1..len(data)`` are used.
     positions : array_like, optional
@@ -253,6 +268,8 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
         can be specified, they will simply be passed to `violinplot`.  Options
         specific to `beanplot` are:
 
+          - 'violin_width' : float.  Relative width of violins.  Max available
+                space is 1, default is 0.8.
           - 'bean_color', MPL color.  Color of bean plot lines.  Default is 'k'.
                 Also used for jitter marker edge color if `jitter` is True.
           - 'bean_size', scalar.  Line length as a fraction of maximum length.
@@ -263,6 +280,8 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
                 marker.
           - 'bean_mean_color', MPL color.  Color of mean line.  Default is 'b'.
           - 'bean_mean_lw', scalar.  Linewidth of mean line, default is 2.
+          - 'bean_mean_size', scalar.  Line length as a fraction of maximum length.
+                Default is 0.5.
           - 'bean_median_color', MPL color.  Color of median marker.  Default
                 is 'r'.
           - 'bean_median_marker', MPL marker.  Marker type, default is '+'.
@@ -274,7 +293,7 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
 
     Returns
     -------
-    fig : Matplotlib figure instance
+    Figure
         If `ax` is None, the created figure.  Otherwise the figure to which
         `ax` is connected.
 
@@ -314,21 +333,27 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
     >>> ax.set_ylabel("Age")
     >>> plt.show()
 
+    .. plot:: plots/graphics_boxplot_beanplot.py
     """
     fig, ax = utils.create_mpl_ax(ax)
 
+    data = list(map(np.asarray, data))
     if positions is None:
         positions = np.arange(len(data)) + 1
 
     # Determine available horizontal space for each individual violin.
     pos_span = np.max(positions) - np.min(positions)
-    width = np.min([0.15 * np.max([pos_span, 1.]),
+    violin_width = np.min([0.15 * np.max([pos_span, 1.]),
+                    plot_opts.get('violin_width', 0.8) / 2.])
+    bean_width = np.min([0.15 * np.max([pos_span, 1.]),
                     plot_opts.get('bean_size', 0.5) / 2.])
+    bean_mean_width = np.min([0.15 * np.max([pos_span, 1.]),
+                    plot_opts.get('bean_mean_size', 0.5) / 2.])
 
     legend_txt = plot_opts.get('bean_legend_text', None)
     for pos_data, pos in zip(data, positions):
         # Draw violins.
-        xvals, violin = _single_violin(ax, pos, pos_data, width, side, plot_opts)
+        xvals, violin = _single_violin(ax, pos, pos_data, violin_width, side, plot_opts)
 
         if jitter:
             # Draw data points at random coordinates within violin envelope.
@@ -341,7 +366,7 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
                     label=legend_txt)
         else:
             # Draw bean lines.
-            ax.hlines(pos_data, pos - width, pos + width,
+            ax.hlines(pos_data, pos - bean_width, pos + bean_width,
                       lw=plot_opts.get('bean_lw', 0.5),
                       color=plot_opts.get('bean_color', 'k'),
                       label=legend_txt)
@@ -353,9 +378,9 @@ def beanplot(data, ax=None, labels=None, positions=None, side='both',
 
         # Draw mean line.
         if plot_opts.get('bean_show_mean', True):
-             ax.hlines(np.mean(pos_data), pos - width, pos + width,
-                       lw=plot_opts.get('bean_mean_lw', 2.),
-                       color=plot_opts.get('bean_mean_color', 'b'))
+            ax.hlines(np.mean(pos_data), pos - bean_mean_width, pos + bean_mean_width,
+                      lw=plot_opts.get('bean_mean_lw', 2.),
+                      color=plot_opts.get('bean_mean_color', 'b'))
 
         # Draw median marker.
         if plot_opts.get('bean_show_median', True):
@@ -393,9 +418,8 @@ def _show_legend(ax):
                     borderpad=0.15)
     ltext  = leg.get_texts()
     llines = leg.get_lines()
-    frame  = leg.get_frame()
+    leg.get_frame()
 
     from matplotlib.artist import setp
     setp(ltext, fontsize='small')
     setp(llines, linewidth=1)
-

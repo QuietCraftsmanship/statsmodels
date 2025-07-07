@@ -1,4 +1,5 @@
 """Stack loss data"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -15,50 +16,45 @@ DESCRLONG   = """The stack loss plant data of Brownlee (1965) contains
 21 days of measurements from a plant's oxidation of ammonia to nitric acid.
 The nitric oxide pollutants are captured in an absorption tower."""
 
-NOTE        = """
-Number of Observations - 21
+NOTE        = """::
 
-Number of Variables - 4
+    Number of Observations - 21
 
-Variable name definitions::
+    Number of Variables - 4
 
-    STACKLOSS - 10 times the percentage of ammonia going into the plant that
-                escapes from the absoroption column
-    AIRFLOW   - Rate of operation of the plant
-    WATERTEMP - Cooling water temperature in the absorption tower
-    ACIDCONC  - Acid concentration of circulating acid minus 50 times 10.
+    Variable name definitions::
+
+        STACKLOSS - 10 times the percentage of ammonia going into the plant
+                    that escapes from the absoroption column
+        AIRFLOW   - Rate of operation of the plant
+        WATERTEMP - Cooling water temperature in the absorption tower
+        ACIDCONC  - Acid concentration of circulating acid minus 50 times 10.
 """
 
-from numpy import recfromtxt, column_stack, array
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
 
 def load():
     """
     Load the stack loss data and returns a Dataset class instance.
 
     Returns
-    --------
-    Dataset instance:
+    -------
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=0, dtype=float)
+    return load_pandas()
 
 def load_pandas():
     """
     Load the stack loss data and returns a Dataset class instance.
 
     Returns
-    --------
-    Dataset instance:
+    -------
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=0, dtype=float)
+    return du.process_pandas(data, endog_idx=0)
+
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/stackloss.csv',"rb"), delimiter=",",
-            names=True, dtype=float)
-    return data
+    return du.load_csv(__file__, 'stackloss.csv').astype(float)

@@ -1,4 +1,7 @@
-from linear_model import yule_walker
+from .linear_model import yule_walker
 
-from statsmodels import NoseWrapper as Tester
-test = Tester().test
+from statsmodels.tools._test_runner import PytestTester
+
+__all__ = ['yule_walker', 'test']
+
+test = PytestTester()

@@ -1,47 +1,35 @@
+Pitfalls
+========
 
+This page lists issues which may arise while using statsmodels. These
+can be the result of data-related or statistical problems, software design,
+"non-standard" use of models, or edge cases.
 
-Cases that might require Caution
-================================
+statsmodels provides several warnings and helper functions for diagnostic
+checking (see this `blog article
+<http://jpktd.blogspot.ca/2012/01/anscombe-and-diagnostic-statistics.html>`_
+for an example of misspecification checks in linear regression). The coverage
+is of course not comprehensive, but more warnings and diagnostic functions will
+be added over time.
 
-The following lists some possible problems in the use of statsmodels, that
-are the result of "non-standard" use of the models or are data related problems.
-Some are
-the results of the current design, some are statistical problems, that the user
-needs to be aware of since statsmodels does by default not check whether a
-model is appropriate for a given dataset, for example in edge cases or badly
-conditioned data.
-
-The implementation and treatment of this will likely change in future versions.
-For the cases below, where the model or estimation procedure might not be
-appropriate for the data, we will add more warnings and helper function to
-allow users to do the diagnostic checking. For example, the summary method
-of some results checks some known potential problems and informs the user.
-This `blog article <http://jpktd.blogspot.ca/2012/01/anscombe-and-diagnostic-statistics.html>`_
-shows some examples of linear regression and how we can use diagnostics checks
-and tests to help us identify possible misspecification problems.
-The underlying statistical problems are the same for all statistical
-packages, but they differ in the way extreme or corner cases are handled.
-
-Please report corner cases for which the models might not work, so we can add
-them.
+While the underlying statistical problems are the same for all statistical
+packages, software implementations differ in the way extreme or corner cases
+are handled. Please report corner cases for which the models might not work, so
+we can treat them appropriately.
 
 Repeated calls to fit with different parameters
 -----------------------------------------------
 
-In general, statsmodels is designed that only one result instance is associated
-with a given model instance. The result instance needs to be able to access the
-data and other attributes of the model instance.
+Result instances often need to access attributes from the corresponding model
+instance. Fitting a model multiple times with different arguments can change
+model attributes. This means that the result instance may no longer point to
+the correct model attributes after the model has been re-fit.
 
-However, when fit is called repeatedly with different arguments, then a new
-result instance is created that refers to the same model instance. Some
-attributes of the model instance are changed during the fit. This implies that
-the model attributes are correct for the result instance from last call to fit,
-but previous result instances might not access the correct attributes anymore.
+It is therefore best practice to create separate model instances when we want
+to fit a model using different fit function arguments.
 
-As an example,
-
-this works without problems because we are not keeping the results instance
-for further use ::
+For example, this works without problem because we are not keeping the results
+instance for further use ::
 
   mod = AR(endog)
   aic = []
@@ -56,7 +44,7 @@ is recommended to create two separate model instances. ::
   mod1 = RLM(endog, exog)
   res1 = mod1.fit(scale_est='mad')
   mod2 = RLM(endog, exog)
-  res2 = mod2.fit(scale_est='stand_mad')
+  res2 = mod2.fit(scale_est=sm.robust.scale.HuberScale())
 
 
 Unidentified Parameters
@@ -66,33 +54,29 @@ Rank deficient exog, perfect multicollinearity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Models based on linear models, GLS, RLM, GLM and similar, use a generalized
-inverse and therefore do not raise an error if the design matrix does not have
-full rank. Also in the case of almost perfect multicollinearity or of
-ill-conditioned design matrices, the estimation in statsmodels might produce
-results that are numerically not stable. If this is not the desired behavior
-the user needs to check the rank or condition number of the design matrix.
-Statsmodels currently fails on the NIST benchmark case for Filip if the
+inverse. This means that:
+
++ Rank deficient matrices will not raise an error
++ Cases of almost perfect multicollinearity or ill-conditioned design matrices might produce numerically unstable results. Users need to manually check the rank or condition number of the matrix if this is not the desired behavior
+
+Note: statsmodels currently fails on the NIST benchmark case for Filip if the
 data is not rescaled, see `this blog <http://jpktd.blogspot.ca/2012/03/numerical-accuracy-in-linear-least.html>`_
 
 Incomplete convergence in maximum likelihood estimation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As often with numerical optimization routines, it is possible that for some
-datasets, finding the solution might have problems. One example for this is
-complete (quasi-)separation in models with binary endogenous variable, for
-example, discrete Logit and Probit models. In these cases, the maximum likelihood
-estimator might not exist, parameters might be infinite or not unique. Depending
-on the settings for the optimization, the optimization might stop without
-convergence, which will be printed to the screen in the default setting.
-However, it is possible to have convergence criteria that
-indicate convergence, for example the value of the objective function converged,
-even if parameters did not converged. In general, a user needs to verify
+In some cases, the maximum likelihood estimator might not exist, parameters
+might be infinite or not unique (e.g. (quasi-)separation in models with binary
+endogenous variable). Under the default settings, statsmodels will print
+a warning if the optimization algorithm stops without reaching convergence.
+However, it is important to know that the convergence criteria may sometimes
+falsely indicate convergence (e.g. if the value of the objective function
+converged but not the parameters). In general, a user needs to verify
 convergence.
 
-For the case of the binary models, Logit and Probit, statsmodels will raise
-now an exception if perfect prediction is detected. There is, however, no
-check for quasi-perfect prediction.
-
+For binary Logit and Probit models, statsmodels raises an exception if perfect
+prediction is detected. There is, however, no check for quasi-perfect
+prediction.
 
 Other Problems
 --------------
@@ -108,3 +92,27 @@ The only currently known case is a perfect fit in robust linear model estimation
 For RLM, if residuals are equal to zero, then it does not cause an exception,
 but having this perfect fit can produce NaNs in some results (scale=0 and 0/0
 division) (issue #55).
+
+True parameter outside domain of model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In some cases domain restrictions for parameters in a model might be
+inconsistent with the data. In those cases, estimation might stop at
+parameter values close to the boundary of the parameter space, but can slso
+fail with runtime errors or produce nans during optimization.
+
+Two examples:
+
+Estimating a negative binomial model when the data is not overdispersed
+relative to Poisson, that is the true model has the same dispersion as Poisson
+or is underdispersed, is inconsistent with the overdispersion assumption of
+the Negative Binomial distribution. The loglikelihood and its derivatives, as
+implemented in statsmodels, cannot be evaluated for dispersion parameter at
+zero dispersion or in a positive neighborhood of zero dispersion.
+
+Zero inflated models currently use either Logit or Probit as model for
+inflation. This means that no inflation is at the boundary of the parameter
+space and zero deflation is outside the valid parameter space.
+When the data has no zero inflation or is zero deflated, then the zero
+inflation model will often fail in the optimization, or end up close to the
+no inflation boundary.

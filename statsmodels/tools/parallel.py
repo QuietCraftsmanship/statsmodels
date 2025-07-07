@@ -1,4 +1,4 @@
-'''Parallel utility function using joblib
+"""Parallel utility function using joblib
 
 copied from https://github.com/mne-tools/mne-python
 
@@ -6,9 +6,12 @@ Author: Alexandre Gramfort <gramfort@nmr.mgh.harvard.edu>
 License: Simplified BSD
 
 changes for statsmodels (Josef Perktold)
-- try import from joblib directly, (doesn't import all of sklearn)
+- try import from joblib directly, (does not import all of sklearn)
 
-'''
+"""
+
+from statsmodels.tools.sm_exceptions import (ModuleUnavailableWarning,
+                                             module_unavailable_doc)
 
 
 def parallel_func(func, n_jobs, verbose=5):
@@ -18,20 +21,20 @@ def parallel_func(func, n_jobs, verbose=5):
 
     Parameters
     ----------
-    func: callable
+    func : callable
         A function
-    n_jobs: int
+    n_jobs : int
         Number of jobs to run in parallel
-    verbose: int
+    verbose : int
         Verbosity level
 
     Returns
     -------
-    parallel: instance of joblib.Parallel or list
+    parallel : instance of joblib.Parallel or list
         The parallel object
-    my_func: callable
+    my_func : callable
         func if not parallel or delayed(func)
-    n_jobs: int
+    n_jobs : int
         Number of jobs >= 0
 
     Examples
@@ -39,7 +42,7 @@ def parallel_func(func, n_jobs, verbose=5):
     >>> from math import sqrt
     >>> from statsmodels.tools.parallel import parallel_func
     >>> parallel, p_func, n_jobs = parallel_func(sqrt, n_jobs=-1, verbose=0)
-    >>> print n_jobs
+    >>> print(n_jobs)
     >>> parallel(p_func(i**2) for i in range(10))
     """
     try:
@@ -55,12 +58,16 @@ def parallel_func(func, n_jobs, verbose=5):
             try:
                 import multiprocessing
                 n_jobs = multiprocessing.cpu_count()
-            except ImportError:
-                print "multiprocessing not installed. Cannot run in parallel."
+            except (ImportError, NotImplementedError):
+                import warnings
+                warnings.warn(module_unavailable_doc.format('multiprocessing'),
+                              ModuleUnavailableWarning)
                 n_jobs = 1
 
     except ImportError:
-        print "joblib not installed. Cannot run in parallel."
+        import warnings
+        warnings.warn(module_unavailable_doc.format('joblib'),
+                      ModuleUnavailableWarning)
         n_jobs = 1
         my_func = func
         parallel = list

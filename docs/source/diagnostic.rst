@@ -24,9 +24,6 @@ consistent with these assumptions.
 The following briefly summarizes specification and diagnostics tests for
 linear regression.
 
-Note: Not all statistical tests in the sandbox are fully tested, and the API
-will still change. Some of the tests are still on the wishlist.
-
 Heteroscedasticity Tests
 ------------------------
 
@@ -35,8 +32,8 @@ error variance, i.e. errors are homoscedastic. The tests differ in which kind
 of heteroscedasticity is considered as alternative hypothesis. They also vary
 in the power of the test for different types of heteroscedasticity.
 
-:py:func:`het_breushpagan <statsmodels.stats.diagnostic.het_breushpagan>`
-    Lagrange Multiplier Heteroscedasticity Test by Breush-Pagan
+:py:func:`het_breuschpagan <statsmodels.stats.diagnostic.het_breuschpagan>`
+    Lagrange Multiplier Heteroscedasticity Test by Breusch-Pagan
 
 :py:func:`het_white <statsmodels.stats.diagnostic.het_white>`
     Lagrange Multiplier Heteroscedasticity Test by White
@@ -59,8 +56,8 @@ They assume that observations are ordered by time.
   - Ljung-Box test for no autocorrelation of residuals
   - also returns Box-Pierce statistic
 
-:py:func:`acorr_breush_godfrey <statsmodels.stats.diagnostic.acorr_breush_godfrey>`
-  - Breush-Pagan test for no autocorrelation of residuals
+:py:func:`acorr_breusch_godfrey <statsmodels.stats.diagnostic.acorr_breusch_godfrey>`
+  - Breusch-Pagan test for no autocorrelation of residuals
 
 
 missing
@@ -82,6 +79,9 @@ Non-Linearity Tests
   - Lagrange Multiplier test for Null hypothesis that linear specification is
     correct. This tests against specific functional alternatives.
 
+:py:func:`spec_white <statsmodels.stats.diagnostic.spec_white>`
+  - White's two-moment specification test with null hypothesis of homoscedastic
+    and correctly specified.
 
 Tests for Structural Change, Parameter Stability
 ------------------------------------------------
@@ -113,7 +113,7 @@ Unknown Change Point
 :py:func:`recursive_olsresiduals <statsmodels.stats.diagnostic.recursive_olsresiduals>`
   Calculate recursive ols with residuals and cusum test statistic. This is
   currently mainly helper function for recursive residual based tests.
-  However, since it uses recursive updating and doesn't estimate separate
+  However, since it uses recursive updating and does not estimate separate
   problems it should be also quite efficient as expanding OLS function.
 
 missing
@@ -122,7 +122,7 @@ missing
   - test on recursive parameter estimates, which are there?
 
 
-Mutlicollinearity Tests
+Multicollinearity Tests
 --------------------------------
 
 conditionnum (statsmodels.stattools)
@@ -155,9 +155,9 @@ Normality tests in scipy stats
 :py:func:`normal_ad <statsmodels.stats.diagnostic.normal_ad>`
   - Anderson Darling test for normality with estimated mean and variance
 
-:py:func:`kstest_normal <statsmodels.stats.diagnostic.kstest_normal>` :py:func:`lillifors <statsmodels.stats.diagnostic.lillifors>`
-  Lillifors test for normality, this is a Kolmogorov-Smirnov tes with for
-  normality with estimated mean and variance. lillifors is an alias for
+:py:func:`kstest_normal <statsmodels.stats.diagnostic.kstest_normal>` :py:func:`lilliefors <statsmodels.stats.diagnostic.lilliefors>`
+  Lilliefors test for normality, this is a Kolmogorov-Smirnov tes with for
+  normality with estimated mean and variance. lilliefors is an alias for
   kstest_normal
 
 qqplot, scipy.stats.probplot
@@ -180,7 +180,7 @@ estimation results are not strongly influenced even if there are many
 outliers, while most of the other measures are better in identifying
 individual outliers and might not be able to identify groups of outliers.
 
-robust regression results RLM
+:py:class:`RLM <statsmodels.robust.robust_linear_model.RLM>`
     example from example_rlm.py ::
 
         import statsmodels.api as sm
@@ -188,11 +188,11 @@ robust regression results RLM
         ### Example for using Huber's T norm with the default
         ### median absolute deviation scaling
 
-        data = sm.datasets.stackloss.Load()
+        data = sm.datasets.stackloss.load()
         data.exog = sm.add_constant(data.exog)
         huber_t = sm.RLM(data.endog, data.exog, M=sm.robust.norms.HuberT())
         hub_results = huber_t.fit()
-        print hub_results.weights
+        print(hub_results.weights)
 
     And the weights give an idea of how much a particular observation is
     down-weighted according to the scaling asked for.
@@ -205,26 +205,16 @@ robust regression results RLM
    Some of these statistics can be calculated from an OLS results instance,
    others require that an OLS is estimated for each left out variable.
 
-   resid_press
-   resid_studentized_external
-   resid_studentized_internal
-   ess_press
-   hat_matrix_diag
-   cooks_distance - Cook's Distance `Wikipedia <http://en.wikipedia.org/wiki/Cook%27s_distance>`_ (with some other links)
-   cov_ratio
-   dfbetas
-   dffits
-   dffits_internal
-   det_cov_params_not_obsi
-   params_not_obsi
-   sigma2_not_obsi
-
-
-
-Unit Root Tests
----------------
-
-:py:func:`unitroot_adf <statsmodels.stats.diagnostic.unitroot_adf>`
-  - same as adfuller but with different signature
-
-
+   - resid_press
+   - resid_studentized_external
+   - resid_studentized_internal
+   - ess_press
+   - hat_matrix_diag
+   - cooks_distance - Cook's Distance `Wikipedia <https://en.wikipedia.org/wiki/Cook%27s_distance>`_ (with some other links)
+   - cov_ratio
+   - dfbetas
+   - dffits
+   - dffits_internal
+   - det_cov_params_not_obsi
+   - params_not_obsi
+   - sigma2_not_obsi

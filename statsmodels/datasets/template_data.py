@@ -1,6 +1,5 @@
-#! /usr/bin/env python
-
 """Name of dataset."""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -18,16 +17,15 @@ DESCRLONG   = """A longer description of the dataset."""
 
 #suggested notes
 NOTE        = """
-Number of observations:
-Number of variables:
-Variable name definitions:
+::
+
+    Number of observations:
+    Number of variables:
+    Variable name definitions:
 
 Any other useful information that does not fit into the above categories.
 """
 
-import numpy as np
-from statsmodels.tools import datautils as du
-from os.path import dirname, abspath
 
 def load():
     """
@@ -35,24 +33,24 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
+        See DATASET_PROPOSAL.txt for more information.
+    """
+    return load_pandas()
+
+
+def load_pandas():
+    """
+    Load the strikes data and return a Dataset class instance.
+
+    Returns
+    -------
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    ##### SET THE INDICES #####
-    #NOTE: None for exog_idx is the complement of endog_idx
-    return du.process_recarray(data, endog_idx=0, exog_idx=None, dtype=float)
+    return du.process_pandas(data, endog_idx=0)
 
-def load_pandas():
-    data = _get_data()
-    ##### SET THE INDICES #####
-    #NOTE: None for exog_idx is the complement of endog_idx
-    return du.process_recarray_pandas(data, endog_idx=0, exog_idx=None,
-                                      dtype=float)
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    ##### EDIT THE FOLLOWING TO POINT TO DatasetName.csv #####
-    data = np.recfromtxt(open(filepath + '/DatasetName.csv', 'rb'),
-            delimiter=",", names = True, dtype=float)
-    return data
+    return du.load_csv(__file__, 'DatasetName.csv')

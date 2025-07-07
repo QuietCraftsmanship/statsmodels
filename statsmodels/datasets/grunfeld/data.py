@@ -1,4 +1,7 @@
 """Grunfeld (1950) Investment Data"""
+import pandas as pd
+
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -19,28 +22,25 @@ DESCRSHORT  = """Grunfeld (1950) Investment Data for 11 U.S. Firms."""
 
 DESCRLONG   = DESCRSHORT
 
-NOTE        = """Number of observations - 220 (20 years for 11 firms)
+NOTE        = """::
 
-Number of variables - 5
+    Number of observations - 220 (20 years for 11 firms)
 
-Variables name definitions::
+    Number of variables - 5
 
-    invest  - Gross investment in 1947 dollars
-    value   - Market value as of Dec. 31 in 1947 dollars
-    capital - Stock of plant and equipment in 1947 dollars
-    firm    - General Motors, US Steel, General Electric, Chrysler,
-              Atlantic Refining, IBM, Union Oil, Westinghouse, Goodyear,
-              Diamond Match, American Steel
-    year    - 1935 - 1954
+    Variables name definitions::
 
-Note that raw_data has firm expanded to dummy variables, since it is a
-string categorical variable.
+        invest  - Gross investment in 1947 dollars
+        value   - Market value as of Dec. 31 in 1947 dollars
+        capital - Stock of plant and equipment in 1947 dollars
+        firm    - General Motors, US Steel, General Electric, Chrysler,
+                Atlantic Refining, IBM, Union Oil, Westinghouse, Goodyear,
+                Diamond Match, American Steel
+        year    - 1935 - 1954
+
+    Note that raw_data has firm expanded to dummy variables, since it is a
+    string categorical variable.
 """
-
-from numpy import recfromtxt, column_stack, array
-from statsmodels.tools import categorical
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
 
 def load():
     """
@@ -48,7 +48,7 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
 
     Notes
@@ -56,11 +56,7 @@ def load():
     raw_data has the firm variable expanded to dummy variables for each
     firm (ie., there is no reference dummy)
     """
-    data = _get_data()
-    raw_data = categorical(data, col='firm', drop=True)
-    ds = du.process_recarray(data, endog_idx=0, stack=False)
-    ds.raw_data = raw_data
-    return ds
+    return load_pandas()
 
 def load_pandas():
     """
@@ -68,7 +64,7 @@ def load_pandas():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
 
     Notes
@@ -76,15 +72,14 @@ def load_pandas():
     raw_data has the firm variable expanded to dummy variables for each
     firm (ie., there is no reference dummy)
     """
-    from pandas import DataFrame
     data = _get_data()
-    raw_data = categorical(data, col='firm', drop=True)
-    ds = du.process_recarray_pandas(data, endog_idx=0)
-    ds.raw_data = DataFrame(raw_data)
+    data.year = data.year.astype(float)
+    raw_data = pd.get_dummies(data)
+    ds = du.process_pandas(data, endog_idx=0)
+    ds.raw_data = raw_data
     return ds
 
+
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/grunfeld.csv','rb'), delimiter=",",
-            names=True, dtype="f8,f8,f8,a17,f8")
+    data = du.load_csv(__file__, 'grunfeld.csv')
     return data

@@ -5,9 +5,6 @@
 Internal Classes
 ================
 
-Introduction
-------------
-
 The following summarizes classes and functions that are not intended to be
 directly used, but of interest only for internal use or for a developer who
 wants to extend on existing model classes.
@@ -23,6 +20,9 @@ These are the base classes for both the estimation models and the results.
 They are not directly useful, but layout the structure of the subclasses and
 define some common methods.
 
+.. module:: statsmodels.base.model
+   :synopsis: Base classes that are inherited by models
+
 .. currentmodule:: statsmodels.base.model
 
 .. autosummary::
@@ -36,9 +36,18 @@ define some common methods.
    ResultMixin
    GenericLikelihoodModelResults
 
+.. module:: statsmodels.stats.contrast
+   :synopsis: Classes for statistical test
+
+.. currentmodule:: statsmodels.stats.contrast
+
+.. autosummary::
+   :toctree: generated/
+
+   ContrastResults
+
 .. inheritance-diagram:: statsmodels.base.model statsmodels.discrete.discrete_model statsmodels.regression.linear_model statsmodels.miscmodels.count
    :parts: 3
-
 
 .. inheritance-diagram:: statsmodels.regression.linear_model.GLS statsmodels.regression.linear_model.WLS statsmodels.regression.linear_model.OLS statsmodels.regression.linear_model.GLSAR
    :parts: 1

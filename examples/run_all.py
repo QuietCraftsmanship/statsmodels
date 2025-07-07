@@ -1,51 +1,57 @@
-'''run all examples to make sure we don't get an exception
+"""
+Run all python examples to make sure they do not raise
+"""
+import tempfile
 
-Note:
-If an example contaings plt.show(), then all plot windows have to be closed
-manually, at least in my setup.
-
-uncomment plt.show() to show all plot windows
-
-'''
-
-stop_on_error = True
+SHOW_PLOT = False
+BAD_FILES = ['robust_models_1']
 
 
-filelist = ['example_glsar.py', 'example_wls.py', 'example_gls.py',
-            'example_glm.py', 'example_ols_tftest.py', #'example_rpy.py',
-            'example_ols.py', 'example_ols_minimal.py', 'example_rlm.py',
-            'example_discrete.py', 'example_predict.py',
-            'example_ols_table.py',
-            'tut_ols.py', 'tut_ols_rlm.py', 'tut_ols_wls.py',
-            # time series
-            'tsa/ex_arma2.py','tsa/ex_dates.py']
+def no_show(*args):
+    pass
 
-if __name__ == "__main__":
-    #temporarily disable show
+
+if __name__ == '__main__':
+    import glob
+    import sys
     import matplotlib.pyplot as plt
-    plt_show = plt.show
-    def noop(*args):
-        pass
-    plt.show = noop
 
-    cont = raw_input("""Are you sure you want to run all of the examples?
-    This is done mainly to check that they are up to date.
-    (y/n) >>> """)
-    if 'y' in cont.lower():
-        for run_all_f in filelist:
+    if not SHOW_PLOT:
+        PLT_SHOW = plt.show
+        plt.show = no_show
+
+    SAVE_STDOUT = sys.stdout
+    SAVE_STDERR = sys.stderr
+    REDIRECT_STDOUT = tempfile.TemporaryFile('w')
+    REDIRECT_STDERR = tempfile.TemporaryFile('w')
+
+    EXAMPLE_FILES = glob.glob('python/*.py')
+    for example in EXAMPLE_FILES:
+        KNOWN_BAD_FILE = any([bf in example for bf in BAD_FILES])
+        with open(example, encoding="utf-8") as pyfile:
+            code = pyfile.read()
             try:
-                print "\n\nExecuting example file", run_all_f
-                print "-----------------------" + "-"*len(run_all_f)
-                execfile(run_all_f)
-            except:
-                #f might be overwritten in the executed file
-                print "**********************" + "*"*len(run_all_f)
-                print "ERROR in example file", run_all_f
-                print "**********************" + "*"*len(run_all_f)
-                if stop_on_error:
-                    raise
+                sys.stdout = REDIRECT_STDOUT
+                sys.stderr = REDIRECT_STDERR
+                exec(code)
+            except Exception as e:
+                sys.stderr = SAVE_STDERR
+                print(f'FAIL: {example}', file=sys.stderr)
+                if KNOWN_BAD_FILE:
+                    print('This FAIL is expected', file=sys.stderr)
+                else:
+                    print('The last error was: ', file=sys.stderr)
+                    print(e.__class__.__name__, file=sys.stderr)
+                    print(e, file=sys.stderr)
+            else:
+                sys.stdout = SAVE_STDOUT
+                print(f'SUCCESS: {example}')
+            finally:
+                plt.close('all')
 
-    #reenable show after closing windows
-    plt.close('all')
-    plt.show = plt_show
-    plt.show()
+    REDIRECT_STDOUT.close()
+    REDIRECT_STDERR.close()
+    sys.stdout = SAVE_STDOUT
+    sys.stderr = SAVE_STDERR
+    if not SHOW_PLOT:
+        plt.show = PLT_SHOW

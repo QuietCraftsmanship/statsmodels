@@ -48,14 +48,13 @@ finance applications ? option pricing, interest rate models
 
 
 '''
-
-import numpy as np
-from scipy import stats, signal
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import signal, stats
 
 #np.random.seed(987656789)
 
-class Diffusion(object):
+class Diffusion:
     '''Wiener Process, Brownian Motion with mu=0 and sigma=1
     '''
     def __init__(self):
@@ -82,7 +81,7 @@ class Diffusion(object):
         return U, Umean, t
 
 class AffineDiffusion(Diffusion):
-    '''
+    r'''
 
     differential equation:
 
@@ -92,7 +91,7 @@ class AffineDiffusion(Diffusion):
     integral:
 
     :math::
-    x_T = x_0 + \\int_{0}^{T}f(t,S)dt + \\int_0^T  \\sigma(t,S)dW_t
+    x_T = x_0 + \int_{0}^{T}f(t,S)dt + \int_0^T  \sigma(t,S)dW_t
 
     TODO: check definition, affine, what about jump diffusion?
 
@@ -102,7 +101,7 @@ class AffineDiffusion(Diffusion):
         pass
 
     def sim(self, nobs=100, T=1, dt=None, nrepl=1):
-        # this doesn't look correct if drift or sig depend on x
+        # this does not look correct if drift or sig depend on x
         # see arithmetic BM
         W, t = self.simulateW(nobs=nobs, T=T, dt=dt, nrepl=nrepl)
         dx =  self._drift() + self._sig() * W
@@ -127,23 +126,18 @@ class AffineDiffusion(Diffusion):
         # _drift, _sig independent of dt is wrong
         if xzero is None:
             xzero = self.xzero
-        if dt is None:
-            dt = T*1.0/nobs
-        W, t = self.simulateW(nobs=nobs, T=T, dt=dt, nrepl=nrepl)
         dW = self.dW
-        t = np.linspace(dt, 1, nobs)
-        Dt = Tratio*dt;
-        L = nobs/Tratio;        # L EM steps of size Dt = R*dt
-        Xem = np.zeros((nrepl,L));    # preallocate for efficiency
+        L = nobs/Tratio        # L EM steps of size Dt = R*dt
+        Xem = np.zeros((nrepl,L))    # preallocate for efficiency
         Xtemp = xzero
         Xem[:,0] = xzero
         for j in np.arange(1,L):
-           #Winc = np.sum(dW[:,Tratio*(j-1)+1:Tratio*j],1)
-           Winc = np.sum(dW[:,np.arange(Tratio*(j-1)+1,Tratio*j)],1)
-           #Xtemp = Xtemp + Dt*lamda*Xtemp + mu*Xtemp*Winc;
-           Xtemp = Xtemp + self._drift(x=Xtemp) + self._sig(x=Xtemp) * Winc
-           #Dt*lamda*Xtemp + mu*Xtemp*Winc;
-           Xem[:,j] = Xtemp
+            #Winc = np.sum(dW[:,Tratio*(j-1)+1:Tratio*j],1)
+            Winc = np.sum(dW[:,np.arange(Tratio*(j-1)+1,Tratio*j)],1)
+            #Xtemp = Xtemp + Dt*lamda*Xtemp + mu*Xtemp*Winc;
+            Xtemp = Xtemp + self._drift(x=Xtemp) + self._sig(x=Xtemp) * Winc
+            #Dt*lamda*Xtemp + mu*Xtemp*Winc;
+            Xem[:,j] = Xtemp
         return Xem
 
 '''
@@ -175,12 +169,12 @@ class ExactDiffusion(AffineDiffusion):
         should be the same as an AR(1)
         not tested yet
         '''
-        t = np.linspace(ddt, nobs*ddt, nobs)
+        np.linspace(ddt, nobs*ddt, nobs)
         #expnt = np.exp(-self.lambd * t)
         expddt = np.exp(-self.lambd * ddt)
         normrvs = np.random.normal(size=(nrepl,nobs))
         #do I need lfilter here AR(1) ? if mean reverting lag-coeff<1
-        #lfilter doesn't handle 2d arrays, it does?
+        #lfilter does not handle 2d arrays, it does?
         inc = self._exactconst(expddt) + self._exactstd(expddt) * normrvs
         return signal.lfilter([1.], [1.,-expddt], inc)
 
@@ -212,14 +206,14 @@ class ArithmeticBrownian(AffineDiffusion):
         '''
         if xzero is None:
             xzero = self.xzero
-        t = np.linspace(ddt, nobs*ddt, nobs)
+        np.linspace(ddt, nobs*ddt, nobs)
         normrvs = np.random.normal(size=(nrepl,nobs))
         inc = self._drift + self._sigma * np.sqrt(ddt) * normrvs
         #return signal.lfilter([1.], [1.,-1], inc)
         return xzero + np.cumsum(inc,1)
 
     def exactdist(self, xzero, t):
-        expnt = np.exp(-self.lambd * t)
+        np.exp(-self.lambd * t)
         meant = self._drift * t
         stdt = self._sigma * np.sqrt(t)
         return stats.norm(loc=meant, scale=stdt)
@@ -232,8 +226,8 @@ class GeometricBrownian(AffineDiffusion):
     dx_t &= \\mu x_t dt + \\sigma x_t dW_t
 
     $x_t $ stochastic process of Geometric Brownian motion,
-    $\mu $ is the drift,
-    $\sigma $ is the Volatility,
+    $\\mu $ is the drift,
+    $\\sigma $ is the Volatility,
     $W$ is the Wiener process (Brownian motion).
 
     '''
@@ -291,11 +285,12 @@ class OUprocess(AffineDiffusion):
         # after writing this I saw the same use of lfilter in sitmo
         '''
         t = np.linspace(ddt, nobs*ddt, nobs)
-        expnt = np.exp(-self.lambd * t)
+        np.exp(-self.lambd * t)
         expddt = np.exp(-self.lambd * ddt)
         normrvs = np.random.normal(size=(nrepl,nobs))
-        #do I need lfilter here AR(1) ? lfilter doesn't handle 2d arrays, it does?
+        #do I need lfilter here AR(1) ? lfilter does not handle 2d arrays, it does?
         from scipy import signal
+
         #xzero * expnt
         inc = ( self.mu * (1-expddt) +
                 self.sigma * np.sqrt((1-expddt*expddt)/2./self.lambd) * normrvs )
@@ -319,7 +314,7 @@ class OUprocess(AffineDiffusion):
         # brute force, no parameter estimation errors
         nobs = len(data)-1
         exog = np.column_stack((np.ones(nobs), data[:-1]))
-        parest, res, rank, sing = np.linalg.lstsq(exog, data[1:])
+        parest, res, rank, sing = np.linalg.lstsq(exog, data[1:], rcond=-1)
         const, slope = parest
         errvar = res/(nobs-2.)
         lambd = -np.log(slope)/dt
@@ -355,7 +350,7 @@ class SchwartzOne(ExactDiffusion):
     def exactprocess(self, xzero, nobs, ddt=1., nrepl=2):
         '''uses exact solution for log of process
         '''
-        lnxzero = np.log(xzero)
+        np.log(xzero)
         lnx = super(self.__class__, self).exactprocess(xzero, nobs, ddt=ddt, nrepl=nrepl)
         return np.exp(lnx)
 
@@ -373,31 +368,29 @@ class SchwartzOne(ExactDiffusion):
         # brute force, no parameter estimation errors
         nobs = len(data)-1
         exog = np.column_stack((np.ones(nobs),np.log(data[:-1])))
-        parest, res, rank, sing = np.linalg.lstsq(exog, np.log(data[1:]))
+        parest, res, rank, sing = np.linalg.lstsq(exog, np.log(data[1:]), rcond=-1)
         const, slope = parest
         errvar = res/(nobs-2.)  #check denominator estimate, of sigma too low
         kappa = -np.log(slope)/dt
         sigma = np.sqrt(errvar * kappa / (1-np.exp(-2*kappa*dt)))
         mu = const / (1-np.exp(-kappa*dt)) + sigma**2/2./kappa
-        if np.shape(mu)== (1,): mu = mu[0]   # how to remove scalar array ?
-        if np.shape(sigma)== (1,): sigma = sigma[0]
+        if np.shape(mu)== (1,):
+            mu = mu[0]   # TODO: how to remove scalar array ?
+        if np.shape(sigma)== (1,):
+            sigma = sigma[0]
         #mu, kappa are good, sigma too small
         return mu, kappa, sigma
 
 
 
-class BrownianBridge(object):
+class BrownianBridge:
     def __init__(self):
         pass
 
     def simulate(self, x0, x1, nobs, nrepl=1, ddt=1., sigma=1.):
         nobs=nobs+1
         dt = ddt*1./nobs
-        t = np.linspace(dt, ddt-dt, nobs)
         t = np.linspace(dt, ddt, nobs)
-        wm = [t/ddt, 1-t/ddt]
-        #wmi = wm[1]
-        #wm1 = x1*wm[0]
         wmi = 1-dt/(ddt-t)
         wm1 = x1*(dt/(ddt-t))
         su = sigma* np.sqrt(t*(1-t)/ddt)
@@ -410,7 +403,7 @@ class BrownianBridge(object):
         return x, t, su
 
 
-class CompoundPoisson(object):
+class CompoundPoisson:
     '''nobs iid compound poisson distributions, not a process in time
     '''
     def __init__(self, lambd, randfn=np.random.normal):
@@ -432,7 +425,7 @@ class CompoundPoisson(object):
             #print nrepl,nobs,nc
             #xio = randfnc(size=(nrepl,nobs,np.max(nc))).cumsum(-1)[np.arange(nrepl)[:,None],np.arange(nobs),nc-1]
             rvs = randfnc(size=(nrepl,nobs,np.max(nc)))
-            print 'rvs.sum()', rvs.sum(), rvs.shape
+            print('rvs.sum()', rvs.sum(), rvs.shape)
             xio = rvs.cumsum(-1)[np.arange(nrepl)[:,None],np.arange(nobs),nc-1]
             #print xio.shape
             x[:,:,io] = xio
@@ -483,7 +476,9 @@ if __name__ == '__main__':
             tmp = plt.plot(ws[0].mean(0), linewidth=2)
             plt.title('Standard Brownian Motion (Wiener Process)')
 
-        func = lambda t, W: np.exp(t + 0.5*W)
+        def func(t, W):
+            return np.exp(t + 0.5*W)
+
         us = w.expectedsim(func, nobs=500, nrepl=nrepl)
         if doplot:
             plt.figure()
@@ -492,7 +487,7 @@ if __name__ == '__main__':
             plt.title('Brownian Motion - exp')
         #plt.show()
         averr = np.linalg.norm(us[1] - np.exp(9*us[2]/8.), np.inf)
-        print averr
+        print(averr)
         #print us[1][:10]
         #print np.exp(9.*us[2][:10]/8.)
 
@@ -527,7 +522,7 @@ if __name__ == '__main__':
         oue = ou.exact(1, 1, np.random.normal(size=(5,10)))
         ou.exact(0, np.linspace(0,10,10/0.1), 0)
         ou.exactprocess(0,10)
-        print ou.exactprocess(0,10, ddt=0.1,nrepl=10).mean(0)
+        print(ou.exactprocess(0,10, ddt=0.1,nrepl=10).mean(0))
         #the following looks good, approaches mu
         oues = ou.exactprocess(0,100, ddt=0.1,nrepl=100)
         if doplot:
@@ -541,19 +536,19 @@ if __name__ == '__main__':
 
         so = SchwartzOne(xzero=0, mu=1, kappa=0.5, sigma=0.1)
         sos = so.exactprocess(0,50, ddt=0.1,nrepl=100)
-        print sos.mean(0)
-        print np.log(sos.mean(0))
+        print(sos.mean(0))
+        print(np.log(sos.mean(0)))
         doplot = 1
         if doplot:
             plt.figure()
             tmp = plt.plot(sos.T)
             tmp = plt.plot(sos.mean(0), linewidth=2)
             plt.title('Schwartz One')
-        print so.fitls(sos[0,:],dt=0.1)
+        print(so.fitls(sos[0,:],dt=0.1))
         sos2 = so.exactprocess(0,500, ddt=0.1,nrepl=5)
-        print 'true: mu=1, kappa=0.5, sigma=0.1'
+        print('true: mu=1, kappa=0.5, sigma=0.1')
         for i in range(5):
-            print so.fitls(sos2[i],dt=0.1)
+            print(so.fitls(sos2[i],dt=0.1))
 
 
 
@@ -578,12 +573,12 @@ if __name__ == '__main__':
     # ^^^^^^^^^^^^^^^^
     cp = CompoundPoisson([1,1], [np.random.normal,np.random.normal])
     cps = cp.simulate(nobs=20000,nrepl=3)
-    print cps[0].sum(-1).sum(-1)
-    print cps[0].sum()
-    print cps[0].mean(-1).mean(-1)
-    print cps[0].mean()
-    print cps[1].size
-    print cps[1].sum()
+    print(cps[0].sum(-1).sum(-1))
+    print(cps[0].sum())
+    print(cps[0].mean(-1).mean(-1))
+    print(cps[0].mean())
+    print(cps[1].size)
+    print(cps[1].sum())
     #Note Y = sum^{N} X is compound poisson of iid x, then
     #E(Y) = E(N)*E(X)   eg. eq. (6.37) page 385 in http://ee.stanford.edu/~gray/sp.html
 

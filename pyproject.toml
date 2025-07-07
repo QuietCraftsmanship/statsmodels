@@ -1,0 +1,14 @@
+[build-system]
+# These are strictly build requirements. Runtime requirements are listed in
+# INSTALL_REQUIRES in setup.py
+requires = [
+    "setuptools>=69.0.2",
+    "cython>=3.0.10,<4",  # Sync with CYTHON_MIN_VER in setup
+    "numpy>=2.0.0,<3",
+    "scipy>=1.13,<2",
+    "setuptools_scm[toml]>=8,<9"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "statsmodels/_version.py"

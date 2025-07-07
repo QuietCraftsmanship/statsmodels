@@ -67,9 +67,9 @@ y = y_true + sig * np.random.normal(size=nsample)
 
 res2 = sm.OLS(y, X).fit()
 #print "estimated parameters: x d1-d0 d2-d0 constant"
-print res2.params
+print(res2.params)
 #print "standard deviation of parameter estimates"
-print res2.bse
+print(res2.bse)
 prstd, iv_l, iv_u = wls_prediction_std(res2)
 #print res.summary()
 
@@ -93,9 +93,5 @@ R = [[0, 1, 0, 0],
 
 # F test joint hypothesis R * beta = 0
 # i.e. coefficient on both dummy variables equal zero
-print "Test hypothesis that all groups have same intercept"
-print res2.f_test(R)
-
-
-
-
+print("Test hypothesis that all groups have same intercept")
+print(res2.f_test(R))

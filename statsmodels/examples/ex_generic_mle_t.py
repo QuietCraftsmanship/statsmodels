@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Jul 28 08:28:04 2010
 
@@ -7,10 +6,11 @@ Author: josef-pktd
 
 
 import numpy as np
+from scipy import special
 
-from scipy import stats, special
 import statsmodels.api as sm
-from statsmodels.model import GenericLikelihoodModel
+from statsmodels.base.model import GenericLikelihoodModel
+from statsmodels.tools.numdiff import approx_hess
 
 #redefine some shortcuts
 np_log = np.log
@@ -49,7 +49,7 @@ class MyT(GenericLikelihoodModel):
 
         Parameters
         ----------
-        params : array-like
+        params : array_like
             The parameters of the model.
 
         Returns
@@ -57,8 +57,8 @@ class MyT(GenericLikelihoodModel):
         The log likelihood of the model evaluated at `params`
 
         Notes
-        --------
-        .. math :: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
+        -----
+        .. math:: \\ln L=\\sum_{i=1}^{n}\\left[-\\lambda_{i}+y_{i}x_{i}^{\\prime}\\beta-\\ln y_{i}!\\right]
         """
         #print len(params),
         beta = params[:-2]
@@ -78,7 +78,7 @@ class MyT(GenericLikelihoodModel):
 np.random.seed(98765678)
 nobs = 1000
 rvs = np.random.randn(nobs,5)
-data_exog = sm.add_constant(rvs)
+data_exog = sm.add_constant(rvs, prepend=False)
 xbeta = 0.9 + 0.1*rvs.sum(1)
 data_endog = xbeta + 0.1*np.random.standard_t(5, size=nobs)
 #print data_endog
@@ -88,14 +88,13 @@ modp.start_value = np.ones(data_exog.shape[1]+2)
 modp.start_value[-2] = 10
 modp.start_params = modp.start_value
 resp = modp.fit(start_params = modp.start_value)
-print resp.params
-print resp.bse
+print(resp.params)
+print(resp.bse)
 
-from statsmodels.sandbox.regression.numdiff import approx_fprime1, approx_hess
 
-hb=-approx_hess(modp.start_value, modp.loglike, epsilon=-1e-4)[0]
+hb=-approx_hess(modp.start_value, modp.loglike, epsilon=-1e-4)
 tmp = modp.loglike(modp.start_value)
-print tmp.shape
+print(tmp.shape)
 
 
 '''
@@ -109,10 +108,6 @@ print tmp.shape
 8
 >>> tmp.shape
 (100, 100)
->>> np.dot(modp.exog, beta).shape
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-NameError: name 'beta' is not defined
 
 >>> params = modp.start_value
 >>> beta = params[:-2]
@@ -128,9 +123,6 @@ NameError: name 'beta' is not defined
 '''
 
 '''
-C:\Programs\Python25\lib\site-packages\matplotlib-0.99.1-py2.5-win32.egg\matplotlib\rcsetup.py:117: UserWarning: rcParams key "numerix" is obsolete and has no effect;
- please delete it from your matplotlibrc file
-  warnings.warn('rcParams key "numerix" is obsolete and has no effect;\n'
 repr(start_params) array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
 Optimization terminated successfully.
          Current function value: 91.897859
@@ -249,19 +241,16 @@ array([ 0.14111302,  1.02146375,  0.07187597,  0.16256686,  0.49732154,
 >>> np.sqrt(np.diag(np.linalg.inv(hess)))
 array([ 231.3823423 ,  117.79508218,   31.46595143,   53.44753106,
         132.4855704 ,           NaN,    5.47881705,   90.75332693])
->>> hb=-approx_hess(resp.params, modp.loglike, epsilon=-1e-4)[0]
+>>> hb=-approx_hess(resp.params, modp.loglike, epsilon=-1e-4)
 >>> np.sqrt(np.diag(np.linalg.inv(hb)))
 array([ 31.93524822,  22.0333515 ,          NaN,  29.90198792,
         38.82615785,          NaN,          NaN,          NaN])
->>> hb=-approx_hess(resp.params, modp.loglike, epsilon=-1e-8)[0]
+>>> hb=-approx_hess(resp.params, modp.loglike, epsilon=-1e-8)
 >>> np.sqrt(np.diag(np.linalg.inv(hb)))
 Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-  File "C:\Programs\Python25\lib\site-packages\numpy\linalg\linalg.py", line 423, in inv
-    return wrap(solve(a, identity(a.shape[0], dtype=a.dtype)))
-  File "C:\Programs\Python25\lib\site-packages\numpy\linalg\linalg.py", line 306, in solve
+  [...]
     raise LinAlgError, 'Singular matrix'
-numpy.linalg.linalg.LinAlgError: Singular matrix
+numpy.linalg.LinAlgError: Singular matrix
 >>> resp.params
 array([  1.58253308e-01,   1.73188603e-01,   1.77357447e-01,
          2.06707494e-02,  -1.31174789e-01,   8.79915580e-01,

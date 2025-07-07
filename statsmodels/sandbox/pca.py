@@ -1,9 +1,8 @@
 #Copyright (c) 2008 Erik Tollerud (etolleru@uci.edu)
-
 import numpy as np
-from math import pi
 
-class Pca(object):
+
+class Pca:
     """
     A basic class for Principal Component Analysis (PCA).
 
@@ -24,12 +23,12 @@ class Pca(object):
         """
         p X N matrix input
         """
-        from warnings import warn
         A = np.array(data).T
         n,p = A.shape
         self.n,self.p = n,p
         if p > n:
-            warn('p > n - intentional?')
+            from warnings import warn
+            warn('p > n - intentional?', RuntimeWarning)
         self.A = A
         self._origA=A.copy()
 
@@ -38,7 +37,7 @@ class Pca(object):
         self._colors= np.tile(self._colors,int((p-1)/len(self._colors))+1)[:p]
         if names is not None and len(names) != p:
             raise ValueError('names must match data dimension')
-        self.names = None if names is None else tuple([str(n) for n in names])
+        self.names = None if names is None else tuple([str(x) for x in names])
 
 
     def getCovarianceMatrix(self):
@@ -151,11 +150,11 @@ class Pca(object):
 
         returns n,p(>threshold) dimension array
         """
-        nonnones = sum([e != None for e in (enthresh,nPCs,cumen)])
+        nonnones = sum([e is not None for e in (enthresh, nPCs, cumen)])
         if nonnones == 0:
             m = slice(None)
         elif nonnones > 1:
-            raise ValueError("can't specify more than one threshold")
+            raise ValueError("cannot specify more than one threshold")
         else:
             if enthresh is not None:
                 m = self.energies() > enthresh
@@ -171,7 +170,7 @@ class Pca(object):
         else:
             vals = np.array(vals,copy=False)
             if self.N.T.shape[0] != vals.shape[0]:
-                raise ValueError("shape for vals doesn't match")
+                raise ValueError("shape for vals does not match")
         proj = np.matrix(self.getEigenvectors()).T*vals
         return proj[m].T
 
@@ -213,7 +212,7 @@ class Pca(object):
         else:
             vals = vals.T
             if vals.shape[1]!= self.A.shape[1]:
-                raise ValueError("vals don't have the correct number of components")
+                raise ValueError("vals do not have the correct number of components")
 
         pcs=self.project()
         zpcs=np.zeros_like(pcs)
@@ -223,4 +222,3 @@ class Pca(object):
         A = vals.T-upc
         B = A.T*np.std(self.M,axis=0)
         return B+np.mean(self.A,axis=0)
-

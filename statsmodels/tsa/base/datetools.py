@@ -1,43 +1,13 @@
-import re
+"""
+Tools for working with dates
+"""
+from statsmodels.compat.python import asstr, lmap, lrange, lzip
+
 import datetime
-from pandas import datetools as pandas_datetools
+import re
+
 import numpy as np
-
-#NOTE: All of these frequencies assume end of period (except wrt time)
-_freq_to_pandas = {'B' : pandas_datetools.BDay(1),
-                   'D' : pandas_datetools.day,
-                   'W' : pandas_datetools.Week(weekday=6),
-                   'M' : pandas_datetools.monthEnd,
-                   'A' : pandas_datetools.yearEnd,
-                   'Q' : pandas_datetools.quarterEnd}
-
-def _date_from_idx(d1, idx, freq):
-    """
-    Returns the date from an index beyond the end of a date series.
-    d1 is the datetime of the last date in the series. idx is the
-    index distance of how far the next date should be from d1. Ie., 1 gives
-    the next date from d1 at freq.
-
-    Notes
-    -----
-    This does not do any rounding to make sure that d1 is actually on the
-    offset. For now, this needs to be taken care of before you get here.
-    """
-    return d1 + idx * _freq_to_pandas[freq]
-
-def _idx_from_dates(d1, d2, freq):
-    """
-    Returns an index offset from datetimes d1 and d2. d1 is expected to be the
-    last date in a date series and d2 is the out of sample date.
-
-    Notes
-    -----
-    Rounds down the index if the end date is before the next date at freq.
-    Does not check the start date to see whether it is on the offest but
-    assumes that it is.
-    """
-    from pandas import DateRange
-    return len(DateRange(d1, d2, offset = _freq_to_pandas[freq])) - 1
+from pandas import to_datetime
 
 _quarter_to_day = {
         "1" : (3, 31),
@@ -50,17 +20,18 @@ _quarter_to_day = {
         "IV" : (12, 31)
         }
 
+
 _mdays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-_months_with_days = zip(range(1,13), _mdays)
-_month_to_day = dict(zip(map(str,range(1,13)), _months_with_days))
+_months_with_days = lzip(lrange(1,13), _mdays)
+_month_to_day = dict(zip(map(str,lrange(1,13)), _months_with_days))
 _month_to_day.update(dict(zip(["I", "II", "III", "IV", "V", "VI",
                                "VII", "VIII", "IX", "X", "XI", "XII"],
                                _months_with_days)))
 
 # regex patterns
-_y_pattern = '^\d?\d?\d?\d$'
+_y_pattern = r'^\d?\d?\d?\d$'
 
-_q_pattern = '''
+_q_pattern = r'''
 ^               # beginning of string
 \d?\d?\d?\d     # match any number 1-9999, includes leading zeros
 
@@ -71,7 +42,7 @@ _q_pattern = '''
 $               # end of string
 '''
 
-_m_pattern = '''
+_m_pattern = r'''
 ^               # beginning of string
 \d?\d?\d?\d     # match any number 1-9999, includes leading zeros
 
@@ -83,17 +54,19 @@ _m_pattern = '''
 $               # end of string
 '''
 
+
 #NOTE: see also ts.extras.isleapyear, which accepts a sequence
 def _is_leap(year):
     year = int(year)
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
+
 def date_parser(timestr, parserinfo=None, **kwargs):
     """
-    Uses dateutils.parser.parse, but also handles monthly dates of the form
+    Uses dateutil.parser.parse, but also handles monthly dates of the form
     1999m4, 1999:m4, 1999:mIV, 1999mIV and the same for quarterly data
     with q instead of m. It is not case sensitive. The default for annual
-    data is the end of the year, which also differs from dateutils.
+    data is the end of the year, which also differs from dateutil.
     """
     flags = re.IGNORECASE | re.VERBOSE
     if re.search(_q_pattern, timestr, flags):
@@ -110,9 +83,10 @@ def date_parser(timestr, parserinfo=None, **kwargs):
         month, day = 12, 31
         year = int(timestr)
     else:
-        return pandas_datetools.parser.parse(timestr, parserinfo, **kwargs)
+        return to_datetime(timestr, **kwargs)
 
     return datetime.datetime(year, month, day)
+
 
 def date_range_str(start, end=None, length=None):
     """
@@ -133,7 +107,7 @@ def date_range_str(start, end=None, length=None):
         List of strings
     """
     flags = re.IGNORECASE | re.VERBOSE
-    #_check_range_inputs(end, length, freq)
+
     start = start.lower()
     if re.search(_m_pattern, start, flags):
         annual_freq = 12
@@ -149,25 +123,30 @@ def date_range_str(start, end=None, length=None):
         split = 'a'
     else:
         raise ValueError("Date %s not understood" % start)
-    yr1, offset1 = map(int, start.replace(":","").split(split))
+    yr1, offset1 = lmap(int, start.replace(":","").split(split))
     if end is not None:
         end = end.lower()
-        yr2, offset2 = map(int, end.replace(":","").split(split))
-        length = (yr2 - yr1) * annual_freq + offset2
-    elif length:
+        yr2, offset2 = lmap(int, end.replace(":","").split(split))
+    else:  # length > 0
+        if not length:
+            raise ValueError("length must be provided if end is None")
         yr2 = yr1 + length // annual_freq
-        offset2 = length % annual_freq
-    years = np.repeat(range(yr1+1, yr2), annual_freq).tolist()
-    years = np.r_[[str(yr1)]*(annual_freq+1-offset1), years] # tack on first year
-    years = np.r_[years, [str(yr2)]*offset2] # tack on last year
+        offset2 = length % annual_freq + (offset1 - 1)
+    years = [str(yr) for yr in np.repeat(lrange(yr1 + 1, yr2), annual_freq)]
+    # tack on first year
+    years = [(str(yr1))] * (annual_freq + 1 - offset1) + years
+    # tack on last year
+    years = years + [(str(yr2))] * offset2
     if split != 'a':
-        offset = np.tile(np.arange(1, annual_freq+1), yr2-yr1-1)
-        offset = np.r_[np.arange(offset1, annual_freq+1).astype('a2'), offset]
-        offset = np.r_[offset, np.arange(1,offset2+1).astype('a2')]
-        date_arr_range = [''.join([i,split,j]) for i,j in zip(years, offset)]
+        offset = np.tile(np.arange(1, annual_freq + 1), yr2 - yr1 - 1).astype("S2")
+        offset = np.r_[np.arange(offset1, annual_freq + 1).astype('S2'), offset]
+        offset = np.r_[offset, np.arange(1, offset2 + 1).astype('S2')]
+        date_arr_range = [''.join([i, split, asstr(j)])
+                          for i, j in zip(years, offset)]
     else:
-        date_arr_range = years.tolist()
+        date_arr_range = years
     return date_arr_range
+
 
 def dates_from_str(dates):
     """
@@ -175,17 +154,18 @@ def dates_from_str(dates):
 
     Parameters
     ----------
-    dates : array-like
+    dates : array_like
         A sequence of abbreviated dates as string. For instance,
         '1996m1' or '1996Q1'. The datetime dates are at the end of the
         period.
 
     Returns
     -------
-    date_list : array
+    date_list : ndarray
         A list of datetime types.
     """
-    return map(date_parser, dates)
+    return lmap(date_parser, dates)
+
 
 def dates_from_range(start, end=None, length=None):
     """
@@ -200,42 +180,18 @@ def dates_from_range(start, end=None, length=None):
     length : int, optional
         The length of the returned array of end is None.
 
-    Example
-    -------
+    Examples
+    --------
     >>> import statsmodels.api as sm
-    >>> dates = sm.tsa.datetools.date_range('1960m1', length=nobs)
+    >>> import pandas as pd
+    >>> nobs = 50
+    >>> dates = pd.date_range('1960m1', length=nobs)
 
 
     Returns
     -------
-    date_list : array
+    date_list : ndarray
         A list of datetime types.
     """
     dates = date_range_str(start, end, length)
     return dates_from_str(dates)
-
-def _add_datetimes(dates):
-    return reduce(lambda x, y: y+x, dates)
-
-def _infer_freq(dates):
-    timedelta = datetime.timedelta
-    nobs = min(len(dates), 6)
-    if nobs == 1:
-        raise ValueError("Cannot infer frequency from one date")
-    diff = np.diff(dates[:nobs])
-    delta = _add_datetimes(diff)
-    nobs -= 1 # after diff
-    if delta == timedelta(nobs): #greedily assume 'D'
-        return 'D'
-    elif delta == timedelta(nobs + 2):
-        return 'B'
-    elif delta == timedelta(7*nobs):
-        return 'W'
-    elif delta >= timedelta(28*nobs) and delta <= timedelta(31*nobs):
-        return 'M'
-    elif delta >= timedelta(90*nobs) and delta <= timedelta(92*nobs):
-        return 'Q'
-    elif delta >= timedelta(365 * nobs) and delta <= timedelta(366 * nobs):
-        return 'A'
-    else:
-        return

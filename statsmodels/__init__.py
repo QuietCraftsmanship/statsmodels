@@ -1,77 +1,42 @@
-#
-# models - Statistical Models
-#
-from __future__ import with_statement
+from statsmodels.compat.patsy import monkey_patch_cat_dtype
 
-__docformat__ = 'restructuredtext'
+from statsmodels._version import __version__, __version_tuple__
 
-#from version import __version__
-#from info import __doc__
+__version_info__ = __version_tuple__
 
-#from regression import *
-#from genmod.glm import *
-#from robust.rlm import *
-#from discrete.discretemod import *
-#import tsa
-#from tools.tools import add_constant, chain_dot
-#import base.model
-#import tools.tools
-#import datasets
-#import glm.families
-#import stats.stattools
-#import iolib
+monkey_patch_cat_dtype()
 
-from numpy import errstate
-#__all__ = filter(lambda s:not s.startswith('_'),dir())
+debug_warnings = False
 
-from numpy.testing import Tester
-class NoseWrapper(Tester):
-    '''
-    This is simply a monkey patch for numpy.testing.Tester.
+if debug_warnings:
+    import warnings
 
-    It allows extra_argv to be changed from its default None to ['--exe'] so
-    that the tests can be run the same across platforms.  It also takes kwargs
-    that are passed to numpy.errstate to suppress floating point warnings.
-    '''
-    def test(self, label='fast', verbose=1, extra_argv=['--exe'], doctests=False,
-            coverage=False, **kwargs):
-        ''' Run tests for module using nose
+    warnings.simplefilter("default")
+    # use the following to raise an exception for debugging specific warnings
+    # warnings.filterwarnings("error", message=".*integer.*")
 
-        %(test_header)s
-        doctests : boolean
-            If True, run doctests in module, default False
-        coverage : boolean
-            If True, report coverage of NumPy code, default False
-            (Requires the coverage module:
-             http://nedbatchelder.com/code/modules/coverage.html)
-        kwargs
-            Passed to numpy.errstate.  See its documentation for details.
-        '''
 
-        # cap verbosity at 3 because nose becomes *very* verbose beyond that
-        verbose = min(verbose, 3)
+def test(extra_args=None, exit=False):
+    """
+    Run the test suite
 
-        from numpy.testing import utils
-        utils.verbose = verbose
+    Parameters
+    ----------
+    extra_args : list[str]
+        List of argument to pass to pytest when running the test suite. The
+        default is ['--tb=short', '--disable-pytest-warnings'].
+    exit : bool
+        Flag indicating whether the test runner should exit when finished.
 
-        if doctests:
-            print("Running unit tests and doctests for %s" % self.package_name)
-        else:
-            print("Running unit tests for %s" % self.package_name)
+    Returns
+    -------
+    int
+        The status code from the test run if exit is False.
+    """
+    from .tools._test_runner import PytestTester
 
-        self._show_system_info()
+    tst = PytestTester(package_path=__file__)
+    return tst(extra_args=extra_args, exit=exit)
 
-        # reset doctest state on every run
-        import doctest
-        doctest.master = None
 
-        argv, plugins = self.prepare_test_args(label, verbose, extra_argv,
-                                               doctests, coverage)
-        from numpy.testing.noseclasses import NumpyTestProgram
-        from warnings import simplefilter #, catch_warnings
-        with errstate(**kwargs):
-##            with catch_warnings():
-            simplefilter('ignore', category=DeprecationWarning)
-            t = NumpyTestProgram(argv=argv, exit=False, plugins=plugins)
-        return t.result
-test = NoseWrapper().test
+__all__ = ["__version__", "__version_info__", "__version_tuple__", "test"]

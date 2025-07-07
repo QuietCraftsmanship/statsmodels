@@ -2,31 +2,26 @@
 Impulse reponse-related code
 """
 
-from __future__ import division
-
 import numpy as np
 import numpy.linalg as la
 import scipy.linalg as L
 
-from scipy import stats
-
 from statsmodels.tools.decorators import cache_readonly
-from statsmodels.tools.tools import chain_dot
-#from statsmodels.tsa.api import VAR
-
 import statsmodels.tsa.tsatools as tsa
 import statsmodels.tsa.vector_ar.plotting as plotting
 import statsmodels.tsa.vector_ar.util as util
 
 mat = np.array
 
-class BaseIRAnalysis(object):
+
+class BaseIRAnalysis:
     """
     Base class for plotting and computing IRF-related statistics, want to be
     able to handle known and estimated processes
     """
 
-    def __init__(self, model, P=None, periods=10, order=None, svar=False):
+    def __init__(self, model, P=None, periods=10, order=None, svar=False,
+                 vecm=False):
         self.model = model
         self.periods = periods
         self.neqs, self.lags, self.T = model.neqs, model.k_ar, model.nobs
@@ -54,7 +49,7 @@ class BaseIRAnalysis(object):
         if svar:
             self.svar_irfs = model.svar_ma_rep(periods, P=P)
         else:
-            self.orth_irfs = model.orth_ma_rep(periods)
+            self.orth_irfs = model.orth_ma_rep(periods, P=P)
 
         self.cum_effects = self.irfs.cumsum(axis=0)
         if svar:
@@ -62,15 +57,27 @@ class BaseIRAnalysis(object):
         else:
             self.orth_cum_effects = self.orth_irfs.cumsum(axis=0)
 
-        self.lr_effects = model.long_run_effects()
-        if svar:
-            self.svar_lr_effects = np.dot(model.long_run_effects(), P)
-        else:
-            self.orth_lr_effects = np.dot(model.long_run_effects(), P)
-
+        # long-run effects may be infinite for VECMs.
+        if not vecm:
+            self.lr_effects = model.long_run_effects()
+            if svar:
+                self.svar_lr_effects = np.dot(model.long_run_effects(), P)
+            else:
+                self.orth_lr_effects = np.dot(model.long_run_effects(), P)
 
         # auxiliary stuff
-        self._A = util.comp_matrix(model.coefs)
+        if vecm:
+            self._A = util.comp_matrix(model.var_rep)
+        else:
+            self._A = util.comp_matrix(model.coefs)
+
+    def _choose_irfs(self, orth=False, svar=False):
+        if orth:
+            return self.orth_irfs
+        elif svar:
+            return self.svar_irfs
+        else:
+            return self.irfs
 
     def cov(self, *args, **kwargs):
         raise NotImplementedError
@@ -78,10 +85,10 @@ class BaseIRAnalysis(object):
     def cum_effect_cov(self, *args, **kwargs):
         raise NotImplementedError
 
-    def plot(self, orth=False, impulse=None, response=None,
-             signif=0.05, plot_params=None, subplot_params=None,
-             plot_stderr=True, stderr_type='asym', repl=1000,
-             seed=None, component=None):
+    def plot(self, orth=False, *, impulse=None, response=None,
+             signif=0.05, plot_params=None, figsize=(10, 10),
+             subplot_params=None, plot_stderr=True, stderr_type='asym',
+             repl=1000, seed=None, component=None):
         """
         Plot impulse responses
 
@@ -89,9 +96,9 @@ class BaseIRAnalysis(object):
         ----------
         orth : bool, default False
             Compute orthogonalized impulse responses
-        impulse : string or int
+        impulse : {str, int}
             variable providing the impulse
-        response : string or int
+        response : {str, int}
             variable affected by the impulse
         signif : float (0 < signif < 1)
             Significance level for error bars, defaults to 95% CI
@@ -100,35 +107,33 @@ class BaseIRAnalysis(object):
             pass {'fontsize' : 8} or some number to your taste.
         plot_params : dict
 
-        plot_stderr: bool, default True
+        figsize : (float, float), default (10, 10)
+            Figure size (width, height in inches)
+        plot_stderr : bool, default True
             Plot standard impulse response error bands
-        stderr_type: string
+        stderr_type : str
             'asym': default, computes asymptotic standard errors
             'mc': monte carlo standard errors (use rpl)
-        repl: int, default 1000
+        repl : int, default 1000
             Number of replications for Monte Carlo and Sims-Zha standard errors
-        seed: int
+        seed : int
             np.random.seed for Monte Carlo replications
         component: array or vector of principal component indices
         """
-        periods = self.periods
-        model = self.model
         svar = self.svar
 
         if orth and svar:
             raise ValueError("For SVAR system, set orth=False")
 
+        irfs = self._choose_irfs(orth, svar)
         if orth:
             title = 'Impulse responses (orthogonalized)'
-            irfs = self.orth_irfs
         elif svar:
             title = 'Impulse responses (structural)'
-            irfs = self.svar_irfs
         else:
             title = 'Impulse responses'
-            irfs = self.irfs
 
-        if plot_stderr == False:
+        if plot_stderr is False:
             stderr = None
 
         elif stderr_type not in ['asym', 'mc', 'sz1', 'sz2','sz3']:
@@ -156,13 +161,16 @@ class BaseIRAnalysis(object):
                                            seed=seed,
                                            component=component)
 
-        plotting.irf_grid_plot(irfs, stderr, impulse, response,
-                               self.model.names, title, signif=signif,
-                               subplot_params=subplot_params,
-                               plot_params=plot_params, stderr_type=stderr_type)
+        fig = plotting.irf_grid_plot(irfs, stderr, impulse, response,
+                                     self.model.names, title, signif=signif,
+                                     subplot_params=subplot_params,
+                                     plot_params=plot_params,
+                                     figsize=figsize,
+                                     stderr_type=stderr_type)
+        return fig
 
-    def plot_cum_effects(self, orth=False, impulse=None, response=None,
-                         signif=0.05, plot_params=None,
+    def plot_cum_effects(self, orth=False, *, impulse=None, response=None,
+                         signif=0.05, plot_params=None, figsize=(10, 10),
                          subplot_params=None, plot_stderr=True,
                          stderr_type='asym', repl=1000, seed=None):
         """
@@ -172,9 +180,9 @@ class BaseIRAnalysis(object):
         ----------
         orth : bool, default False
             Compute orthogonalized impulse responses
-        impulse : string or int
+        impulse : {str, int}
             variable providing the impulse
-        response : string or int
+        response : {str, int}
             variable affected by the impulse
         signif : float (0 < signif < 1)
             Significance level for error bars, defaults to 95% CI
@@ -183,16 +191,17 @@ class BaseIRAnalysis(object):
             pass {'fontsize' : 8} or some number to your taste.
         plot_params : dict
 
-        plot_stderr: bool, default True
+        figsize: (float, float), default (10, 10)
+            Figure size (width, height in inches)
+        plot_stderr : bool, default True
             Plot standard impulse response error bands
-        stderr_type: string
+        stderr_type : str
             'asym': default, computes asymptotic standard errors
             'mc': monte carlo standard errors (use rpl)
-        repl: int, default 1000
+        repl : int, default 1000
             Number of replications for monte carlo standard errors
-        seed: int
+        seed : int
             np.random.seed for Monte Carlo replications
-
         """
 
         if orth:
@@ -205,20 +214,25 @@ class BaseIRAnalysis(object):
             lr_effects = self.lr_effects
 
         if stderr_type not in ['asym', 'mc']:
-            raise TypeError
+            raise ValueError("`stderr_type` must be one of 'asym', 'mc'")
         else:
             if stderr_type == 'asym':
                 stderr = self.cum_effect_cov(orth=orth)
             if stderr_type == 'mc':
                 stderr = self.cum_errband_mc(orth=orth, repl=repl,
-                                                signif=signif, seed=seed)
+                                             signif=signif, seed=seed)
         if not plot_stderr:
             stderr = None
 
-        plotting.irf_grid_plot(cum_effects, stderr, impulse, response,
-                               self.model.names, title, signif=signif,
-                               hlines=lr_effects, subplot_params=subplot_params,
-                               plot_params=plot_params, stderr_type=stderr_type)
+        fig = plotting.irf_grid_plot(cum_effects, stderr, impulse, response,
+                                     self.model.names, title, signif=signif,
+                                     hlines=lr_effects,
+                                     subplot_params=subplot_params,
+                                     plot_params=plot_params,
+                                     figsize=figsize,
+                                     stderr_type=stderr_type)
+        return fig
+
 
 class IRAnalysis(BaseIRAnalysis):
     """
@@ -231,13 +245,17 @@ class IRAnalysis(BaseIRAnalysis):
 
     Notes
     -----
-    Using Lutkepohl (2005) notation
+    Using Lütkepohl (2005) notation
     """
-    def __init__(self, model, P=None, periods=10, order=None, svar=False):
+    def __init__(self, model, P=None, periods=10, order=None, svar=False,
+                 vecm=False):
         BaseIRAnalysis.__init__(self, model, P=P, periods=periods,
-                                order=order, svar=svar)
+                                order=order, svar=svar, vecm=vecm)
 
-        self.cov_a = model._cov_alpha
+        if vecm:
+            self.cov_a = model.cov_var_repr
+        else:
+            self.cov_a = model._cov_alpha
         self.cov_sig = model._cov_sigma
 
         # memoize dict for G matrix function
@@ -249,7 +267,7 @@ class IRAnalysis(BaseIRAnalysis):
 
         Notes
         -----
-        Lutkepohl eq 3.7.5
+        Lütkepohl eq 3.7.5
 
         Returns
         -------
@@ -261,7 +279,7 @@ class IRAnalysis(BaseIRAnalysis):
         covs[0] = np.zeros((self.neqs ** 2, self.neqs ** 2))
         for i in range(1, self.periods + 1):
             Gi = self.G[i - 1]
-            covs[i] = chain_dot(Gi, self.cov_a, Gi.T)
+            covs[i] = Gi @ self.cov_a @ Gi.T
 
         return covs
 
@@ -272,14 +290,15 @@ class IRAnalysis(BaseIRAnalysis):
         """
         model = self.model
         periods = self.periods
-        if svar == True:
-            return model.sirf_errband_mc(orth=orth, repl=repl, T=periods,
-                                        signif=signif, seed=seed,
-                                        burn=burn, cum=False)
+        if svar:
+            return model.sirf_errband_mc(orth=orth, repl=repl, steps=periods,
+                                         signif=signif, seed=seed,
+                                         burn=burn, cum=False)
         else:
-            return model.irf_errband_mc(orth=orth, repl=repl, T=periods,
+            return model.irf_errband_mc(orth=orth, repl=repl, steps=periods,
                                         signif=signif, seed=seed,
                                         burn=burn, cum=False)
+
     def err_band_sz1(self, orth=False, svar=False, repl=1000,
                      signif=0.05, seed=None, burn=100, component=None):
         """
@@ -311,20 +330,15 @@ class IRAnalysis(BaseIRAnalysis):
 
         model = self.model
         periods = self.periods
-        if orth:
-            irfs = self.orth_irfs
-        elif svar:
-            irfs = self.svar_irfs
-        else:
-            irfs = self.irfs
+        irfs = self._choose_irfs(orth, svar)
         neqs = self.neqs
-        irf_resim = model.irf_resim(orth=orth, repl=repl, T=periods, seed=seed,
-                                   burn=100)
+        irf_resim = model.irf_resim(orth=orth, repl=repl, steps=periods,
+                                    seed=seed, burn=burn)
         q = util.norm_signif_level(signif)
 
         W, eigva, k =self._eigval_decomp_SZ(irf_resim)
 
-        if component != None:
+        if component is not None:
             if np.shape(component) != (neqs,neqs):
                 raise ValueError("Component array must be " + str(neqs) + " x " + str(neqs))
             if np.argmax(component) >= neqs*periods:
@@ -335,15 +349,14 @@ class IRAnalysis(BaseIRAnalysis):
         # here take the kth column of W, which we determine by finding the largest eigenvalue of the covaraince matrix
         lower = np.copy(irfs)
         upper = np.copy(irfs)
-        for i in xrange(neqs):
-            for j in xrange(neqs):
+        for i in range(neqs):
+            for j in range(neqs):
                 lower[1:,i,j] = irfs[1:,i,j] + W[i,j,:,k[i,j]]*q*np.sqrt(eigva[i,j,k[i,j]])
                 upper[1:,i,j] = irfs[1:,i,j] - W[i,j,:,k[i,j]]*q*np.sqrt(eigva[i,j,k[i,j]])
 
-
         return lower, upper
 
-    def err_band_sz2(self, orth=False, repl=1000, signif=0.05,
+    def err_band_sz2(self, orth=False, svar=False, repl=1000, signif=0.05,
                      seed=None, burn=100, component=None):
         """
         IRF Sims-Zha error band method 2.
@@ -374,19 +387,14 @@ class IRAnalysis(BaseIRAnalysis):
         """
         model = self.model
         periods = self.periods
-        if orth:
-            irfs = self.orth_irfs
-        elif svar:
-            irfs = self.svar_irfs
-        else:
-            irfs = self.irfs
+        irfs = self._choose_irfs(orth, svar)
         neqs = self.neqs
-        irf_resim = model.irf_resim(orth=orth, repl=repl, T=periods, seed=seed,
-                                   burn=100)
+        irf_resim = model.irf_resim(orth=orth, repl=repl, steps=periods, seed=seed,
+                                    burn=100)
 
         W, eigva, k = self._eigval_decomp_SZ(irf_resim)
 
-        if component != None:
+        if component is not None:
             if np.shape(component) != (neqs,neqs):
                 raise ValueError("Component array must be " + str(neqs) + " x " + str(neqs))
             if np.argmax(component) >= neqs*periods:
@@ -395,9 +403,9 @@ class IRAnalysis(BaseIRAnalysis):
                 k = component
 
         gamma = np.zeros((repl, periods+1, neqs, neqs))
-        for p in xrange(repl):
-            for i in xrange(neqs):
-                for j in xrange(neqs):
+        for p in range(repl):
+            for i in range(neqs):
+                for j in range(neqs):
                     gamma[p,1:,i,j] = W[i,j,k[i,j],:] * irf_resim[p,1:,i,j]
 
         gamma_sort = np.sort(gamma, axis=0) #sort to get quantiles
@@ -405,14 +413,14 @@ class IRAnalysis(BaseIRAnalysis):
 
         lower = np.copy(irfs)
         upper = np.copy(irfs)
-        for i in xrange(neqs):
-            for j in xrange(neqs):
+        for i in range(neqs):
+            for j in range(neqs):
                 lower[:,i,j] = irfs[:,i,j] + gamma_sort[indx[0],:,i,j]
                 upper[:,i,j] = irfs[:,i,j] + gamma_sort[indx[1],:,i,j]
 
         return lower, upper
 
-    def err_band_sz3(self, orth=False, repl=1000, signif=0.05,
+    def err_band_sz3(self, orth=False, svar=False, repl=1000, signif=0.05,
                      seed=None, burn=100, component=None):
         """
         IRF Sims-Zha error band method 3. Does not assume symmetric error bands around mean.
@@ -442,29 +450,24 @@ class IRAnalysis(BaseIRAnalysis):
 
         model = self.model
         periods = self.periods
-        if orth:
-            irfs = self.orth_irfs
-        elif svar:
-            irfs = self.svar_irfs
-        else:
-            irfs = self.irfs
+        irfs = self._choose_irfs(orth, svar)
         neqs = self.neqs
-        irf_resim = model.irf_resim(orth=orth, repl=repl, T=periods, seed=seed,
-                                   burn=100)
+        irf_resim = model.irf_resim(orth=orth, repl=repl, steps=periods,
+                                    seed=seed, burn=100)
         stack = np.zeros((neqs, repl, periods*neqs))
 
         #stack left to right, up and down
 
-        for p in xrange(repl):
-            for i in xrange(neqs):
+        for p in range(repl):
+            for i in range(neqs):
                 stack[i, p,:] = np.ravel(irf_resim[p,1:,:,i].T)
 
         stack_cov=np.zeros((neqs, periods*neqs, periods*neqs))
         W = np.zeros((neqs, periods*neqs, periods*neqs))
         eigva = np.zeros((neqs, periods*neqs))
-        k = np.zeros((neqs))
+        k = np.zeros(neqs, dtype=int)
 
-        if component != None:
+        if component is not None:
             if np.size(component) != (neqs):
                 raise ValueError("Component array must be of length " + str(neqs))
             if np.argmax(component) >= neqs*periods:
@@ -473,26 +476,25 @@ class IRAnalysis(BaseIRAnalysis):
                 k = component
 
         #compute for eigen decomp for each stack
-        for i in xrange(neqs):
+        for i in range(neqs):
             stack_cov[i] = np.cov(stack[i],rowvar=0)
             W[i], eigva[i], k[i] = util.eigval_decomp(stack_cov[i])
 
         gamma = np.zeros((repl, periods+1, neqs, neqs))
-        for p in xrange(repl):
-            c=0
-            for j in xrange(neqs):
-                for i in xrange(neqs):
-                        gamma[p,1:,i,j] = W[j,k[j],i*periods:(i+1)*periods] * irf_resim[p,1:,i,j]
-                        if i == neqs-1:
-                            gamma[p,1:,i,j] = W[j,k[j],i*periods:] * irf_resim[p,1:,i,j]
+        for p in range(repl):
+            for j in range(neqs):
+                for i in range(neqs):
+                    gamma[p,1:,i,j] = W[j,k[j],i*periods:(i+1)*periods] * irf_resim[p,1:,i,j]
+                    if i == neqs-1:
+                        gamma[p,1:,i,j] = W[j,k[j],i*periods:] * irf_resim[p,1:,i,j]
 
         gamma_sort = np.sort(gamma, axis=0) #sort to get quantiles
         indx = round(signif/2*repl)-1,round((1-signif/2)*repl)-1
 
         lower = np.copy(irfs)
         upper = np.copy(irfs)
-        for i in xrange(neqs):
-            for j in xrange(neqs):
+        for i in range(neqs):
+            for j in range(neqs):
                 lower[:,i,j] = irfs[:,i,j] + gamma_sort[indx[0],:,i,j]
                 upper[:,i,j] = irfs[:,i,j] + gamma_sort[indx[1],:,i,j]
 
@@ -505,22 +507,21 @@ class IRAnalysis(BaseIRAnalysis):
         W: array of eigenvectors
         eigva: list of eigenvalues
         k: matrix indicating column # of largest eigenvalue for each c_i,j
-
         """
         neqs = self.neqs
         periods = self.periods
 
         cov_hold = np.zeros((neqs, neqs, periods, periods))
-        for i in xrange(neqs):
-            for j in xrange(neqs):
+        for i in range(neqs):
+            for j in range(neqs):
                 cov_hold[i,j,:,:] = np.cov(irf_resim[:,1:,i,j],rowvar=0)
 
         W = np.zeros((neqs, neqs, periods, periods))
         eigva = np.zeros((neqs, neqs, periods, 1))
-        k = np.zeros((neqs, neqs))
+        k = np.zeros((neqs, neqs), dtype=int)
 
-        for i in xrange(neqs):
-            for j in xrange(neqs):
+        for i in range(neqs):
+            for j in range(neqs):
                 W[i,j,:,:], eigva[i,j,:,0], k[i,j] = util.eigval_decomp(cov_hold[i,j,:,:])
         return W, eigva, k
 
@@ -568,10 +569,10 @@ class IRAnalysis(BaseIRAnalysis):
                 apiece = 0
             else:
                 Ci = np.dot(PIk, self.G[i-1])
-                apiece = chain_dot(Ci, self.cov_a, Ci.T)
+                apiece = Ci @ self.cov_a @ Ci.T
 
             Cibar = np.dot(np.kron(Ik, self.irfs[i]), H)
-            bpiece = chain_dot(Cibar, self.cov_sig, Cibar.T) / self.T
+            bpiece = (Cibar @ self.cov_sig @ Cibar.T) / self.T
 
             # Lutkepohl typo, cov_sig correct
             covs[i] = apiece + bpiece
@@ -585,7 +586,7 @@ class IRAnalysis(BaseIRAnalysis):
 
         Parameters
         ----------
-        orth : boolean
+        orth : bool
 
         Notes
         -----
@@ -593,7 +594,6 @@ class IRAnalysis(BaseIRAnalysis):
 
         Returns
         -------
-
         """
         Ik = np.eye(self.neqs)
         PIk = np.kron(self.P.T, Ik)
@@ -609,10 +609,10 @@ class IRAnalysis(BaseIRAnalysis):
                     apiece = 0
                 else:
                     Bn = np.dot(PIk, F)
-                    apiece = chain_dot(Bn, self.cov_a, Bn.T)
+                    apiece = Bn @ self.cov_a @ Bn.T
 
                 Bnbar = np.dot(np.kron(Ik, self.cum_effects[i]), self.H)
-                bpiece = chain_dot(Bnbar, self.cov_sig, Bnbar.T) / self.T
+                bpiece = (Bnbar @ self.cov_sig @ Bnbar.T) / self.T
 
                 covs[i] = apiece + bpiece
             else:
@@ -620,25 +620,25 @@ class IRAnalysis(BaseIRAnalysis):
                     covs[i] = np.zeros((self.neqs**2, self.neqs**2))
                     continue
 
-                covs[i] = chain_dot(F, self.cov_a, F.T)
+                covs[i] = F @ self.cov_a @ F.T
 
         return covs
 
     def cum_errband_mc(self, orth=False, repl=1000,
-                          signif=0.05, seed=None, burn=100):
+                       signif=0.05, seed=None, burn=100):
         """
         IRF Monte Carlo integrated error bands of cumulative effect
         """
         model = self.model
         periods = self.periods
         return model.irf_errband_mc(orth=orth, repl=repl,
-                                    T=periods, signif=signif, seed=seed, burn=burn, cum=True)
+                                    steps=periods, signif=signif,
+                                    seed=seed, burn=burn, cum=True)
 
     def lr_effect_cov(self, orth=False):
         """
         Returns
         -------
-
         """
         lre = self.lr_effects
         Finfty = np.kron(np.tile(lre.T, self.lags), lre)
@@ -648,10 +648,10 @@ class IRAnalysis(BaseIRAnalysis):
             Binf = np.dot(np.kron(self.P.T, np.eye(self.neqs)), Finfty)
             Binfbar = np.dot(np.kron(Ik, lre), self.H)
 
-            return (chain_dot(Binf, self.cov_a, Binf.T) +
-                    chain_dot(Binfbar, self.cov_sig, Binfbar.T))
+            return (Binf @ self.cov_a @ Binf.T +
+                    Binfbar @ self.cov_sig @ Binfbar.T)
         else:
-            return chain_dot(Finfty, self.cov_a, Finfty.T)
+            return Finfty @ self.cov_a @ Finfty.T
 
     def stderr(self, orth=False):
         return np.array([tsa.unvec(np.sqrt(np.diag(c)))
@@ -676,18 +676,13 @@ class IRAnalysis(BaseIRAnalysis):
         Kkk = tsa.commutation_matrix(k, k)
         Ik = np.eye(k)
 
-        # B = chain_dot(Lk, np.eye(k**2) + commutation_matrix(k, k),
-        #               np.kron(self.P, np.eye(k)), Lk.T)
+        # B = Lk @ (np.eye(k**2) + commutation_matrix(k, k)) @ \
+        #     np.kron(self.P, np.eye(k)) @ Lk.T
+        # return Lk.T @ L.inv(B)
 
-        # return np.dot(Lk.T, L.inv(B))
-
-        B = chain_dot(Lk,
-                      np.dot(np.kron(Ik, self.P), Kkk) + np.kron(self.P, Ik),
-                      Lk.T)
+        B = Lk @ (np.kron(Ik, self.P) @ Kkk + np.kron(self.P, Ik)) @ Lk.T
 
         return np.dot(Lk.T, L.inv(B))
 
     def fevd_table(self):
-        pass
-
-
+        raise NotImplementedError

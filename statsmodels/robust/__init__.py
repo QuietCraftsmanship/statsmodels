@@ -1,8 +1,10 @@
 """
 Robust statistical models
 """
-import norms
-from .scale import mad, stand_mad, Huber, HuberScale, hubers_scale
+__all__ = ["norms", "mad", "Huber", "HuberScale", "hubers_scale", "test"]
+from . import norms
+from .scale import mad, Huber, HuberScale, hubers_scale
 
-from statsmodels import NoseWrapper as Tester
-test = Tester().test
+from statsmodels.tools._test_runner import PytestTester
+
+test = PytestTester()

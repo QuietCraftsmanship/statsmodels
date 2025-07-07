@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 """Examples for linear model with heteroscedasticity estimated by feasible GLS
 
-These are examples to check the results during developement.
+These are examples to check the results during development.
 
 The assumptions:
 
@@ -14,8 +13,8 @@ Created on Wed Dec 21 12:28:17 2011
 
 Author: Josef Perktold
 
-There might be something fishy with the example, but I don't see it.
-Or maybe it's supposed to be this way because in the first case I don't
+There might be something fishy with the example, but I do not see it.
+Or maybe it's supposed to be this way because in the first case I do not
 include a constant and in the second case I include some of the same
 regressors as in the main equation.
 
@@ -24,7 +23,7 @@ regressors as in the main equation.
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from statsmodels.regression.linear_model import OLS, WLS, GLS
+from statsmodels.regression.linear_model import OLS
 from statsmodels.regression.feasible_gls import GLSHet, GLSHet2
 
 examples = ['ex1']
@@ -47,35 +46,35 @@ if 'ex1' in examples:
     X2 = X
 
     res_ols = OLS(y2, X2).fit()
-    print 'OLS beta estimates'
-    print res_ols.params
-    print 'OLS stddev of beta'
-    print res_ols.bse
-    print '\nWLS'
+    print('OLS beta estimates')
+    print(res_ols.params)
+    print('OLS stddev of beta')
+    print(res_ols.bse)
+    print('\nWLS')
     mod0 = GLSHet2(y2, X2, exog_var=w)
     res0 = mod0.fit()
-    print 'new version'
+    print('new version')
     mod1 = GLSHet(y2, X2, exog_var=w)
     res1 = mod1.iterative_fit(2)
-    print 'WLS beta estimates'
-    print res1.params
-    print res0.params
-    print 'WLS stddev of beta'
-    print res1.bse
+    print('WLS beta estimates')
+    print(res1.params)
+    print(res0.params)
+    print('WLS stddev of beta')
+    print(res1.bse)
     #compare with previous version GLSHet2, refactoring check
     #assert_almost_equal(res1.params, np.array([ 0.37642521,  1.51447662]))
     #this fails ???  more iterations? different starting weights?
 
 
-    print res1.model.weights/res1.model.weights.max()
+    print(res1.model.weights/res1.model.weights.max())
     #why is the error so small in the estimated weights ?
     assert_almost_equal(res1.model.weights/res1.model.weights.max(), 1./w, 14)
-    print 'residual regression params'
-    print res1.results_residual_regression.params
-    print 'scale of model ?'
-    print res1.scale
-    print 'unweighted residual variance, note unweighted mean is not zero'
-    print res1.resid.var()
+    print('residual regression params')
+    print(res1.results_residual_regression.params)
+    print('scale of model ?')
+    print(res1.scale)
+    print('unweighted residual variance, note unweighted mean is not zero')
+    print(res1.resid.var())
     #Note weighted mean is zero:
     #(res1.model.weights * res1.resid).mean()
 
@@ -93,21 +92,21 @@ if 'ex1' in examples:
     z = (w[:,None] == np.unique(w)).astype(float) #dummy variable
     mod2 = GLSHet(y2, X2, exog_var=z)
     res2 = mod2.iterative_fit(2)
-    print res2.params
+    print(res2.params)
 
     import statsmodels.api as sm
-    z = sm.add_constant(w, prepend=True)
+    z = sm.add_constant(w)
     mod3 = GLSHet(y2, X2, exog_var=z)
     res3 = mod3.iterative_fit(8)
-    print res3.params
-    print "np.array(res3.model.history['ols_params'])"
+    print(res3.params)
+    print("np.array(res3.model.history['ols_params'])")
 
-    print np.array(res3.model.history['ols_params'])
-    print "np.array(res3.model.history['self_params'])"
-    print np.array(res3.model.history['self_params'])
+    print(np.array(res3.model.history['ols_params']))
+    print("np.array(res3.model.history['self_params'])")
+    print(np.array(res3.model.history['self_params']))
 
-    print np.unique(res2.model.weights) #for discrete z only, only a few uniques
-    print np.unique(res3.model.weights)
+    print(np.unique(res2.model.weights)) #for discrete z only, only a few uniques
+    print(np.unique(res3.model.weights))
 
     if doplots:
         plt.figure()

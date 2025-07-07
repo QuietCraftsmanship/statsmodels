@@ -1,4 +1,5 @@
 """Longley dataset"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -22,25 +23,24 @@ DESCRLONG   = """The Longley dataset contains various US macroeconomic
 variables that are known to be highly collinear.  It has been used to appraise
 the accuracy of least squares routines."""
 
-NOTE        = """
-Number of Observations - 16
+NOTE        = """::
 
-Number of Variables - 6
+    Number of Observations - 16
 
-Variable name definitions::
+    Number of Variables - 6
 
-        TOTEMP - Total Employment
-        GNPDEFL - GNP deflator
-        GNP - GNP
-        UNEMP - Number of unemployed
-        ARMED - Size of armed forces
-        POP - Population
-        YEAR - Year (1947 - 1962)
+    Variable name definitions::
+
+            TOTEMP - Total Employment
+            GNPDEFL - GNP deflator
+            GNP - GNP
+            UNEMP - Number of unemployed
+            ARMED - Size of armed forces
+            POP - Population
+            YEAR - Year (1947 - 1962)
 """
 
-from numpy import recfromtxt, array, column_stack
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
+
 
 def load():
     """
@@ -48,11 +48,11 @@ def load():
 
     Returns
     -------
-    Dataset instance
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=0, dtype=float)
+    return load_pandas()
+
 
 def load_pandas():
     """
@@ -60,14 +60,14 @@ def load_pandas():
 
     Returns
     -------
-    Dataset instance
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
     data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=0)
+    return du.process_pandas(data, endog_idx=0)
+
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath+'/longley.csv',"rb"), delimiter=",",
-                      names=True, dtype=float, usecols=(1,2,3,4,5,6,7))
+    data = du.load_csv(__file__, 'longley.csv')
+    data = data.iloc[:, [1, 2, 3, 4, 5, 6, 7]].astype(float)
     return data

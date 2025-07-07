@@ -1,16 +1,16 @@
-
 import math
-import numpy as np
-from scipy import linalg, stats
 
-from linalg_decomp_1 import tiny2zero
+import numpy as np
+from scipy import linalg, special, stats
+
+from .linalg_decomp_1 import SvdArray
 
 #univariate standard normal distribution
 #following from scipy.stats.distributions with adjustments
 sqrt2pi = math.sqrt(2 * np.pi)
 logsqrt2pi = math.log(sqrt2pi)
 
-class StandardNormal(object):
+class StandardNormal:
     '''Distribution of vector x, with independent distribution N(0,1)
 
     this is the same as univariate normal for pdf and logpdf
@@ -21,18 +21,18 @@ class StandardNormal(object):
     def rvs(self, size):
         return np.random.standard_normal(size)
     def pdf(self, x):
-        return exp(-x**2 * 0.5) / sqrt2pi
+        return np.exp(-x**2 * 0.5) / sqrt2pi
     def logpdf(self, x):
         return -x**2 * 0.5 - logsqrt2pi
     def _cdf(self, x):
         return special.ndtr(x)
     def _logcdf(self, x):
-        return log(special.ndtr(x))
+        return np.log(special.ndtr(x))
     def _ppf(self, q):
         return special.ndtri(q)
 
 
-class AffineTransform(object):
+class AffineTransform:
     '''affine full rank transformation of a multivariate distribution
 
     no dimension checking, assumes everything broadcasts correctly
@@ -58,7 +58,7 @@ class AffineTransform(object):
 
     def rvs(self, size):
         #size can only be integer not yet tuple
-        print (size,)+(self.nrv,)
+        print((size,)+(self.nrv,))
         return self.transform(self.dist.rvs(size=(size,)+(self.nrv,)))
 
     def transform(self, x):
@@ -75,19 +75,9 @@ class AffineTransform(object):
         return - self.logabsdet + self.dist.logpdf(self.invtransform(x))
 
 
-from linalg_decomp_1 import SvdArray, OneTimeProperty
 
-class MultivariateNormal(object):
-    '''multivariate normal distribution with plain linalg
 
-    '''
-
-    def __init__(mean, sigma):
-        self.mean = mean
-        self.sigma = sigma
-        self.sigmainv = sigmainv
-
-class MultivariateNormalChol(object):
+class MultivariateNormalChol:
     '''multivariate normal distribution with cholesky decomposition of sigma
 
     ignoring mean at the beginning, maybe
@@ -117,7 +107,7 @@ class MultivariateNormalChol(object):
         x_whitened = self.whiten(x)
 
         #sigmainv = linalg.cholesky(sigma)
-        logdetsigma = np.log(np.linalg.det(sigma))
+        np.log(np.linalg.det(sigma))
 
         sigma2 = 1. # error variance is included in sigma
 
@@ -136,7 +126,7 @@ class MultivariateNormalChol(object):
 
 
 
-class MultivariateNormal(object):
+class MultivariateNormal:
 
     def __init__(self, mean, sigma):
         self.mean = mean
@@ -215,7 +205,7 @@ def mvn_nloglike_obs(x, sigma):
     x_whitened = np.dot(cholsigmainv, x)
 
     #sigmainv = linalg.cholesky(sigma)
-    logdetsigma = np.log(np.linalg.det(sigma))
+    np.log(np.linalg.det(sigma))
 
     sigma2 = 1. # error variance is included in sigma
 
@@ -251,32 +241,33 @@ llike  =  0.5 * (np.log(sigma2) - 2.* np.log(np.diagonal(cholsigmainv))
 
 ll, ls = mvn_nloglike_obs(x, sigma)
 #the following are all the same for diagonal sigma
-print ll.sum(), 'll.sum()'
-print llike.sum(), 'llike.sum()'
-print np.log(stats.norm._pdf(x_whitened)).sum() - 0.5 * logdetsigma,
-print 'stats whitened'
-print np.log(stats.norm.pdf(x,scale=np.sqrt(np.diag(sigma)))).sum(),
-print 'stats scaled'
-print 0.5*(np.dot(linalg.cho_solve((linalg.cho_factor(sigma, lower=False)[0].T,
+print(ll.sum(), 'll.sum()')
+print(llike.sum(), 'llike.sum()')
+print(np.log(stats.norm._pdf(x_whitened)).sum() - 0.5 * logdetsigma,)
+print('stats whitened')
+print(np.log(stats.norm.pdf(x,scale=np.sqrt(np.diag(sigma)))).sum(),)
+print('stats scaled')
+print(0.5*(np.dot(linalg.cho_solve((linalg.cho_factor(sigma, lower=False)[0].T,
                                     False),x.T), x)
            + nobs*np.log(2*np.pi)
-           - 2.* np.log(np.diagonal(cholsigmainv)).sum())
-print 0.5*(np.dot(linalg.cho_solve((linalg.cho_factor(sigma)[0].T, False),x.T), x) + nobs*np.log(2*np.pi)- 2.* np.log(np.diagonal(cholsigmainv)).sum())
-print 0.5*(np.dot(linalg.cho_solve(linalg.cho_factor(sigma),x.T), x) + nobs*np.log(2*np.pi)- 2.* np.log(np.diagonal(cholsigmainv)).sum())
-print mvn_loglike(x, sigma)
+           - 2.* np.log(np.diagonal(cholsigmainv)).sum()))
+print(0.5*(np.dot(linalg.cho_solve((linalg.cho_factor(sigma)[0].T, False),x.T), x) + nobs*np.log(2*np.pi)- 2.* np.log(np.diagonal(cholsigmainv)).sum()))
+print(0.5*(np.dot(linalg.cho_solve(linalg.cho_factor(sigma),x.T), x) + nobs*np.log(2*np.pi)- 2.* np.log(np.diagonal(cholsigmainv)).sum()))
+print(mvn_loglike(x, sigma))
 
 
 normtransf = AffineTransform(np.zeros(nobs), cholsigma, StandardNormal())
-print normtransf.logpdf(x_whitened).sum()
-#print normtransf.rvs(5)
-print loglike_ar1(x, 0.8)
+print(normtransf.logpdf(x_whitened).sum())
+#print(normtransf.rvs(5)
+print(loglike_ar1(x, 0.8))
 
 mch = MultivariateNormalChol(np.zeros(nobs), sigma)
-print mch.logpdf(x)
+print(mch.logpdf(x))
 
-#print tiny2zero(mch.cholsigmainv / mch.cholsigmainv[-1,-1])
+#from .linalg_decomp_1 import tiny2zero
+#print(tiny2zero(mch.cholsigmainv / mch.cholsigmainv[-1,-1])
 
 xw = mch.whiten(x)
-print 'xSigmax', np.dot(xw,xw)
-print 'xSigmax', np.dot(x,linalg.cho_solve(linalg.cho_factor(mch.sigma),x))
-print 'xSigmax', np.dot(x,linalg.cho_solve((mch.cholsigma, False),x))
+print('xSigmax', np.dot(xw,xw))
+print('xSigmax', np.dot(x,linalg.cho_solve(linalg.cho_factor(mch.sigma),x)))
+print('xSigmax', np.dot(x,linalg.cho_solve((mch.cholsigma, False),x)))

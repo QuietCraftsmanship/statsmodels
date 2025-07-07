@@ -1,5 +1,6 @@
-from tools import add_constant, categorical
-from datautils import Dataset
+from .tools import add_constant, categorical
+from statsmodels.tools._test_runner import PytestTester
 
-from statsmodels import NoseWrapper as Tester
-test = Tester().test
+__all__ = ['test', 'add_constant', 'categorical']
+
+test = PytestTester()

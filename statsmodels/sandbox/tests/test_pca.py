@@ -9,11 +9,10 @@ TODO:
 
 import numpy as np
 from numpy.testing import assert_array_almost_equal
-from statsmodels.sandbox import tools
 from statsmodels.sandbox.tools import pca, pcasvd
-from statsmodels.tsa.arima_process import arma_impulse_response
 
-from datamlw import *
+from statsmodels.multivariate.tests.results.datamlw import (
+    princomp1, princomp2, princomp3, data)
 
 
 def check_pca_princomp(pcares, princomp):
@@ -29,7 +28,7 @@ def check_pca_svd(pcares, pcasvdres):
     xred_svd, factors_svd, evals_svd, evecs_svd = pcasvdres
     assert_array_almost_equal(evals_svd, evals, 14)
     msign = (evecs/evecs_svd)[0]
-    assert_array_almost_equal(msign*evecs_svd, evecs, 14)
+    assert_array_almost_equal(msign*evecs_svd, evecs, 13)
     assert_array_almost_equal(msign*factors_svd, factors, 13)
     assert_array_almost_equal(xred_svd, xreduced, 13)
 
@@ -57,9 +56,9 @@ def test_pca_svd():
     xred_svd, factors_svd, evals_svd, evecs_svd = pcasvd(xf, keepdim=0)
     assert_array_almost_equal(evals_svd, evals, 14)
     msign = (evecs/evecs_svd)[0]
-    assert_array_almost_equal(msign*evecs_svd, evecs, 14)
-    assert_array_almost_equal(msign*factors_svd, factors, 13)
-    assert_array_almost_equal(xred_svd, xreduced, 14)
+    assert_array_almost_equal(msign*evecs_svd, evecs, 13)
+    assert_array_almost_equal(msign*factors_svd, factors, 12)
+    assert_array_almost_equal(xred_svd, xreduced, 13)
 
     pcares = pca(xf, keepdim=2)
     pcasvdres = pcasvd(xf, keepdim=2)

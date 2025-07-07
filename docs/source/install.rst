@@ -2,104 +2,174 @@
 
 .. _install:
 
-Installation
-------------
+Installing statsmodels
+======================
 
-Using setuptools
-~~~~~~~~~~~~~~~~
+The easiest way to install statsmodels is to install it as part of the `Anaconda <https://docs.continuum.io/anaconda/>`_
+distribution, a cross-platform distribution for data analysis and scientific
+computing. This is the recommended installation method for most users.
 
-To obtain the latest released version of statsmodels using `setuptools <http://pypi.python.org/pypi/setuptools>`__::
+Instructions for installing from PyPI, source or a development version are also provided.
 
-    easy_install -U statsmodels
 
-Or follow `this link to our PyPI page <http://pypi.python.org/pypi/statsmodels>`__.
+Python Support
+--------------
+
+statsmodels supports Python 3.8, 3.9, and 3.10.
+
+Anaconda
+--------
+statsmodels is available through conda provided by
+`Anaconda <https://www.anaconda.com/products/individual#Downloads>`__. The latest release can
+be installed using:
+
+.. code-block:: bash
+
+   conda install -c conda-forge statsmodels
+
+PyPI (pip)
+----------
+
+To obtain the latest released version of statsmodels using pip:
+
+.. code-block:: bash
+
+    python -m pip install statsmodels
+
+Follow `this link to our PyPI page <https://pypi.org/project/statsmodels/>`__ to directly
+download wheels or source.
+
+For Windows users, unofficial recent binaries (wheels) are occasionally
+available `here <https://www.lfd.uci.edu/~gohlke/pythonlibs/#statsmodels>`__.
 
 Obtaining the Source
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
-We do not release very often but the master branch of our source code is 
-usually fine for everyday use. You can get the latest source from our 
-`github repository <https://www.github.com/statsmodels/statsmodels>`__. Or if you have git installed::
+We do not release very often but the main branch of our source code is
+usually fine for everyday use. You can get the latest source from our
+`github repository <https://github.com/statsmodels/statsmodels>`__. Or if you
+have git installed:
+
+.. code-block:: bash
 
     git clone git://github.com/statsmodels/statsmodels.git
 
-If you want to keep up to date with the source on github just periodically do::
+If you want to keep up to date with the source on github just periodically do:
+
+.. code-block:: bash
 
     git pull
 
 in the statsmodels directory.
 
 Installation from Source
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
-While not strictly necessary for 0.4, it is recommended that you will have a C compiler installed to take advantage of Cython code where available. You can follow the instructions below to get a C compiler setup for Windows.
+You will need a C compiler installed to build statsmodels. If you are building
+from the github source and not a source release, then you will also need
+Cython. You can follow the instructions below to get a C compiler setup for
+Windows.
+
+If your system is already set up with pip, a compiler, and git, you can try:
+
+.. code-block:: bash
+
+    python -m pip install git+https://github.com/statsmodels/statsmodels
+
+If you do not have git installed or want to do the installation more manually,
+you can also type:
+
+.. code-block:: bash
+
+    python -m pip install .
+
+statsmodels can also be installed in `develop` mode which installs statsmodels
+into the current python environment in-place. The advantage of this is that
+edited modules will immediately be re-interpreted when the python interpreter
+restarts without having to re-install statsmodels.
+
+.. code-block:: bash
+
+    python -m pip install -e .
+
+It is usually recommended to use the ``--no-build-isolation`` to speed up
+the build process.
+
+Compilers
+~~~~~~~~~
 
 Linux
 ^^^^^
 
-Once you have obtained the source, you can do (with appropriate permissions)::
-
-    python setup.py install
-
-Or::
-
-    python setup.py build
-    python setup.py install
+If you are using Linux, we assume that you are savvy enough to install `gcc` on
+your own. More than likely, it is already installed.
 
 Windows
 ^^^^^^^
 
-You can build 32-bit version of the code on windows using mingw32.
+It is strongly recommended to use 64-bit Python if possible.
 
-First, get and install `mingw32 <http://www.mingw.org/>`__. Then, you'll need to edit distutils.cfg. This is usually found somewhere like C:\Python27\Lib\distutils\distutils.cfg. Add these lines::
+Getting the right compiler is especially confusing for Windows users. Over time,
+Python has been built using a variety of different Windows C compilers.
+`This guide <https://wiki.python.org/moin/WindowsCompilers>`_ should help
+clarify which version of Python uses which compiler by default.
 
-    [build]
-    compiler=mingw32
+macOS
+^^^
 
-Then in the statsmodels directory do::
+Installing statsmodels on macOS requires installing `gcc` which provides
+a suitable C compiler. We recommend installing Xcode and the Command Line
+Tools, which can be done through the following command:
 
-    python setup.py build
-    python setup.py install
+.. code-block:: bash
 
-OR
-
-You can build 32-bit or 64-bit versions of the code using the Microsoft SDK. Detailed instructions can be found on the Cython wiki `here <http://wiki.cython.org/64BitCythonExtensionsOnWindows>`__. The gist of these instructions follow. You will need to download the free Windows SDK C/C++ compiler from Microsoft. You must use the **Microsoft Windows SDK for Windows 7 and .NET Framework 3.5 SP1** to be comptible with Python 2.6, 2.7, 3.1, and 3.2. Other Python versions are as yet untested. Please report results to the mailing list. The link for the 3.5 version is
-
-`http://www.microsoft.com/downloads/en/details.aspx?familyid=71DEB800-C591-4F97-A900-BEA146E4FAE1&displaylang=en <http://www.microsoft.com/downloads/en/details.aspx?familyid=71DEB800-C591-4F97-A900-BEA146E4FAE1&displaylang=en>`__
-
-Get the ISO file GRMSDKX_EN_DVD.iso for AMD64. After you install this, open the SDK Command Shell (Start -> All Programs -> Microsoft Windows SDK v7.0 -> CMD Shell). CD to the statsmodels directory and type::
-
-    set DISTUTILS_USE_SDK=1
-
-To build a 64-bit application type::
-
-    setenv /x64 /release
-
-To build a 32-bit application type::
-
-    setenv /x86 /release
-
-The prompt should change colors to green. Then proceed as usual to install::
-
-    python setup.py build
-    python setup.py install
-
+    xcode-select --install
 
 Dependencies
-~~~~~~~~~~~~
+------------
 
-* `Python <http://www.python.org>`__ >= 2.5, including Python 3.x 
-* `NumPy <http://www.scipy.org/>`__ (>=1.4)
-* `SciPy <http://www.scipy.org/>`__ (>=0.7)
-* `Pandas <http://pandas.pydata.org/>`__ >= 0.7.1
-* `Cython <http://cython.org/>`__ >= 15.1, Still optional but recommended for building from non-source distributions. That is, it will be used when building the source from github and not from a zipped source distribution archive.
+The current minimum dependencies are:
 
-.. tested with Python 2.5., 2.6, 2.7 and 3.2
-.. (tested with numpy 1.4.1, 1.5.1 and 1.6.0, scipy 0.7.2, 0.8.0, 0.9.0)
-.. do we need to tell people about testing?
+* `Python <https://www.python.org>`__ >= 3.9
+* `NumPy <https://www.scipy.org/>`__ >= 1.22.3
+* `SciPy <https://www.scipy.org/>`__ >= 1.8
+* `Pandas <https://pandas.pydata.org/>`__ >= 1.4
+* `Patsy <https://patsy.readthedocs.io/en/latest/>`__ >= 0.5.6
+
+Cython is required to build from a git checkout but not to run or install from PyPI:
+
+* `Cython <https://cython.org/>`__ >= 3.0.10 is required to build the code from
+  github but not from a source distribution.
+
+Given the long release cycle, statsmodels follows a loose time-based policy for
+dependencies: minimal dependencies are lagged about one and a half to two
+years. Our next planned update of minimum versions is expected in the first
+half of 2020.
 
 Optional Dependencies
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-* `Matplotlib <http://matplotlib.sourceforge.net/>`__ is needed for plotting functions and running many of the examples. 
-* `Nose <http://www.somethingaboutorange.com/mrl/projects/nose/>`__ is required to run the test suite.
+* `cvxopt <https://cvxopt.org/>`__ is required for regularized fitting of
+  some models.
+* `Matplotlib <https://matplotlib.org/>`__ >= 3 is needed for plotting
+  functions and running many of the examples.
+* If installed, `X-12-ARIMA <https://www.census.gov/srd/www/x13as/>`__ or
+  `X-13ARIMA-SEATS <https://www.census.gov/srd/www/x13as/>`__ can be used
+  for time-series analysis.
+* `pytest <https://docs.pytest.org/en/latest/>`__ is required to run
+  the test suite.
+* `IPython <https://ipython.org>`__ >= 6.0 is required to build the
+  docs locally or to use the notebooks.
+* `joblib <https://joblib.readthedocs.io/>`__ >= 1.0can be used to accelerate distributed
+  estimation for certain models.
+* `jupyter <https://jupyter.org/>`__ is needed to run the notebooks.
+
+The optional dependencies can be installed along with `statsmodels` by modifying
+the installation command:
+
+.. code-block:: bash
+
+    python -m pip install statsmodels[extras]
+
+where ``<extras>`` is a comma-separated list of extras to install (``build``,
+``develop``, ``docs``).

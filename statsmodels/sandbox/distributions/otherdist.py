@@ -8,7 +8,7 @@ Author: Josef Perktold
 Notes:
 
 Compound Poisson has mass point at zero
-http://en.wikipedia.org/wiki/Compound_Poisson_distribution
+https://en.wikipedia.org/wiki/Compound_Poisson_distribution
 and would need special treatment
 
 need a distribution that has discrete mass points and contiuous range, e.g.
@@ -21,15 +21,15 @@ existing distributions by transformation, mixing, compounding
 '''
 
 
-
 import numpy as np
 from scipy import stats
 
-class ParametricMixtureD(object):
+
+class ParametricMixtureD:
     '''mixtures with a discrete distribution
 
     The mixing distribution is a discrete distribution like scipy.stats.poisson.
-    All distribution in the mixture of the same type and parameterized
+    All distribution in the mixture of the same type and parametrized
     by the outcome of the mixing distribution and have to be a continuous
     distribution (or have a pdf method).
     As an example, a mixture of normal distributed random variables with
@@ -53,7 +53,7 @@ class ParametricMixtureD(object):
         mixing_dist : discrete frozen distribution
             mixing distribution
         base_dist : continuous distribution
-            parameterized distributions in the mixture
+            parametrized distributions in the mixture
         bd_args_func : callable
             function that builds the tuple of args for the base_dist.
             The function obtains as argument the values in the support of
@@ -96,8 +96,8 @@ class ParametricMixtureD(object):
         #TODO: check strange cases ? this assumes continous integers
         mrvs_idx = (np.clip(mrvs, self.ma, self.mb) - self.ma).astype(int)
 
-        bd_args = tuple(md[mrvs_idx] for md in self.bd_args)
-        bd_kwds = dict((k, self.bd_kwds[k][mrvs_idx]) for k in self.bd_kwds)
+        tuple(md[mrvs_idx] for md in self.bd_args)
+        bd_kwds = {k: self.bd_kwds[k][mrvs_idx] for k in self.bd_kwds}
         kwds = {'size':size}
         kwds.update(bd_kwds)
         rvs = self.base_dist.rvs(*self.bd_args, **kwds)
@@ -126,7 +126,7 @@ class ParametricMixtureD(object):
 
 #try:
 
-class ClippedContinuous(object):
+class ClippedContinuous:
     '''clipped continuous distribution with a masspoint at clip_lower
 
 
@@ -160,7 +160,7 @@ class ClippedContinuous(object):
         '''helper method to get clip_lower from kwds or attribute
 
         '''
-        if not 'clip_lower' in kwds:
+        if 'clip_lower' not in kwds:
             clip_lower = self.clip_lower
         else:
             clip_lower = kwds.pop('clip_lower')
@@ -177,7 +177,7 @@ class ClippedContinuous(object):
 
     def pdf(self, x, *args, **kwds):
         x = np.atleast_1d(x)
-        if not 'clip_lower' in kwds:
+        if 'clip_lower' not in kwds:
             clip_lower = self.clip_lower
         else:
             #allow clip_lower to be a possible parameter
@@ -194,7 +194,7 @@ class ClippedContinuous(object):
         return pdf_raw
 
     def cdf(self, x, *args, **kwds):
-        if not 'clip_lower' in kwds:
+        if 'clip_lower' not in kwds:
             clip_lower = self.clip_lower
         else:
             #allow clip_lower to be a possible parameter
@@ -214,7 +214,7 @@ class ClippedContinuous(object):
         return cdf_raw
 
     def sf(self, x, *args, **kwds):
-        if not 'clip_lower' in kwds:
+        if 'clip_lower' not in kwds:
             clip_lower = self.clip_lower
         else:
             #allow clip_lower to be a possible parameter
@@ -235,6 +235,7 @@ class ClippedContinuous(object):
         mass = self.pdf(clip_lower, *args, **kwds)
         xr = np.concatenate(([clip_lower+1e-6], x[x>clip_lower]))
         import matplotlib.pyplot as plt
+
         #x = np.linspace(-4, 4, 21)
         #plt.figure()
         plt.xlim(clip_lower-0.1, x.max())
@@ -257,16 +258,18 @@ if __name__ == '__main__':
     #*********** Poisson-Normal Mixture
     mdist = stats.poisson(2.)
     bdist = stats.norm
-    bd_args_fn = lambda x: ()
+    def bd_args_fn(x):
+        return ()
     #bd_kwds_fn = lambda x: {'loc': np.atleast_2d(10./(1+x))}
-    bd_kwds_fn = lambda x: {'loc': x, 'scale': 0.1*np.ones_like(x)} #10./(1+x)}
+    def bd_kwds_fn(x):
+        return {'loc': x, 'scale': 0.1 * np.ones_like(x)} #10./(1+x)}
 
 
     pd = ParametricMixtureD(mdist, bdist, bd_args_fn, bd_kwds_fn)
-    print pd.pdf(1)
+    print(pd.pdf(1))
     p, bp = pd.pdf(np.linspace(0,20,21))
     pc, bpc = pd.cdf(np.linspace(0,20,21))
-    print pd.rvs()
+    print(pd.rvs())
     rvs, m = pd.rvs(size=1000)
 
 
@@ -281,8 +284,8 @@ if __name__ == '__main__':
     clip_lower_ = 0. #-0.5
     cnorm = ClippedContinuous(bdist, clip_lower_)
     x = np.linspace(1e-8, 4, 11)
-    print cnorm.pdf(x)
-    print cnorm.cdf(x)
+    print(cnorm.pdf(x))
+    print(cnorm.cdf(x))
 
     if doplots:
         #plt.figure()
@@ -306,8 +309,3 @@ if __name__ == '__main__':
 
 
     #plt.show()
-
-
-
-
-

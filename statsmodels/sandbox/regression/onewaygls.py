@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 F test for null hypothesis that coefficients in several regressions are the same
 
@@ -53,10 +52,11 @@ Author: josef-pktd
 """
 import numpy as np
 from scipy import stats
+
 from statsmodels.regression.linear_model import OLS, WLS
 
 
-class OneWayLS(object):
+class OneWayLS:
     '''Class to test equality of regression coefficients across groups
 
     This class performs tests whether the linear regression coefficients are
@@ -94,7 +94,7 @@ class OneWayLS(object):
       (which in turn is verified against NIST for not badly scaled problems)
     * f-test for simple structural break is the same as in original script
     * power and size of test look ok in examples
-    * not checked/verified for heteroscedastic case
+    * not checked/verified for heteroskedastic case
       - for constant only: ftest result is the same with WLS as with OLS - check?
 
     check: I might be mixing up group names (unique)
@@ -283,7 +283,7 @@ class OneWayLS(object):
         return '\n'.join(txt), summarytable
 
 
-    def print_summary(res):
+    def print_summary(self, res):
         '''printable string of summary
 
         '''
@@ -293,7 +293,6 @@ class OneWayLS(object):
             summtable = self.summarytable
         else:
             _, summtable = res.ftest_summary()
-        txt = ''
         #print ft[0]  #skip because table is nicer
         templ = \
 '''Table of F-tests for overall or pairwise equality of coefficients'
@@ -318,7 +317,7 @@ Alternative model: all coefficients are allowed to be different'
 not verified but looks close to f-test result'
 
 
-Ols parameters by group from individual, separate ols regressions'
+OLS parameters by group from individual, separate ols regressions'
 %(olsbg)s
 for group in sorted(res.olsbygroup):
     r = res.olsbygroup[group]
@@ -334,7 +333,7 @@ standard dev', np.sqrt(res.sigmabygroup)
 
         from statsmodels.iolib import SimpleTable
         resvals = {}
-        resvals['tab'] = str(SimpleTable([(['%r'%(row[0],)]
+        resvals['tab'] = str(SimpleTable([([f'{row[0]!r}']
                             + list(row[1])
                             + ['*']*(row[1][1]>0.5).item() ) for row in summtable],
                           headers=['pair', 'F-statistic','p-value','df_denom',
@@ -354,16 +353,18 @@ standard dev', np.sqrt(res.sigmabygroup)
 
         return templ % resvals
 
-
-
     # a variation of this has been added to RegressionResults as compare_lr
     def lr_test(self):
-        '''generic likelihood ration test between nested models
+        r'''
+        generic likelihood ratio test between nested models
 
-            \begin{align} D & = -2(\ln(\text{likelihood for null model}) - \ln(\text{likelihood for alternative model})) \\ & = -2\ln\left( \frac{\text{likelihood for null model}}{\text{likelihood for alternative model}} \right). \end{align}
+            \begin{align}
+            D & = -2(\ln(\text{likelihood for null model}) - \ln(\text{likelihood for alternative model})) \\
+            & = -2\ln\left( \frac{\text{likelihood for null model}}{\text{likelihood for alternative model}} \right).
+            \end{align}
 
-            is distributed as chisquare with df equal to difference in number of parameters or equivalently
-            difference in residual degrees of freedom  (sign?)
+        is distributed as chisquare with df equal to difference in number of parameters or equivalently
+        difference in residual degrees of freedom  (sign?)
 
         TODO: put into separate function
         '''
@@ -378,4 +379,3 @@ standard dev', np.sqrt(res.sigmabygroup)
         lrpval = stats.chi2.sf(lrstat, lrdf)
 
         return lrstat, lrpval, lrdf
-

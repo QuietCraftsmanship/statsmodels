@@ -1,4 +1,5 @@
 """El Nino dataset, 1950 - 2010"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -21,24 +22,23 @@ and 90-80 degrees West, from 1950 to 2010.  This dataset was obtained from
 NOAA.
 """
 
-NOTE = """
-Number of Observations - 61 x 12
+NOTE = """::
 
-Number of Variables - 1
+    Number of Observations - 61 x 12
 
-Variable name definitions::
+    Number of Variables - 1
 
-    TEMPERATURE - average sea surface temperature in degrees Celcius
-                  (12 columns, one per month).
+    Variable name definitions::
 
+        TEMPERATURE - average sea surface temperature in degrees Celcius
+                      (12 columns, one per month).
 """
 
 
-from numpy import recfromtxt, column_stack, array
-from pandas import DataFrame
-
-from statsmodels.tools import Dataset
-from os.path import dirname, abspath
+def load_pandas():
+    data = _get_data()
+    dataset = du.Dataset(data=data, names=list(data.columns))
+    return dataset
 
 
 def load():
@@ -47,27 +47,15 @@ def load():
 
     Returns
     -------
-    Dataset instance:
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
 
     Notes
     -----
     The elnino Dataset instance does not contain endog and exog attributes.
     """
-    data = _get_data()
-    names = data.dtype.names
-    dataset = Dataset(data=data, names=names)
-    return dataset
-
-
-def load_pandas():
-    dataset = load()
-    dataset.data = DataFrame(dataset.data)
-    return dataset
+    return load_pandas()
 
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/elnino.csv', 'rb'), delimiter=",",
-                      names=True, dtype=float)
-    return data
+    return du.load_csv(__file__, 'elnino.csv', convert_float=True)

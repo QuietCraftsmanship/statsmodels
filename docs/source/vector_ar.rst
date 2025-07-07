@@ -1,11 +1,21 @@
 :orphan:
 
+.. module:: statsmodels.tsa.vector_ar.var_model
+   :synopsis: Vector autoregressions
+
 .. currentmodule:: statsmodels.tsa.vector_ar.var_model
 
 .. _var:
 
 Vector Autoregressions :mod:`tsa.vector_ar`
 ===========================================
+
+:mod:`statsmodels.tsa.vector_ar` contains methods that are useful
+for simultaneously modeling and analyzing multiple time series using
+:ref:`Vector Autoregressions (VAR) <var>` and
+:ref:`Vector Error Correction Models (VECM) <vecm>`.
+
+.. _var_process:
 
 VAR(p) processes
 ----------------
@@ -17,14 +27,14 @@ and their lagged values is the *vector autoregression process*:
 
 .. math::
 
-   Y_t = A_1 Y_{t-1} + \ldots + A_p Y_{t-p} + u_t
+   Y_t = \nu + A_1 Y_{t-1} + \ldots + A_p Y_{t-p} + u_t
 
    u_t \sim {\sf Normal}(0, \Sigma_u)
 
 where :math:`A_i` is a :math:`K \times K` coefficient matrix.
 
 We follow in large part the methods and notation of `Lutkepohl (2005)
-<http://www.springer.com/economics/econometrics/book/978-3-540-26239-8>`__,
+<https://www.springer.com/gb/book/9783540401728>`__,
 which we will not develop here.
 
 Model fitting
@@ -40,16 +50,37 @@ homogeneous or structured dtype. When using a structured or record array, the
 class will use the passed variable names. Otherwise they can be passed
 explicitly:
 
-::
+.. ipython:: python
+   :suppress:
 
-    # some example data
-    >>> mdata = sm.datasets.macrodata.load().data
-    >>> mdata = mdata[['realgdp','realcons','realinv']]
-    >>> names = mdata.dtype.names
-    >>> data = mdata.view((float,3))
-    >>> data = np.diff(np.log(data), axis=0)
+   import pandas as pd
+   pd.options.display.max_rows = 10
+   import matplotlib
+   import matplotlib.pyplot as plt
+   matplotlib.style.use('ggplot')
 
-    >>> model = VAR(data, names=names)
+.. ipython:: python
+   :okwarning:
+
+   # some example data
+   import numpy as np
+   import pandas
+   import statsmodels.api as sm
+   from statsmodels.tsa.api import VAR
+   mdata = sm.datasets.macrodata.load_pandas().data
+
+   # prepare the dates index
+   dates = mdata[['year', 'quarter']].astype(int).astype(str)
+   quarterly = dates["year"] + "Q" + dates["quarter"]
+   from statsmodels.tsa.base.datetools import dates_from_str
+   quarterly = dates_from_str(quarterly)
+
+   mdata = mdata[['realgdp','realcons','realinv']]
+   mdata.index = pandas.DatetimeIndex(quarterly)
+   data = np.log(mdata).diff().dropna()
+
+   # make a VAR model
+   model = VAR(data)
 
 .. note::
 
@@ -63,86 +94,29 @@ To actually do the estimation, call the `fit` method with the desired lag
 order. Or you can have the model select a lag order based on a standard
 information criterion (see below):
 
-::
+.. ipython:: python
+   :okwarning:
 
-    >>> results = model.fit(2)
-
-    >>> results.summary()
-
-      Summary of Regression Results
-    ==================================
-    Model:                         VAR
-    Method:                        OLS
-    Date:           Fri, 08, Jul, 2011
-    Time:                     11:30:22
-    --------------------------------------------------------------------
-    No. of Equations:         3.00000    BIC:                   -27.5830
-    Nobs:                     200.000    HQIC:                  -27.7892
-    Log likelihood:           1962.57    FPE:                7.42129e-13
-    AIC:                     -27.9293    Det(Omega_mle):     6.69358e-13
-    --------------------------------------------------------------------
-    Results for equation realgdp
-    ==============================================================================
-                     coefficient       std. error           t-stat            prob
-    ------------------------------------------------------------------------------
-    const               0.001527         0.001119            1.365           0.174
-    L1.realgdp         -0.279435         0.169663           -1.647           0.101
-    L1.realcons         0.675016         0.131285            5.142           0.000
-    L1.realinv          0.033219         0.026194            1.268           0.206
-    L2.realgdp          0.008221         0.173522            0.047           0.962
-    L2.realcons         0.290458         0.145904            1.991           0.048
-    L2.realinv         -0.007321         0.025786           -0.284           0.777
-    ==============================================================================
-
-    Results for equation realcons
-    ==============================================================================
-                     coefficient       std. error           t-stat            prob
-    ------------------------------------------------------------------------------
-    const               0.005460         0.000969            5.634           0.000
-    L1.realgdp         -0.100468         0.146924           -0.684           0.495
-    L1.realcons         0.268640         0.113690            2.363           0.019
-    L1.realinv          0.025739         0.022683            1.135           0.258
-    L2.realgdp         -0.123174         0.150267           -0.820           0.413
-    L2.realcons         0.232499         0.126350            1.840           0.067
-    L2.realinv          0.023504         0.022330            1.053           0.294
-    ==============================================================================
-
-    Results for equation realinv
-    ==============================================================================
-                     coefficient       std. error           t-stat            prob
-    ------------------------------------------------------------------------------
-    const              -0.023903         0.005863           -4.077           0.000
-    L1.realgdp         -1.970974         0.888892           -2.217           0.028
-    L1.realcons         4.414162         0.687825            6.418           0.000
-    L1.realinv          0.225479         0.137234            1.643           0.102
-    L2.realgdp          0.380786         0.909114            0.419           0.676
-    L2.realcons         0.800281         0.764416            1.047           0.296
-    L2.realinv         -0.124079         0.135098           -0.918           0.360
-    ==============================================================================
-
-    Correlation matrix of residuals
-                 realgdp  realcons   realinv
-    realgdp     1.000000  0.603316  0.750722
-    realcons    0.603316  1.000000  0.131951
-    realinv     0.750722  0.131951  1.000000
+   results = model.fit(2)
+   results.summary()
 
 Several ways to visualize the data using `matplotlib` are available.
 
 Plotting input time series:
 
-::
+.. ipython:: python
+   :okwarning:
 
-    >>> model.plot()
+   @savefig var_plot_input.png
+   results.plot()
 
-.. plot:: plots/var_plot_input.py
 
 Plotting time series autocorrelation function:
 
-::
+.. ipython:: python
 
-    >>> model.plot_acorr()
-
-.. plot:: plots/var_plot_acorr.py
+   @savefig var_plot_acorr.png
+   results.plot_acorr()
 
 
 Lag order selection
@@ -150,42 +124,18 @@ Lag order selection
 
 Choice of lag order can be a difficult problem. Standard analysis employs
 likelihood test or information criteria-based order selection. We have
-implemented the latter, accessable through the :class:`VAR` class:
+implemented the latter, accessible through the :class:`VAR` class:
 
-::
+.. ipython:: python
 
-    >>> model.select_order(15)
-                     VAR Order Selection
-    ======================================================
-                aic          bic          fpe         hqic
-    ------------------------------------------------------
-    0        -27.64       -27.59    9.960e-13       -27.62
-    1        -27.94      -27.74*    7.372e-13      -27.86*
-    2        -27.93       -27.58    7.421e-13       -27.79
-    3        -27.92       -27.43    7.476e-13       -27.72
-    4        -27.94       -27.29    7.328e-13       -27.68
-    5        -27.97       -27.17    7.107e-13       -27.65
-    6        -27.94       -26.99    7.324e-13       -27.56
-    7        -27.93       -26.82    7.418e-13       -27.48
-    8        -27.93       -26.66    7.475e-13       -27.41
-    9       -27.98*       -26.56   7.101e-13*       -27.40
-    10       -27.93       -26.36    7.458e-13       -27.29
-    11       -27.88       -26.15    7.850e-13       -27.18
-    12       -27.84       -25.94    8.271e-13       -27.07
-    13       -27.80       -25.74    8.594e-13       -26.97
-    14       -27.79       -25.57    8.733e-13       -26.89
-    15       -27.81       -25.43    8.599e-13       -26.85
-    ======================================================
-    * Minimum
-
-    {'aic': 9, 'bic': 1, 'fpe': 9, 'hqic': 1}
+   model.select_order(15)
 
 When calling the `fit` function, one can pass a maximum number of lags and the
 order criterion to use for order selection:
 
-::
+.. ipython:: python
 
-    >>> results = model.fit(maxlags=15, ic='aic')
+   results = model.fit(maxlags=15, ic='aic')
 
 Forecasting
 ~~~~~~~~~~~
@@ -200,20 +150,57 @@ mean-squared error:
 We can use the `forecast` function to produce this forecast. Note that we have
 to specify the "initial value" for the forecast:
 
-::
+.. ipython:: python
 
-    >>> results.forecast(data[lag_order:], 5)
-    array([[ 0.00503,  0.00537,  0.00512],
-           [ 0.00594,  0.00785, -0.00302],
-           [ 0.00663,  0.00764,  0.00393],
-           [ 0.00732,  0.00797,  0.00657],
-           [ 0.00733,  0.00809,  0.0065 ]])
+   lag_order = results.k_ar
+   results.forecast(data.values[-lag_order:], 5)
 
 The `forecast_interval` function will produce the above forecast along with
 asymptotic standard errors. These can be visualized using the `plot_forecast`
 function:
 
-.. plot:: plots/var_plot_forecast.py
+.. ipython:: python
+
+   @savefig var_forecast.png
+   results.plot_forecast(10)
+
+Class Reference
+~~~~~~~~~~~~~~~
+
+.. module:: statsmodels.tsa.vector_ar
+   :synopsis: Vector autoregressions and related tools
+
+.. currentmodule:: statsmodels.tsa.vector_ar.var_model
+
+
+.. autosummary::
+   :toctree: generated/
+
+   VAR
+   VARProcess
+   VARResults
+
+
+Post-estimation Analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several process properties and additional results after
+estimation are available for vector autoregressive processes.
+
+.. currentmodule:: statsmodels.tsa.vector_ar.var_model
+.. autosummary::
+   :toctree: generated/
+
+   LagOrderResults
+
+.. currentmodule:: statsmodels.tsa.vector_ar.hypothesis_test_results
+.. autosummary::
+   :toctree: generated/
+
+   HypothesisTestResults
+   NormalityTestResults
+   WhitenessTestResults
+
 
 Impulse Response Analysis
 -------------------------
@@ -229,9 +216,10 @@ in practice using the MA(:math:`\infty`) representation of the VAR(p) process:
 We can perform an impulse response analysis by calling the `irf` function on a
 `VARResults` object:
 
-::
+.. ipython:: python
+   :okwarning:
 
-    >>> irf = results.irf(10)
+   irf = results.irf(10)
 
 These can be visualized using the `plot` function, in either orthogonalized or
 non-orthogonalized form. Asymptotic standard errors are plotted by default at
@@ -243,27 +231,34 @@ the 95% significance level, which can be modified by the user.
     error covariance matrix :math:`\hat \Sigma_u` and hence interpretations may
     change depending on variable ordering.
 
-::
+.. ipython:: python
 
-    >>> irf.plot(orth=False)
+   @savefig var_irf.png
+   irf.plot(orth=False)
 
-.. plot:: plots/var_plot_irf.py
 
 Note the `plot` function is flexible and can plot only variables of interest if
 so desired:
 
-::
+.. ipython:: python
 
-    >>> irf.plot(impulse='realgdp')
+   @savefig var_realgdp.png
+   irf.plot(impulse='realgdp')
 
 The cumulative effects :math:`\Psi_n = \sum_{i=0}^n \Phi_i` can be plotted with
 the long run effects as follows:
 
-::
+.. ipython:: python
 
-    >>> irf.plot_cum_effects(orth=False)
+   @savefig var_irf_cum.png
+   irf.plot_cum_effects(orth=False)
 
-.. plot:: plots/var_plot_irf_cum.py
+
+.. currentmodule:: statsmodels.tsa.vector_ar.irf
+.. autosummary::
+   :toctree: generated/
+
+   IRAnalysis
 
 Forecast Error Variance Decomposition (FEVD)
 --------------------------------------------
@@ -279,42 +274,24 @@ decomposed using the orthogonalized impulse responses :math:`\Theta_i`:
 
 These are computed via the `fevd` function up through a total number of steps ahead:
 
-::
+.. ipython:: python
 
-    >>> fevd = results.fevd(5)
-
-    >>> fevd.summary()
-    FEVD for realgdp
-          realgdp  realcons   realinv
-    0    1.000000  0.000000  0.000000
-    1    0.863082  0.130030  0.006888
-    2    0.816610  0.176750  0.006639
-    3    0.808872  0.181086  0.010042
-    4    0.803461  0.185049  0.011490
-
-    FEVD for realcons
-          realgdp  realcons   realinv
-    0    0.363990  0.636010  0.000000
-    1    0.369771  0.623928  0.006301
-    2    0.367706  0.616831  0.015463
-    3    0.367450  0.615517  0.017033
-    4    0.367197  0.614903  0.017901
-
-    FEVD for realinv
-          realgdp  realcons   realinv
-    0    0.563584  0.161984  0.274432
-    1    0.471910  0.307875  0.220215
-    2    0.463240  0.328467  0.208292
-    3    0.462148  0.328914  0.208938
-    4    0.461211  0.330359  0.208430
+   fevd = results.fevd(5)
+   fevd.summary()
 
 They can also be visualized through the returned :class:`FEVD` object:
 
-::
+.. ipython:: python
 
-    >>> results.fevd(20).plot()
+   @savefig var_fevd.png
+   results.fevd(20).plot()
 
-.. plot:: plots/var_plot_fevd.py
+
+.. currentmodule:: statsmodels.tsa.vector_ar.var_model
+.. autosummary::
+   :toctree: generated/
+
+   FEVD
 
 Statistical tests
 -----------------
@@ -334,132 +311,143 @@ causality, but leave it to the reader. The :class:`VARResults` object has the
 `test_causality` method for performing either a Wald (:math:`\chi^2`) test or an
 F-test.
 
-::
+.. ipython:: python
 
-    >>> est.test_causality('realgdp', ['realinv', 'realcons'], kind='f')
-    Granger causality f-test
-    =============================================================
-       Test statistic   Critical Value          p-value        df
-    -------------------------------------------------------------
-             9.904841         2.387325            0.000  (4, 579)
-    =============================================================
-    H_0: ['realinv', 'realcons'] do not Granger-cause realgdp
-    Conclusion: reject H_0 at 5.00% significance level
-
-    {'conclusion': 'reject',
-     'crit_value': 2.3873247573799259,
-     'df': (4, 579),
-     'pvalue': 9.3171720876318303e-08,
-     'signif': 0.050000000000000003,
-     'statistic': 9.9048411456983949}
+   results.test_causality('realgdp', ['realinv', 'realcons'], kind='f')
 
 Normality
 ~~~~~~~~~
 
+As pointed out in the beginning of this document, the white noise component
+:math:`u_t` is assumed to be normally distributed. While this assumption
+is not required for parameter estimates to be consistent or asymptotically
+normal, results are generally more reliable in finite samples when residuals
+are Gaussian white noise. To test whether this assumption is consistent with
+a data set, :class:`VARResults` offers the `test_normality` method.
+
+.. ipython:: python
+
+    results.test_normality()
+
 Whiteness of residuals
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Dynamic Vector Autoregressions
-------------------------------
+To test the whiteness of the estimation residuals (this means absence of
+significant residual autocorrelations) one can use the `test_whiteness`
+method of :class:`VARResults`.
 
-.. note::
 
-    To use this functionality, `pandas <http://pypi.python.org/pypi/pandas>`__
-    must be installed. See the `pandas documentation
-    <http://pandas.sourceforge.net>`__ for more information on the below data
-    structures.
+.. currentmodule:: statsmodels.tsa.vector_ar.hypothesis_test_results
+.. autosummary::
+   :toctree: generated/
 
-One is often interested in estimating a moving-window regression on time series
-data for the purposes of making forecasts throughout the data sample. For
-example, we may wish to produce the series of 2-step-ahead forecasts produced by
-a VAR(p) model estimated at each point in time.
+   HypothesisTestResults
+   CausalityTestResults
+   NormalityTestResults
+   WhitenessTestResults
 
-::
+.. _svar:
 
-    >>> data
-    <class 'pandas.core.frame.DataFrame'>
-    Index: 500 entries , 2000-01-03 00:00:00 to 2001-11-30 00:00:00
-    A    500  non-null values
-    B    500  non-null values
-    C    500  non-null values
-    D    500  non-null values
+Structural Vector Autoregressions
+---------------------------------
 
-    >>> var = DynamicVAR(data, lag_order=2, window_type='expanding')
+There are a matching set of classes that handle some types of Structural VAR models.
 
-The estimated coefficients for the dynamic model are returned as a
-:class:`pandas.WidePanel` object, which can allow you to easily examine, for
-example, all of the model coefficients by equation or by date:
+.. module:: statsmodels.tsa.vector_ar.svar_model
+   :synopsis: Structural vector autoregressions and related tools
 
-::
-
-    >>> var.coefs
-    <class 'pandas.core.panel.WidePanel'>
-    Dimensions: 9 (items) x 489 (major) x 4 (minor)
-    Items: L1.A to intercept
-    Major axis: 2000-01-18 00:00:00 to 2001-11-30 00:00:00
-    Minor axis: A to D
-
-    # all estimated coefficients for equation A
-    >>> var.coefs.minor_xs('A').info()
-    Index: 489 entries , 2000-01-18 00:00:00 to 2001-11-30 00:00:00
-    Data columns:
-    L1.A         489  non-null values
-    L1.B         489  non-null values
-    L1.C         489  non-null values
-    L1.D         489  non-null values
-    L2.A         489  non-null values
-    L2.B         489  non-null values
-    L2.C         489  non-null values
-    L2.D         489  non-null values
-    intercept    489  non-null values
-    dtype: float64(9)
-
-    # coefficients on 11/30/2001
-    >>> var.coefs.major_xs(datetime(2001, 11, 30)).T
-                 A              B              C              D
-    L1.A         0.9567         -0.07389       0.0588         -0.02848
-    L1.B         -0.00839       0.9757         -0.004945      0.005938
-    L1.C         -0.01824       0.1214         0.8875         0.01431
-    L1.D         0.09964        0.02951        0.05275        1.037
-    L2.A         0.02481        0.07542        -0.04409       0.06073
-    L2.B         0.006359       0.01413        0.02667        0.004795
-    L2.C         0.02207        -0.1087        0.08282        -0.01921
-    L2.D         -0.08795       -0.04297       -0.06505       -0.06814
-    intercept    0.07778        -0.283         -0.1009        -0.6426
-
-Dynamic forecasts for a given number of steps ahead can be produced using the
-`forecast` function and return a :class:`pandas.DataMatrix` object:
-
-::
-
-    >>> In [76]: var.forecast(2)
-                           A              B              C              D
-    <snip>
-    2001-11-23 00:00:00    -6.661         43.18          33.43          -23.71
-    2001-11-26 00:00:00    -5.942         43.58          34.04          -22.13
-    2001-11-27 00:00:00    -6.666         43.64          33.99          -22.85
-    2001-11-28 00:00:00    -6.521         44.2           35.34          -24.29
-    2001-11-29 00:00:00    -6.432         43.92          34.85          -26.68
-    2001-11-30 00:00:00    -5.445         41.98          34.87          -25.94
-
-The forecasts can be visualized using `plot_forecast`:
-
-::
-
-    >>> var.plot_forecast(2)
-
-Class Reference
----------------
-
-.. currentmodule:: statsmodels.tsa.vector_ar
+.. currentmodule:: statsmodels.tsa.vector_ar.svar_model
 
 .. autosummary::
    :toctree: generated/
 
-   var_model.VAR
-   var_model.VARProcess
-   var_model.VARResults
-   irf.IRAnalysis
-   var_model.FEVD
-   dynamic.DynamicVAR
+   SVAR
+   SVARProcess
+   SVARResults
 
+.. _vecm:
+
+Vector Error Correction Models (VECM)
+-------------------------------------
+
+Vector Error Correction Models are used to study short-run deviations from
+one or more permanent stochastic trends (unit roots). A VECM models the
+difference of a vector of time series by imposing structure that is implied
+by the assumed number of stochastic trends. :class:`VECM` is used to
+specify and estimate these models.
+
+A VECM(:math:`k_{ar}-1`) has the following form
+
+.. math::
+
+    \Delta y_t = \Pi y_{t-1} + \Gamma_1 \Delta y_{t-1} + \ldots
+                   + \Gamma_{k_{ar}-1} \Delta y_{t-k_{ar}+1} + u_t
+
+where
+
+.. math::
+
+    \Pi = \alpha \beta'
+
+as described in chapter 7 of [1]_.
+
+A VECM(:math:`k_{ar} - 1`) with deterministic terms has the form
+
+.. math::
+
+   \Delta y_t = \alpha \begin{pmatrix}\beta' & \eta'\end{pmatrix} \begin{pmatrix}y_{t-1} \\
+                D^{co}_{t-1}\end{pmatrix} + \Gamma_1 \Delta y_{t-1} + \dots + \Gamma_{k_{ar}-1} \Delta y_{t-k_{ar}+1} + C D_t + u_t.
+
+In :math:`D^{co}_{t-1}` we have the deterministic terms which are inside
+the cointegration relation (or restricted to the cointegration relation).
+:math:`\eta` is the corresponding estimator. To pass a deterministic term
+inside the cointegration relation, we can use the `exog_coint` argument.
+For the two special cases of an intercept and a linear trend there exists
+a simpler way to declare these terms: we can pass ``"ci"`` and ``"li"``
+respectively to the `deterministic` argument. So for an intercept inside
+the cointegration relation we can either pass ``"ci"`` as `deterministic`
+or `np.ones(len(data))` as `exog_coint` if `data` is passed as the
+`endog` argument. This ensures that :math:`D_{t-1}^{co} = 1` for all
+:math:`t`.
+
+We can also use deterministic terms outside the cointegration relation.
+These are defined in :math:`D_t` in the formula above with the
+corresponding estimators in the matrix :math:`C`. We specify such terms by
+passing them to the `exog` argument. For an intercept and/or linear trend
+we again have the possibility to use `deterministic` alternatively. For
+an intercept we pass ``"co"`` and for a linear trend we pass ``"lo"`` where
+the `o` stands for `outside`.
+
+The following table shows the five cases considered in [2]_. The last
+column indicates which string to pass to the `deterministic` argument for
+each of these cases.
+
+====  ===============================  ===================================  =============
+Case  Intercept                        Slope of the linear trend            `deterministic`
+====  ===============================  ===================================  =============
+I     0                                0                                    ``"nc"``
+II    :math:`- \alpha \beta^T \mu`     0                                    ``"ci"``
+III   :math:`\neq 0`                   0                                    ``"co"``
+IV    :math:`\neq 0`                   :math:`- \alpha \beta^T \gamma`      ``"coli"``
+V     :math:`\neq 0`                   :math:`\neq 0`                       ``"colo"``
+====  ===============================  ===================================  =============
+
+.. currentmodule:: statsmodels.tsa.vector_ar.vecm
+.. autosummary::
+   :toctree: generated/
+
+   VECM
+   coint_johansen
+   JohansenTestResult
+   select_order
+   select_coint_rank
+   VECMResults
+   CointRankResults
+
+
+References
+----------
+.. [1] Lütkepohl, H. 2005. *New Introduction to Multiple Time Series Analysis*. Springer.
+
+.. [2] Johansen, S. 1995. *Likelihood-Based Inference in Cointegrated *
+       *Vector Autoregressive Models*. Oxford University Press.

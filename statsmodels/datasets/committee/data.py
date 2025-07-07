@@ -1,4 +1,5 @@
 """First 100 days of the US House of Representatives 1995"""
+from statsmodels.datasets import utils as du
 
 __docformat__ = 'restructuredtext'
 
@@ -26,46 +27,43 @@ the number of subcommittees and the log of the staff size.
 The data returned by load are not cleaned to represent the above example.
 """
 
-NOTE = """Number of Observations - 20
+NOTE = """::
 
-Number of Variables - 6
+    Number of Observations - 20
+    Number of Variables - 6
+    Variable name definitions::
 
-Variable name definitions::
+        BILLS104 - Number of bill assignments in the first 100 days of the
+                   104th House of Representatives.
+        SIZE     - Number of members on the committee.
+        SUBS     - Number of subcommittees.
+        STAFF    - Number of staff members assigned to the committee.
+        PRESTIGE - PRESTIGE == 1 is a high prestige committee.
+        BILLS103 - Number of bill assignments in the first 100 days of the
+                   103rd House of Representatives.
 
-    BILLS104 - Number of bill assignments in the first 100 days of the 104th
-               House of Representatives.
-    SIZE     - Number of members on the committee.
-    SUBS     - Number of subcommittees.
-    STAFF    - Number of staff members assigned to the committee.
-    PRESTIGE - PRESTIGE == 1 is a high prestige committee.
-    BILLS103 - Number of bill assignments in the first 100 days of the 103rd
-               House of Representatives.
-
-Committee names are included as a variable in the data file though not
-returned by load.
+    Committee names are included as a variable in the data file though not
+    returned by load.
 """
 
-from numpy import recfromtxt, column_stack, array
-import statsmodels.tools.datautils as du
-from os.path import dirname, abspath
+
+def load_pandas():
+    data = _get_data()
+    return du.process_pandas(data, endog_idx=0)
+
 
 def load():
     """Load the committee data and returns a data class.
 
     Returns
-    --------
-    Dataset instance:
+    -------
+    Dataset
         See DATASET_PROPOSAL.txt for more information.
     """
-    data = _get_data()
-    return du.process_recarray(data, endog_idx=0, dtype=float)
+    return load_pandas()
 
-def load_pandas():
-    data = _get_data()
-    return du.process_recarray_pandas(data, endog_idx=0, dtype=float)
 
 def _get_data():
-    filepath = dirname(abspath(__file__))
-    data = recfromtxt(open(filepath + '/committee.csv', 'rb'), delimiter=",",
-            names=True, dtype=float, usecols=(1,2,3,4,5,6))
+    data = du.load_csv(__file__, 'committee.csv')
+    data = data.iloc[:, 1:7].astype(float)
     return data
