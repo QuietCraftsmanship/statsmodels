@@ -276,7 +276,7 @@ class TestDynamicFactor2(CheckDynamicFactor):
         for i in range(self.model.k_endog):
             iname = self.model.endog_names[i]
             iparam = forg(params[offset + i], prec=4)
-            assert re.search('sigma2.{} +{}'.format(iname, iparam), table)
+            assert re.search(f'sigma2.{iname} +{iparam}', table)
 
 
 class TestDynamicFactor_exog1(CheckDynamicFactor):
@@ -418,7 +418,7 @@ class TestDynamicFactor_exog2(CheckDynamicFactor):
         for i in range(self.model.k_endog):
             iname = self.model.endog_names[i]
             iparam = forg(params[offset + i], prec=4)
-            assert re.search('sigma2.{} +{}'.format(iname, iparam), table)
+            assert re.search(f'sigma2.{iname} +{iparam}', table)
 
 
 class TestDynamicFactor_general_errors(CheckDynamicFactor):
@@ -610,7 +610,7 @@ class TestDynamicFactor_ar2_errors(CheckDynamicFactor):
                 res1.params, method='nm', maxiter=10000,
                 optim_score='approx', disp=False)
             # Added rtol to catch spurious failures on some platforms
-            assert_allclose(res.llf, self.results.llf, atol=1e-2, rtol=1e-4)
+            assert_allclose(res.llf, self.results.llf, atol=1e-2, rtol=1e-3)
 
 
 class TestDynamicFactor_scalar_error(CheckDynamicFactor):

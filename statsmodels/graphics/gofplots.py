@@ -184,9 +184,7 @@ class ProbPlot:
         self.fit = fit
 
         self._is_frozen = isinstance(dist, stats.distributions.rv_frozen)
-        if self._is_frozen and (
-            fit or loc != 0 or scale != 1 or distargs != ()
-        ):
+        if self._is_frozen and (fit or loc != 0 or scale != 1 or distargs != ()):
             raise ValueError(
                 "Frozen distributions cannot be combined with fit, loc, scale"
                 " or distargs."
@@ -269,7 +267,7 @@ class ProbPlot:
     @cache_readonly
     def sorted_data(self):
         """sorted data"""
-        sorted_data = np.array(self.data, copy=True)
+        sorted_data = np.sort(np.array(self.data))
         sorted_data.sort()
         return sorted_data
 
@@ -287,9 +285,7 @@ class ProbPlot:
         _check_for(self.dist, "cdf")
         if self._is_frozen:
             return self.dist.cdf(self.sorted_data)
-        quantiles = (self.sorted_data - self.fit_params[-2]) / self.fit_params[
-            -1
-        ]
+        quantiles = (self.sorted_data - self.fit_params[-2]) / self.fit_params[-1]
         return self.dist.cdf(quantiles)
 
     def ppplot(
@@ -352,9 +348,7 @@ class ProbPlot:
             p_x = self.theoretical_percentiles
             ecdf_x = ECDF(other.sample_quantiles)(self.sample_quantiles)
 
-            fig, ax = _do_plot(
-                p_x, ecdf_x, self.dist, ax=ax, line=line, **plotkwargs
-            )
+            fig, ax = _do_plot(p_x, ecdf_x, self.dist, ax=ax, line=line, **plotkwargs)
 
             if xlabel is None:
                 xlabel = "Probabilities of 2nd Sample"
@@ -690,9 +684,7 @@ def qqplot(
     return fig
 
 
-def qqplot_2samples(
-    data1, data2, xlabel=None, ylabel=None, line=None, ax=None
-):
+def qqplot_2samples(data1, data2, xlabel=None, ylabel=None, line=None, ax=None, **kwargs):
     """
     Q-Q Plot of two samples' quantiles.
 
@@ -730,6 +722,8 @@ def qqplot_2samples(
     ax : AxesSubplot, optional
         If given, this subplot is used to plot in instead of a new figure being
         created.
+    **kwargs
+        Additional keyword arguments to be passed to the underlying plot function.
 
     Returns
     -------
@@ -773,9 +767,7 @@ def qqplot_2samples(
     if not isinstance(data2, ProbPlot):
         data2 = ProbPlot(data2)
     if data2.data.shape[0] > data1.data.shape[0]:
-        fig = data1.qqplot(
-            xlabel=ylabel, ylabel=xlabel, line=line, other=data2, ax=ax
-        )
+        fig = data1.qqplot(xlabel=xlabel, ylabel=ylabel, line=line, other=data2, ax=ax, **kwargs)
     else:
         fig = data2.qqplot(
             xlabel=ylabel,
@@ -784,6 +776,7 @@ def qqplot_2samples(
             other=data1,
             ax=ax,
             swap=True,
+            **kwargs
         )
 
     return fig
@@ -992,9 +985,7 @@ def _fmt_probplot_axis(ax, dist, nobs):
     ax.set_xlim([axis_qntls.min(), axis_qntls.max()])
 
 
-def _do_plot(
-    x, y, dist=None, line=None, ax=None, fmt="b", step=False, **kwargs
-):
+def _do_plot(x, y, dist=None, line=None, ax=None, fmt="b", step=False, **kwargs):
     """
     Boiler plate plotting function for the `ppplot`, `qqplot`, and
     `probplot` methods of the `ProbPlot` class

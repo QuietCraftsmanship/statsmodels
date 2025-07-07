@@ -22,9 +22,8 @@ Idea for second part
 
 
 
-from numpy.testing import assert_equal
-
 import numpy as np
+from numpy.testing import assert_equal
 
 #next 3 functions copied from multicomp.py
 
@@ -96,7 +95,7 @@ def contrast_labels(contrasts, names, reverse=False):
         sl = slice(None, None, -1)
     else:
         sl = slice(None)
-    labels = [''.join(['{}{}'.format(signstr(c, noplus=True),v)
+    labels = [''.join([f'{signstr(c, noplus=True)}{v}'
                           for c,v in zip(row, names)[sl] if c != 0])
                              for row in contrasts]
     return labels
@@ -126,7 +125,7 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
 
     n1 = len(names1)
     n2 = len(names2)
-    names_prod = ['{}_{}'.format(i,j) for i in names1 for j in names2]
+    names_prod = [f'{i}_{j}' for i in names1 for j in names2]
     ee1 = np.zeros((1,n1))
     ee1[0,0] = 1
     if not pairs:
@@ -135,8 +134,8 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
         dd = np.r_[ee1, -contrast_allpairs(n1)]
 
     contrast_prod = np.kron(dd[1:], np.eye(n2))
-    names_contrast_prod0 = contrast_labels(contrast_prod, names_prod, reverse=True)
-    names_contrast_prod = [''.join(['{}{}'.format(signstr(c, noplus=True),v)
+    contrast_labels(contrast_prod, names_prod, reverse=True)
+    names_contrast_prod = [''.join([f'{signstr(c, noplus=True)}{v}'
                               for c,v in zip(row, names_prod)[::-1] if c != 0])
                                  for row in contrast_prod]
 
@@ -149,7 +148,7 @@ def contrast_product(names1, names2, intgroup1=None, intgroup2=None, pairs=False
         dd2 = np.r_[ee2, -contrast_allpairs(n2)]
 
     contrast_prod2 = np.kron(np.eye(n1), dd2[1:])
-    names_contrast_prod2 = [''.join(['{}{}'.format(signstr(c, noplus=True),v)
+    names_contrast_prod2 = [''.join([f'{signstr(c, noplus=True)}{v}'
                               for c,v in zip(row, names_prod)[::-1] if c != 0])
                                  for row in contrast_prod2]
 
@@ -338,11 +337,9 @@ def dummy_nested(d1, d2, method='full'):
 
 
     if method == 'drop-last':
-        d12rl = dummy_product(d1[:,:-1], d2[:,:-1])
         dd = np.column_stack((np.ones(d1.shape[0], int), d1[:,:-1], d2[:,col_dropl]))
         #Note: dtype int should preserve dtype of d1 and d2
     elif method == 'drop-first':
-        d12r = dummy_product(d1[:,1:], d2[:,1:])
         dd = np.column_stack((np.ones(d1.shape[0], int), d1[:,1:], d2[:,col_dropf]))
     else:
         raise ValueError('method not recognized')

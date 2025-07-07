@@ -5,10 +5,10 @@ python -m pip install -e .
 pytest --cov=statsmodels statsmodels
 coverage html
 """
+
 from setuptools import Command, Extension, find_packages, setup
 from setuptools.dist import Distribution
 
-from packaging.version import parse
 from collections import defaultdict
 import fnmatch
 import inspect
@@ -18,8 +18,8 @@ from pathlib import Path
 import shutil
 import sys
 
-SETUP_DIR = Path(__file__).parent.resolve()
-
+import numpy as np
+from packaging.version import parse
 
 try:
     # SM_FORCE_C is a testing shim to force setup to use C source files
@@ -33,16 +33,11 @@ try:
     HAS_CYTHON = True
     CYTHON_3 = parse(cython_version) >= parse("3.0")
 except ImportError:
-    from setuptools.command.build_ext import build_ext
+    from setuptools.command.build_ext import build_ext  # noqa: F401
 
     HAS_CYTHON = CYTHON_3 = False
 
-try:
-    import numpy  # noqa: F401
-
-    HAS_NUMPY = True
-except ImportError:
-    HAS_NUMPY = False
+SETUP_DIR = Path(__file__).parent.resolve()
 
 ###############################################################################
 # Key Values that Change Each Release
@@ -59,7 +54,7 @@ with open("requirements-dev.txt", encoding="utf-8") as req:
     for line in req.readlines():
         DEVELOP_REQUIRES.append(line.split("#")[0].strip())
 
-CYTHON_MIN_VER = "0.29.33"  # released January 2023
+CYTHON_MIN_VER = "3.0.10"  # released January 2023
 
 EXTRAS_REQUIRE = {
     "build": ["cython>=" + CYTHON_MIN_VER],
@@ -83,6 +78,192 @@ DISTNAME = "statsmodels"
 DESCRIPTION = "Statistical computations and models for Python"
 README = SETUP_DIR.joinpath("README.rst").read_text()
 LONG_DESCRIPTION = README
+
+MAINTAINER = 'Josef Perktold, Chad Fulton, Kerby Shedden'
+MAINTAINER_EMAIL ='pystatsmodels@googlegroups.com'
+URL = 'http://www.statsmodels.org/'
+LICENSE = 'BSD License'
+DOWNLOAD_URL = ''
+
+# These imports need to be here; setuptools needs to be imported first.
+from distutils.extension import Extension
+from distutils.command.build import build
+from distutils.command.build_ext import build_ext as _build_ext
+
+
+class build_ext(_build_ext):
+    def build_extensions(self):
+        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+
+        for ext in self.extensions:
+            if (hasattr(ext, 'include_dirs') and
+                    not numpy_incl in ext.include_dirs):
+                ext.include_dirs.append(numpy_incl)
+        _build_ext.build_extensions(self)
+
+
+def generate_cython():
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    print("Cythonizing sources")
+    p = subprocess.call([sys.executable,
+                          os.path.join(cwd, 'tools', 'cythonize.py'),
+                          'statsmodels'],
+                         cwd=cwd)
+    if p != 0:
+        raise RuntimeError("Running cythonize failed!")
+
+
+def init_cython_exclusion(filename):
+    with open(filename, 'w') as f:
+        pass
+
+
+def append_cython_exclusion(path, filename):
+    with open(filename, 'a') as f:
+        f.write(path + "\n")
+
+
+def strip_rc(version):
+    return re.sub(r"rc\d+$", "", version)
+
+
+def check_dependency_versions(min_versions):
+    """
+    Don't let pip/setuptools do this all by itself.  It's rude.
+
+    For all dependencies, try to import them and check if the versions of
+    installed dependencies match the minimum version requirements.  If
+    installed but version too low, raise an error.  If not installed at all,
+    return the correct ``setup_requires`` and ``install_requires`` arguments to
+    be added to the setuptools kwargs.  This prevents upgrading installed
+    dependencies like numpy (that should be an explicit choice by the user and
+    never happen automatically), but make things work when installing into an
+    empty virtualenv for example.
+
+    """
+    setup_requires = []
+    install_requires = []
+
+    try:
+        from numpy.version import short_version as npversion
+    except ImportError:
+        setup_requires.append('numpy')
+        install_requires.append('numpy')
+    else:
+        if not (LooseVersion(npversion) >= min_versions['numpy']):
+            raise ImportError("Numpy version is %s. Requires >= %s" %
+                              (npversion, min_versions['numpy']))
+
+    try:
+        import scipy
+    except ImportError:
+        install_requires.append('scipy')
+    else:
+        try:
+            from scipy.version import short_version as spversion
+        except ImportError:
+            from scipy.version import version as spversion  # scipy 0.7.0
+        if not (LooseVersion(spversion) >= min_versions['scipy']):
+            raise ImportError("Scipy version is %s. Requires >= %s" %
+                              (spversion, min_versions['scipy']))
+
+    try:
+        from pandas import __version__ as pversion
+    except ImportError:
+        install_requires.append('pandas')
+    else:
+        if not (LooseVersion(pversion) >= min_versions['pandas']):
+            ImportError("Pandas version is %s. Requires >= %s" %
+                        (pversion, min_versions['pandas']))
+
+    try:
+        from patsy import __version__ as patsy_version
+    except ImportError:
+        install_requires.append('patsy')
+    else:
+        # patsy dev looks like 0.1.0+dev
+        pversion = re.match("\d*\.\d*\.\d*", patsy_version).group()
+        if not (LooseVersion(pversion) >= min_versions['patsy']):
+            raise ImportError("Patsy version is %s. Requires >= %s" %
+                              (pversion, min_versions["patsy"]))
+
+    return setup_requires, install_requires
+
+
+MAJ = 0
+MIN = 9
+REV = 0
+ISRELEASED = True
+VERSION = '%d.%d.%d' % (MAJ,MIN,REV)
+
+classifiers = ['Development Status :: 4 - Beta',
+               'Environment :: Console',
+               'Programming Language :: Cython',
+               'Programming Language :: Python :: 2.7',
+               'Programming Language :: Python :: 3.3',
+               'Programming Language :: Python :: 3.4',
+               'Programming Language :: Python :: 3.5',
+               'Programming Language :: Python :: 3.6',
+               'Operating System :: OS Independent',
+               'Intended Audience :: End Users/Desktop',
+               'Intended Audience :: Developers',
+               'Intended Audience :: Science/Research',
+               'Natural Language :: English',
+               'License :: OSI Approved :: BSD License',
+               'Topic :: Office/Business :: Financial',
+               'Topic :: Scientific/Engineering']
+
+# Return the git revision as a string
+def git_version():
+    def _minimal_ext_cmd(cmd):
+        # construct minimal environment
+        env = {}
+        for k in ['SYSTEMROOT', 'PATH']:
+            v = os.environ.get(k)
+            if v is not None:
+                env[k] = v
+        # LANGUAGE is used on win32
+        env['LANGUAGE'] = 'C'
+        env['LANG'] = 'C'
+        env['LC_ALL'] = 'C'
+        out = subprocess.Popen(" ".join(cmd), stdout = subprocess.PIPE, env=env,
+                               shell=True).communicate()[0]
+        return out
+
+    try:
+        out = _minimal_ext_cmd(['git', 'rev-parse', 'HEAD'])
+        GIT_REVISION = out.strip().decode('ascii')
+    except OSError:
+        GIT_REVISION = "Unknown"
+
+    return GIT_REVISION
+
+def write_version_py(filename=pjoin(curdir, 'statsmodels/version.py')):
+    cnt = "\n".join(["",
+                    "# THIS FILE IS GENERATED FROM SETUP.PY",
+                    "short_version = '%(version)s'",
+                    "version = '%(version)s'",
+                    "full_version = '%(full_version)s'",
+                    "git_revision = '%(git_revision)s'",
+                    "release = %(isrelease)s", "",
+                    "if not release:",
+                    "    version = full_version"])
+    # Adding the git rev number needs to be done inside write_version_py(),
+    # otherwise the import of numpy.version messes up the build under Python 3.
+    FULLVERSION = VERSION
+    dowrite = True
+    if os.path.exists('.git'):
+        GIT_REVISION = git_version()
+    elif os.path.exists(filename):
+        # must be a source distribution, use existing version file
+        try:
+            from statsmodels.version import git_revision as GIT_REVISION
+        except ImportError:
+            dowrite = False
+            GIT_REVISION = "Unknown"
+    else:
+        GIT_REVISION = "Unknown"
+
 MAINTAINER = "statsmodels Developers"
 MAINTAINER_EMAIL = "pystatsmodels@googlegroups.com"
 URL = "https://www.statsmodels.org/"
@@ -179,6 +360,7 @@ exts = dict(
     },  # noqa: E501
 )
 
+
 statespace_exts = [
     "statsmodels/tsa/statespace/_initialization.pyx.in",
     "statsmodels/tsa/statespace/_representation.pyx.in",
@@ -222,44 +404,7 @@ Use one of:
         sys.exit(1)
 
 
-def update_extension(extension, requires_math=True):
-    import numpy as np
-
-    numpy_includes = [np.get_include()]
-    extra_incl = pjoin(dirname(inspect.getfile(np.core)), "include")
-    numpy_includes += [extra_incl]
-    numpy_includes = list(set(numpy_includes))
-    numpy_math_libs = {
-        "include_dirs": [np.get_include()],
-        "library_dirs": [os.path.join(np.get_include(), '..', 'lib')],
-        "libraries": ["npymath"]
-    }
-
-    if not hasattr(extension, "include_dirs"):
-        return
-    extension.include_dirs = list(set(extension.include_dirs + numpy_includes))
-    if requires_math:
-        extension.include_dirs += numpy_math_libs["include_dirs"]
-        extension.libraries += numpy_math_libs["libraries"]
-        extension.library_dirs += numpy_math_libs["library_dirs"]
-
-
-class DeferredBuildExt(build_ext):
-    """build_ext command for use when numpy headers are needed."""
-
-    def build_extensions(self):
-        self._update_extensions()
-        build_ext.build_extensions(self)
-
-    def _update_extensions(self):
-        for extension in self.extensions:
-            requires_math = extension.name in EXT_REQUIRES_NUMPY_MATH_LIBS
-            update_extension(extension, requires_math=requires_math)
-
-
 cmdclass = {"clean": CleanCommand}
-if not HAS_NUMPY:
-    cmdclass["build_ext"] = DeferredBuildExt
 
 
 def check_source(source_name):
@@ -299,10 +444,18 @@ def process_tempita(source_name):
     return source_name
 
 
-EXT_REQUIRES_NUMPY_MATH_LIBS = []
+NUMPY_INCLUDES = sorted(
+    {np.get_include(), pjoin(dirname(inspect.getfile(np.core)), "include")}
+)
+NUMPY_MATH_LIBS = {
+    "include_dirs": [np.get_include()],
+    "library_dirs": [os.path.join(np.get_include(), "..", "lib")],
+    "libraries": ["npymath"],
+}
+
+
 extensions = []
 for config in exts.values():
-    uses_blas = True
     source, ext = check_source(config["source"])
     source = process_tempita(source)
     name = source.replace("/", ".").replace(ext, "")
@@ -310,10 +463,11 @@ for config in exts.values():
     depends = config.get("depends", [])
     libraries = config.get("libraries", [])
     library_dirs = config.get("library_dirs", [])
-
     uses_numpy_libraries = config.get("numpy_libraries", False)
-    if uses_blas or uses_numpy_libraries:
-        EXT_REQUIRES_NUMPY_MATH_LIBS.append(name)
+
+    include_dirs = sorted(set(include_dirs + NUMPY_MATH_LIBS["include_dirs"]))
+    libraries = sorted(set(libraries + NUMPY_MATH_LIBS["libraries"]))
+    library_dirs = sorted(set(library_dirs + NUMPY_MATH_LIBS["library_dirs"]))
 
     ext = Extension(
         name,
@@ -331,31 +485,24 @@ for source in statespace_exts:
     source = process_tempita(source)
     name = source.replace("/", ".").replace(ext, "")
 
-    EXT_REQUIRES_NUMPY_MATH_LIBS.append(name)
     ext = Extension(
         name,
         [source],
-        include_dirs=["statsmodels/src"],
+        include_dirs=["statsmodels/src"] + NUMPY_MATH_LIBS["include_dirs"],
         depends=[],
-        libraries=[],
-        library_dirs=[],
+        libraries=NUMPY_MATH_LIBS["libraries"],
+        library_dirs=NUMPY_MATH_LIBS["library_dirs"],
         define_macros=DEFINE_MACROS,
     )
     extensions.append(ext)
 
-if HAS_NUMPY:
-    for extension in extensions:
-        requires_math = extension.name in EXT_REQUIRES_NUMPY_MATH_LIBS
-        update_extension(extension, requires_math=requires_math)
-if HAS_CYTHON:
-    if CYTHON_3:
-        COMPILER_DIRECTIVES["cpow"] = True
-    extensions = cythonize(
-        extensions,
-        compiler_directives=COMPILER_DIRECTIVES,
-        language_level=3,
-        force=CYTHON_COVERAGE,
-    )
+COMPILER_DIRECTIVES["cpow"] = True
+extensions = cythonize(
+    extensions,
+    compiler_directives=COMPILER_DIRECTIVES,
+    language_level=3,
+    force=CYTHON_COVERAGE,
+)
 
 ##############################################################################
 # Construct package data
@@ -387,29 +534,30 @@ class BinaryDistribution(Distribution):
         return False
 
 
-setup(
-    name=DISTNAME,
-    maintainer=MAINTAINER,
-    ext_modules=extensions,
-    maintainer_email=MAINTAINER_EMAIL,
-    description=DESCRIPTION,
-    license=LICENSE,
-    url=URL,
-    download_url=DOWNLOAD_URL,
-    project_urls=PROJECT_URLS,
-    long_description=LONG_DESCRIPTION,
-    classifiers=CLASSIFIERS,
-    platforms="any",
-    cmdclass=cmdclass,
-    packages=find_packages(),
-    package_data=package_data,
-    distclass=BinaryDistribution,
-    include_package_data=False,  # True will install all files in repo
-    install_requires=INSTALL_REQUIRES,
-    extras_require=EXTRAS_REQUIRE,
-    zip_safe=False,
-    python_requires=">=3.9",
-)
+setup(name=DISTNAME,
+      version=versioneer.get_version(),
+      maintainer=MAINTAINER,
+      ext_modules=extensions,
+      maintainer_email=MAINTAINER_EMAIL,
+      description=DESCRIPTION,
+      license=LICENSE,
+      url=URL,
+      download_url=DOWNLOAD_URL,
+      project_urls=PROJECT_URLS,
+      long_description=LONG_DESCRIPTION,
+      classifiers=CLASSIFIERS,
+      platforms='any',
+      cmdclass=cmdclass,
+      packages=find_packages(),
+      package_data=package_data,
+      distclass=BinaryDistribution,
+      include_package_data=False,  # True will install all files in repo
+      setup_requires=SETUP_REQUIRES,
+      install_requires=INSTALL_REQUIRES,
+      extras_require=EXTRAS_REQUIRE,
+      zip_safe=False,
+      data_files=[('', ['LICENSE.txt', 'setup.cfg'])]
+      )
 
 # Clean-up copied files
 for copy in FILES_COPIED_TO_PACKAGE:

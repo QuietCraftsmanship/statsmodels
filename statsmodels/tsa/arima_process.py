@@ -307,7 +307,7 @@ def arma_periodogram(ar, ma, worN=None, whole=0):
         import warnings
 
         warnings.warn(
-            "Warning: nan in frequency response h, maybe a unit " "root",
+            "Warning: nan in frequency response h, maybe a unit root",
             RuntimeWarning,
             stacklevel=2,
         )
@@ -878,7 +878,7 @@ class ArmaProcess:
                 mapolyoth = np.polynomial.Polynomial(maoth)
                 ar = (self.arpoly * arpolyoth).coef
                 ma = (self.mapoly * mapolyoth).coef
-            except:
+            except Exception:
                 raise TypeError("Other type is not a valid type")
         return self.__class__(ar, ma, nobs=self.nobs)
 

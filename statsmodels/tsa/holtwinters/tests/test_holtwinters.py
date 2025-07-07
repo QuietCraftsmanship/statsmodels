@@ -948,7 +948,7 @@ def test_equivalence_cython_python(trend, seasonal):
     p[:6] = alpha, beta, gamma, l0, b0, phi
     if seasonal:
         p[6:] = params["initial_seasons"]
-    xi = np.ones_like(p).astype(int)
+    xi = np.ones_like(p).astype(np.int64)
 
     p_copy = p.copy()
 
@@ -971,11 +971,11 @@ def test_direct_holt_add():
     assert isinstance(res.summary().as_text(), str)
     x = np.squeeze(np.asarray(mod.endog))
     alpha = res.params["smoothing_level"]
-    l, b, f, _, xhat = _simple_dbl_exp_smoother(
+    lvl, b, f, _, xhat = _simple_dbl_exp_smoother(
         x, alpha, beta=0.0, l0=res.params["initial_level"], b0=0.0, nforecast=5
     )
 
-    assert_allclose(l, res.level)
+    assert_allclose(lvl, res.level)
     assert_allclose(f, res.level.iloc[-1] * np.ones(5))
     assert_allclose(f, res.forecast(5))
 
@@ -986,7 +986,7 @@ def test_direct_holt_add():
     x = np.squeeze(np.asarray(mod.endog))
     alpha = res.params["smoothing_level"]
     beta = res.params["smoothing_trend"]
-    l, b, f, _, xhat = _simple_dbl_exp_smoother(
+    lvl, b, f, _, xhat = _simple_dbl_exp_smoother(
         x,
         alpha,
         beta=beta,
@@ -996,8 +996,8 @@ def test_direct_holt_add():
     )
 
     assert_allclose(xhat, res.fittedvalues)
-    assert_allclose(l + b, res.level + res.trend)
-    assert_allclose(l, res.level)
+    assert_allclose(lvl + b, res.level + res.trend)
+    assert_allclose(lvl, res.level)
     assert_allclose(b, res.trend)
     assert_allclose(
         f, res.level.iloc[-1] + res.trend.iloc[-1] * np.array([1, 2, 3, 4, 5])
@@ -1759,7 +1759,7 @@ def test_to_restricted_equiv(params):
     bounds = np.array([[0.0, 1.0]] * 3)
     assert_allclose(
         to_restricted(params, sel, bounds),
-        _test_to_restricted(params, sel.astype(int), bounds),
+        _test_to_restricted(params, sel.astype(np.int64), bounds),
     )
 
 

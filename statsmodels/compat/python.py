@@ -1,10 +1,14 @@
 """
 Compatibility tools for differences between Python 2 and 3
 """
-import sys
-from typing import Literal
 
-PY37 = sys.version_info[:2] == (3, 7)
+import platform
+import sys
+
+PYTHON_IMPL_WASM = (
+    sys.platform == "emscripten" or platform.machine() in ["wasm32", "wasm64"]
+)
+
 
 asunicode = lambda x, _: str(x)  # noqa:E731
 
@@ -13,12 +17,12 @@ __all__ = [
     "asunicode",
     "asstr",
     "asbytes",
-    "Literal",
     "lmap",
     "lzip",
     "lrange",
     "lfilter",
     "with_metaclass",
+    "PYTHON_IMPL_WASM",
 ]
 
 

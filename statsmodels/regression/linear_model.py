@@ -1465,8 +1465,11 @@ def yule_walker(x, order=1, method="adjusted", df=None, inv=False,
 
     if method not in ("adjusted", "mle"):
         raise ValueError("ACF estimation method must be 'adjusted' or 'MLE'")
+    # TODO: Require??
     x = np.array(x, dtype=np.float64)
     if demean:
+        if not x.flags.writeable:
+            x = np.require(x, requirements="W")
         x -= x.mean()
     n = df or x.shape[0]
 
@@ -2728,6 +2731,11 @@ class RegressionResults(base.LikelihoodModelResults):
         See Also
         --------
         statsmodels.iolib.summary.Summary : A class that holds summary results.
+
+        Notes
+        -----
+        For more information on regression results and diagnostic table,
+        see our documentation of `Examples/Linear Regression Models/Regression diagnostics`.
         """
         from statsmodels.stats.stattools import (
             durbin_watson,

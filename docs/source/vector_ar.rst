@@ -332,31 +332,65 @@ a data set, :class:`VARResults` offers the `test_normality` method.
 Whiteness of residuals
 ~~~~~~~~~~~~~~~~~~~~~~
 
-To test the whiteness of the estimation residuals (this means absence of
-significant residual autocorrelations) one can use the `test_whiteness`
-method of :class:`VARResults`.
+Dynamic Vector Autoregressions
+------------------------------
 
+.. note::
 
-.. currentmodule:: statsmodels.tsa.vector_ar.hypothesis_test_results
-.. autosummary::
-   :toctree: generated/
+    To use this functionality, `pandas <https://pypi.python.org/pypi/pandas>`__
+    must be installed. See the `pandas documentation
+    <http://pandas.pydata.org>`__ for more information on the below data
+    structures.
 
-   HypothesisTestResults
-   CausalityTestResults
-   NormalityTestResults
-   WhitenessTestResults
+One is often interested in estimating a moving-window regression on time series
+data for the purposes of making forecasts throughout the data sample. For
+example, we may wish to produce the series of 2-step-ahead forecasts produced by
+a VAR(p) model estimated at each point in time.
 
-.. _svar:
+.. ipython:: python
 
-Structural Vector Autoregressions
----------------------------------
+   np.random.seed(1)
+   import pandas.util.testing as ptest
+   ptest.N = 500
+   data = ptest.makeTimeDataFrame().cumsum(0)
+   data
 
-There are a matching set of classes that handle some types of Structural VAR models.
+   var = DynamicVAR(data, lag_order=2, window_type='expanding')
 
-.. module:: statsmodels.tsa.vector_ar.svar_model
-   :synopsis: Structural vector autoregressions and related tools
+The estimated coefficients for the dynamic model are returned as a
+:class:`pandas.Panel` object, which can allow you to easily examine, for
+example, all of the model coefficients by equation or by date:
 
-.. currentmodule:: statsmodels.tsa.vector_ar.svar_model
+.. ipython:: python
+   :okwarning:
+
+   import datetime as dt
+
+   var.coefs
+
+   # all estimated coefficients for equation A
+   var.coefs.minor_xs('A').info()
+
+   # coefficients on 11/30/2001
+   var.coefs.major_xs(dt.datetime(2001, 11, 30)).T
+
+Dynamic forecasts for a given number of steps ahead can be produced using the
+`forecast` function and return a :class:`pandas.DataMatrix` object:
+
+.. ipython:: python
+   :okwarning:
+
+   var.forecast(2)
+
+The forecasts can be visualized using `plot_forecast`:
+
+.. ipython:: python
+
+   @savefig dvar_forecast.png
+   var.plot_forecast(2)
+
+Reference
+~~~~~~~~~
 
 .. autosummary::
    :toctree: generated/

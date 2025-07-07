@@ -46,15 +46,17 @@ within and between values of the `ident` array).  The model
 :math:`p(y | vc, fep)` depends on the specific GLM being fit.
 """
 
-import numpy as np
-from scipy.optimize import minimize
-from scipy import sparse
-import statsmodels.base.model as base
-from statsmodels.iolib import summary2
-from statsmodels.genmod import families
-import pandas as pd
 import warnings
-import patsy
+
+import numpy as np
+import pandas as pd
+from scipy import sparse
+from scipy.optimize import minimize
+
+import statsmodels.base.model as base
+from statsmodels.formula._manager import FormulaManager
+from statsmodels.genmod import families
+from statsmodels.iolib import summary2
 
 # Gauss-Legendre weights
 glw = [
@@ -89,9 +91,9 @@ _init_doc = r"""
         Array of covariates for the random part of the model.  A
         scipy.sparse array may be provided, or else the passed
         array will be converted to sparse internally.
-    ident : array_like
-        Array of integer labels showing which random terms (columns
-        of `exog_vc`) have a common variance.
+    ident : array-like
+        Array of labels showing which random terms (columns of
+        `exog_vc`) have a common variance.
     vcp_p : float
         Prior standard deviation for variance component parameters
         (the prior standard deviation of log(s) is vcp_p, where s is
@@ -416,15 +418,15 @@ class _BayesMixedGLM(base.Model):
 
         Parameters
         ----------
-        formula : str
-            Formula for the endog and fixed effects terms (use ~ to
-            separate dependent and independent expressions).
+        formula : string
+            Formula for the endog and fixed effects terms (use ~ to separate
+            dependent and independent expressions).
         vc_formulas : dictionary
             vc_formulas[name] is a one-sided formula that creates one
             collection of random effects with a common variance
-            parameter.  If using categorical (factor) variables to
-            produce variance components, note that generally `0 + ...`
-            should be used so that an intercept is not included.
+            prameter.  If using a categorical expression to produce
+            variance components, note that generally `0 + ...` should
+            be used so that an intercept is not included.
         data : data frame
             The data to which the formulas are applied.
         family : genmod.families instance
@@ -441,10 +443,11 @@ class _BayesMixedGLM(base.Model):
         vcp_names = []
         j = 0
         for na, fml in vc_formulas.items():
-            mat = patsy.dmatrix(fml, data, return_type='dataframe')
+            mgr = FormulaManager()
+            mat = mgr.get_matrices(fml, data, pandas=True)
             exog_vc.append(mat)
             vcp_names.append(na)
-            ident.append(j * np.ones(mat.shape[1], dtype=np.int_))
+            ident.append(j * np.ones(mat.shape[1]))
             j += 1
         exog_vc = pd.concat(exog_vc, axis=1)
         vc_names = exog_vc.columns.tolist()

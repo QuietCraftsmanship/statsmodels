@@ -325,6 +325,21 @@ class TestMixedLM:
             data=df)
         result1 = model1.fit()
 
+        def times_two(x):
+            return 2 * x
+        model1_env = MixedLM.from_formula(
+            "y ~ times_two(x1) + x2",
+            groups=groups,
+            re_formula="0+z1+z2",
+            vc_formula=vcf,
+            data=df)
+        result1_env = model1_env.fit()
+        # Loose check that the evan env has worked
+        assert "times_two(x1)" in result1_env.model.exog_names
+        assert_allclose(
+            result1.params["x1"], 2*result1_env.params["times_two(x1)"], rtol=1e-3
+        )
+
         # Compare to R
         assert_allclose(
             result1.fe_params, [0.16527, 0.99911, 0.96217], rtol=1e-4)
@@ -755,8 +770,47 @@ class TestMixedLM:
         mdf5 = md.fit_regularized(method=pen, alpha=1.)
         mdf5.summary()
 
+# ------------------------------------------------------------------
+
+class TestMixedLMSummary(object):
+    # Test various aspects of the MixedLM summary
+    @classmethod
+    def setup_class(cls):
+        # Setup the model and estimate it.
+        pid = np.repeat([0, 1], 5)
+        x0 = np.repeat([1], 10)
+        x1 = [1, 5, 7, 3, 5, 1, 2, 6, 9, 8]
+        x2 = [6, 2, 1, 0, 1, 4, 3, 8, 2, 1]
+        y = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        df = pd.DataFrame({"y": y, "pid": pid, "x0": x0, "x1": x1, "x2": x2})
+        endog = df["y"].values
+        exog = df[["x0", "x1", "x2"]].values
+        groups = df["pid"].values
+        cls.res = MixedLM(endog, exog, groups=groups).fit()
+
+    def test_summary(self):
+        # Test that the summary correctly includes all variables.
+        summ = self.res.summary()
+        desired = ["const", "x1", "x2", "Group Var"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
+
+    def test_summary_xname_fe(self):
+        # Test that the `xname_fe` argument is reflected in the summary table.
+        summ = self.res.summary(xname_fe=["Constant", "Age", "Weight"])
+        desired = ["Constant", "Age", "Weight", "Group Var"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
+
+    def test_summary_xname_re(self):
+        # Test that the `xname_re` argument is reflected in the summary table.
+        summ = self.res.summary(xname_re=["Random Effects"])
+        desired = ["const", "x1", "x2", "Random Effects"]
+        actual = summ.tables[1].index.values # Second table is summary of params
+        assert_equal(actual, desired)
 
 # ------------------------------------------------------------------
+
 
 
 class TestMixedLMSummary:
@@ -822,6 +876,7 @@ class TestMixedLMSummaryRegularized(TestMixedLMSummary):
 
 
 # ------------------------------------------------------------------
+
 
 
 # TODO: better name

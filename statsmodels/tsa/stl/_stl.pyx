@@ -81,12 +81,15 @@ work    workspace of (n+2*np)*5 locations.
 """
 from typing import Dict, Union
 
-import pandas as pd
 import numpy as np
-from libc.math cimport fabs, sqrt, isnan, NAN
+import pandas as pd
 
-from statsmodels.tsa.tsatools import freq_to_period
+from libc.math cimport NAN, fabs, isnan, sqrt
+
 from statsmodels.tools.validation import array_like
+from statsmodels.tsa.seasonal._seasonal import DecomposeResult
+from statsmodels.tsa.tsatools import freq_to_period
+
 
 def _is_pos_int(x, odd):
     valid = (isinstance(x, (int, np.integer))
@@ -186,7 +189,7 @@ cdef class STL(object):
     >>> from pandas.plotting import register_matplotlib_converters
     >>> register_matplotlib_converters()
     >>> data = co2.load(True).data
-    >>> data = data.resample('M').mean().ffill()
+    >>> data = data.resample('ME').mean().ffill()
 
     The period (12) is automatically detected from the data's frequency ('M').
 
@@ -358,9 +361,6 @@ cdef class STL(object):
             season = pd.Series(season, index=index, name='season')
             trend = pd.Series(trend, index=index, name='trend')
             rw = pd.Series(rw, index=index, name='robust_weight')
-
-        # Avoid circular imports
-        from statsmodels.tsa.seasonal import DecomposeResult
 
         return DecomposeResult(self.endog, season, trend, resid, rw)
 

@@ -498,7 +498,7 @@ class DescrStatsW:
         tstat : float
             test statistic
         pvalue : float
-            pvalue of the t-test
+            pvalue of the z-test
 
         Notes
         -----
@@ -935,8 +935,6 @@ class CompareMeans:
 
         d1 = self.d1
         d2 = self.d2
-
-        confint_percents = 100 - alpha * 100
 
         if use_t:
             tstat, pvalue, _ = self.ttest_ind(usevar=usevar, value=value)
@@ -1524,7 +1522,7 @@ def ztest(
     tstat : float
         test statistic
     pvalue : float
-        pvalue of the t-test
+        pvalue of the z-test
 
     Notes
     -----

@@ -17,6 +17,20 @@ Documentation
 
 The documentation for the latest release is at
 
+
+http://www.statsmodels.org/stable/
+
+The documentation for the development version is at
+
+http://www.statsmodels.org/dev/
+
+Recent improvements are highlighted in the release notes
+
+http://www.statsmodels.org/stable/release/version0.9.html
+
+Backups of documentation are available at http://statsmodels.github.io/stable/
+and http://statsmodels.github.io/dev/.
+
 https://www.statsmodels.org/stable/
 
 The documentation for the development version is at
@@ -27,12 +41,13 @@ Recent improvements are highlighted in the release notes
 
 https://www.statsmodels.org/stable/release/
 
+
 Backups of documentation are available at https://statsmodels.github.io/stable/
 and https://statsmodels.github.io/dev/.
 
 
 Main Features
-=============
+
 
 * Linear regression models:
 
@@ -107,7 +122,11 @@ Main Features
 
 * Miscellaneous models
 * Sandbox: statsmodels contains a sandbox folder with code in various stages of
+
+  developement and testing which is not considered "production ready".  This covers
+
   development and testing which is not considered "production ready".  This covers
+
   among others
 
   - Generalized method of moments (GMM) estimators
@@ -117,7 +136,7 @@ Main Features
   - Information theoretic measures
 
 How to get it
-=============
+
 The main branch on GitHub is the most up to date code
 
 https://www.github.com/statsmodels/statsmodels
@@ -128,7 +147,11 @@ https://github.com/statsmodels/statsmodels/tags
 
 Binaries and source distributions are available from PyPi
 
+
+http://pypi.python.org/pypi/statsmodels/
+
 https://pypi.org/project/statsmodels/
+
 
 Binaries can be installed in Anaconda
 
@@ -136,7 +159,6 @@ conda install statsmodels
 
 
 Getting the latest code
-=======================
 
 Installing the most recent nightly wheel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,10 +173,13 @@ Installing from sources
 
 See INSTALL.txt for requirements or see the documentation
 
+
+http://statsmodels.github.io/dev/install.html
+
 https://statsmodels.github.io/dev/install.html
 
 Contributing
-============
+
 Contributions in any form are welcome, including:
 
 * Documentation improvements
@@ -166,17 +191,22 @@ https://www.statsmodels.org/stable/dev/test_notes
 
 for instructions on installing statsmodels in *editable* mode.
 
+
 License
-=======
+
 
 Modified BSD (3-clause)
 
 Discussion and Development
-==========================
+
 
 Discussions take place on the mailing list
 
+
+http://groups.google.com/group/pystatsmodels
+
 https://groups.google.com/group/pystatsmodels
+
 
 and in the issue tracker. We are very interested in feedback
 about usability and suggestions for improvements.
@@ -187,6 +217,14 @@ Bug Reports
 Bug reports can be submitted to the issue tracker at
 
 https://github.com/statsmodels/statsmodels/issues
+
+
+.. |Travis Build Status| image:: https://travis-ci.org/statsmodels/statsmodels.svg?branch=master
+   :target: https://travis-ci.org/statsmodels/statsmodels
+.. |Appveyor Build Status| image:: https://ci.appveyor.com/api/projects/status/gx18sd2wc63mfcuc/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/josef-pkt/statsmodels/branch/master
+.. |Coveralls Coverage| image:: https://coveralls.io/repos/github/statsmodels/statsmodels/badge.svg?branch=master
+   :target: https://coveralls.io/github/statsmodels/statsmodels?branch=master
 
 .. |Azure CI Build Status| image:: https://dev.azure.com/statsmodels/statsmodels-testing/_apis/build/status/statsmodels.statsmodels?branchName=main
    :target: https://dev.azure.com/statsmodels/statsmodels-testing/_build/latest?definitionId=1&branchName=main
@@ -205,3 +243,4 @@ https://github.com/statsmodels/statsmodels/issues
    :target: https://anaconda.org/conda-forge/statsmodels/
 .. |License| image:: https://img.shields.io/pypi/l/statsmodels.svg
    :target: https://github.com/statsmodels/statsmodels/blob/main/LICENSE.txt
+

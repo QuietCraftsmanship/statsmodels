@@ -9,13 +9,35 @@ import numpy as np
 from scipy import optimize
 
 from statsmodels.base.model import Model
+from statsmodels.tools.decorators import cache_readonly
+from statsmodels.regression.linear_model import RegressionResults
+
+
+class NonLinearLSResults(RegressionResults):
 
 
 class Results:
+
     '''just a dummy placeholder for now
     most results from RegressionResults can be used here
     '''
-    pass
+
+    @cache_readonly
+    def wresid(self):
+        return self.resid * np.sqrt(self.model.weights)
+        return self.model.geterrors(self, self.params)#, weights=None)
+#        return self.model.wendog - self.model.predict(self.model.wexog,
+#                self.params)
+
+    #included here because of changes to predict as in circular branch
+    #TODO: both resid and fittedvalues can be deleted again later
+    @cache_readonly
+    def resid(self):
+        return self.model.endog - self.model.predict(self.params,
+                                                     self.model.exog)
+    @cache_readonly
+    def fittedvalues(self):
+        return self.model.predict(self.params, self.model.exog)
 
 
 ##def getjaccov(retval, n):
@@ -114,7 +136,12 @@ class NonlinearLS(Model):  #or subclass a model
             missing='none'):
         self.endog = endog
         self.exog = exog
+
+        self.nobs = len(endog) #check
+        if not sigma is None:
+
         if sigma is not None:
+
             sigma = np.asarray(sigma)
             if sigma.ndim < 2:
                 self.sigma = sigma
@@ -122,29 +149,101 @@ class NonlinearLS(Model):  #or subclass a model
             else:
                 raise ValueError('correlated errors are not handled yet')
         else:
-            self.weights = None
+            if weights is None:
+                self.weights = 1
+            else:
+                self.weights = weights
 
-    def predict(self, exog, params=None):
+    #copied from WLS, for univariate y the argument X is always 1d
+    def whiten(self, X):
+        """
+        Whitener for WLS model, multiplies each column by sqrt(self.weights)
+
+        Parameters
+        ----------
+        X : array-like
+            Data to be whitened
+
+        Returns
+        -------
+        sqrt(weights)*X
+        """
+
+        X = np.asarray(X)
+        if self.weights is None:
+            return X
+        else:
+            weights = np.sqrt(self.weights)
+            if X.ndim == 1:
+                return X * weights
+            elif X.ndim == 2:
+                if np.shape(weights) == ():
+                    whitened = weights*X
+                else:
+                    whitened = weights[:,None]*X
+                return whitened
+
+    def predict(self, params, exog=None):
         #copied from GLS, Model has different signature
-        return self._predict(params)
+        #adjusted to match circular branch
+        if exog is None:
+            exog = self.exog
+        return self._predict(params, exog)
 
+    #from WLS
+    def loglike_(self, params):
+        nobs2 = self.nobs / 2.0
+        #SSR = ss(self.wendog - np.dot(self.wexog,params))
+        SSR = self.errorsumsquares(params)
+        llf = -np.log(SSR) * nobs2      # concentrated likelihood
+        llf -= (1+np.log(np.pi/nobs2))*nobs2  # with constant
+##        if not self.weights is None:    #FIXME: is this a robust-enough check?
+##            llf -= .5*np.log(np.multiply.reduce(1/self.weights)) # with weights
+        return llf
 
-    def _predict(self, params):
+    #Greene p.495
+    def loglike(self, params):
+        '''concentrated log-likelihood
+        '''
+        nobs2 = self.nobs / 2.0
+        #SSR = ss(self.wendog - np.dot(self.wexog,params))
+        SSR = self.errorsumsquares(params)
+        llf = -(1 + np.log(2*np.pi) + np.log(SSR/self.nobs)) * self.nobs * 0.5
+        return llf
+
+    def loglike_bak(self, params):
+        from scipy import stats
+        if self.weights is None:
+            weights = 1.
+        else:
+            weights = np.sqrt(self.weights)
+        llf = stats.norm.logpdf(self.geterrors(params)/np.sqrt(self._results.scale))
+        #I'm cheating here, scale is not known during estimation
+        #doesn't work for MLE
+        #I just need it for result statistics
+        #use concentrated likelihood instead
+        return llf.sum()
+
+    def _predict(self, params, exog):
         pass
 
     def start_value(self):
         return None
 
     def geterrors(self, params, weights=None):
+        #TODO: we could do weighting of endog and fittedvalues separately
         if weights is None:
             if self.weights is None:
-                return self.endog - self._predict(params)
+                return self.endog - self._predict(params, self.exog)
             else:
-                weights = self.weights
-        return weights * (self.endog - self._predict(params))
+                weights = np.sqrt(self.weights)
+        return weights * (self.endog - self._predict(params, self.exog))
 
-    def errorsumsquares(self, params):
-        return (self.geterrors(params)**2).sum()
+    def errorsumsquares(self, params, weights=None):
+        '''ess
+
+        '''
+        return (self.geterrors(params, weights=None)**2).sum()
 
 
     def fit(self, start_value=None, nparams=None, **kw):
@@ -184,14 +283,18 @@ class NonlinearLS(Model):  #or subclass a model
         else:
             pcov = None
 
-        self.df_resid = len(ydata)-len(p0)
-        self.df_model = len(p0)
-        fitres = Results()
-        fitres.params = popt
-        fitres.pcov = pcov
-        fitres.rawres = res
-        self.wendog = self.endog  #add weights
-        self.wexog = self.jac_predict(popt)
+        #WLS uses float
+        self.df_resid = len(ydata)-len(p0) * 1.
+        self.df_model = len(p0) - 1.  #TODO:subtract, constant remove, just for testing
+        #drop old Result instance
+#        fitres = Results()
+#        fitres.params = popt
+#        fitres.pcov = pcov
+#        fitres.rawres = res
+##        self.wendog = self.endog  #add weights
+##        self.wexog = self.jac_predict(popt)
+        self.wendog = self.whiten(self.endog)  #add weights
+        self.wexog = self.whiten(self.jac_predict(popt))
         pinv_wexog = np.linalg.pinv(self.wexog)
         self.normalized_cov_params = np.dot(pinv_wexog,
                                          np.transpose(pinv_wexog))
@@ -201,16 +304,26 @@ class NonlinearLS(Model):  #or subclass a model
         #maybe not anymore, I'm not using pcov of leastsq
         #direct calculation with jac_predict misses the weights
 
+
 ##        if not weights is None
 ##            fitres.wexogw = self.weights * self.jacpredict(popt)
+
+        from statsmodels.regression.linear_model import RegressionResults
+        #results = RegressionResults
+
+        # if not weights is None
+        #     fitres.wexogw = self.weights * self.jacpredict(popt)
         from statsmodels.regression import RegressionResults
-        results = RegressionResults
+
 
         beta = popt
-        lfit = RegressionResults(self, beta,
+#        lfit = RegressionResults(self, beta,
+#                       normalized_cov_params=self.normalized_cov_params)
+
+        lfit = NonLinearLSResults(self, beta,
                        normalized_cov_params=self.normalized_cov_params)
 
-        lfit.fitres = fitres   #mainly for testing
+#        lfit.fitres = fitres   #mainly for testing
         self._results = lfit
         return lfit
 
@@ -263,8 +376,17 @@ class Myfunc(NonlinearLS):
 ##        a, b, c = params
 ##        return a*np.exp(-b*x) + c
 
-    def _predict(self, params):
-        x = self.exog
+    def _predict(self, params, exog=None):
+        '''this needs exog for predict with new values, unfortunately
+
+        make exog required - not now - I would need args in jac and leastsq
+        '''
+        #needs boilerplate, self.exog, for now
+        if exog is None:
+            x = self.exog
+        else:
+            x = exog
+
         a, b, c = params
         return a*np.exp(-b*x) + c
 
@@ -287,7 +409,7 @@ if __name__ == '__main__':
         return (y - func(params, x))**2
 
 
-
+    from scipy import optimize
 
     x = np.linspace(0,4,50)
     params = np.array([2.5, 1.3, 0.5])

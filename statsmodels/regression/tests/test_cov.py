@@ -8,6 +8,10 @@ from numpy.testing import assert_almost_equal, assert_allclose
 import statsmodels.api as sm
 
 
+from numpy.testing import assert_almost_equal, assert_allclose
+
+
+
 def test_HC_use():
     np.random.seed(0)
     nsample = 100

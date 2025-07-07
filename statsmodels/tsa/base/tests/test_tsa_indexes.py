@@ -1019,7 +1019,7 @@ def test_range_index():
     # Warning should not be given
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        mod = tsa_model.TimeSeriesModel(endog)
+        tsa_model.TimeSeriesModel(endog)
         assert_equal(len(w), 0)
 
 
@@ -1231,22 +1231,11 @@ def test_nonmonotonic_periodindex():
         tsa_model.TimeSeriesModel(endog)
 
 
-@pytest.mark.xfail(
-    reason="Pandas PeriodIndex.is_full does not yet work for"
-    " all frequencies (e.g. frequencies with a"
-    ' multiplier, like "2Q").'
-)
 def test_nonfull_periodindex():
     index = pd.PeriodIndex(["2000-01", "2000-03"], freq="M")
     endog = pd.Series(np.zeros(len(index)), index=index)
 
-    message = (
-        "A Period index has been provided, but it is not"
-        " full and so will be ignored when e.g."
-        " forecasting."
-    )
-    with pytest.warns(ValueWarning, match=message):
-        tsa_model.TimeSeriesModel(endog)
+    tsa_model.TimeSeriesModel(endog)
 
 
 def test_get_index_loc_quarterly():

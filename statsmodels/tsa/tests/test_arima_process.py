@@ -216,13 +216,13 @@ def test_spectrum(ar, ma):
         spdr,
         spdd[:nfreq],
         decimal=7,
-        err_msg="spdr spdd not equal for {}, {}".format(ar, ma),
+        err_msg=f"spdr spdd not equal for {ar}, {ma}",
     )
     assert_almost_equal(
         spdr,
         spdp,
         decimal=7,
-        err_msg="spdr spdp not equal for {}, {}".format(ar, ma),
+        err_msg=f"spdr spdp not equal for {ar}, {ma}",
     )
 
 
@@ -230,14 +230,11 @@ def test_spectrum(ar, ma):
 @pytest.mark.parametrize("ma", malist)
 def test_armafft(ar, ma):
     # test other methods
-    nfreq = 20
-    w = np.linspace(0, np.pi, nfreq, endpoint=False)
-
     arma = ArmaFft(ar, ma, 20)
     ac1 = arma.invpowerspd(1024)[:10]
     ac2 = arma.acovf(10)[:10]
     assert_allclose(
-        ac1, ac2, atol=1e-15, err_msg="acovf not equal for {}, {}".format(ar, ma)
+        ac1, ac2, atol=1e-15, err_msg=f"acovf not equal for {ar}, {ma}"
     )
 
 

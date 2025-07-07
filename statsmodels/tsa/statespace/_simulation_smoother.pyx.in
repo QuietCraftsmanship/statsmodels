@@ -397,14 +397,21 @@ cdef class {{prefix}}SimulationSmoother(object):
         if self.has_missing:
             self.secondary_simulated_kfilter.seek(0) # reset the filter
         measurement_idx = 0
+
+        state_idx = nobs_endog
+
         state_idx = 0
+
         # Note: it is only when we are simulating a series that we might have
         # self.model.nobs != self.simulated_model.nobs, and in that case we do
         # not need to copy over the observations.
         # TODO: Need more explicit support for the pure simulation case, both
         # to avoid errors (like the copy statement below) and because we can
         # probably speed up the process by not running the filter parts.
+
+
         if not (self.has_missing or self.simulate_only):
+
             # reset the obs data in the primary simulated model
             # (but only if there is not missing data - in that case we will
             # combine the actual data with the generated data in the primary

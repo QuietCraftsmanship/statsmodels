@@ -36,6 +36,7 @@ __all__ = [
     "QUARTER_END",
     "YEAR_END",
     "FUTURE_STACK",
+    "PD_LT_3",
 ]
 
 version = parse(pd.__version__)
@@ -44,7 +45,8 @@ PD_LT_2_2_0 = version < Version("2.1.99")
 PD_LT_2_1_0 = version < Version("2.0.99")
 PD_LT_1_0_0 = version < Version("0.99.0")
 PD_LT_1_4 = version < Version("1.3.99")
-PD_LT_2 = version < Version("1.9.99")
+PD_LT_2 = version < Version("1.99.99")
+PD_LT_3 = version < Version("2.99.99")
 
 try:
     from pandas.api.types import is_numeric_dtype
@@ -57,6 +59,10 @@ except ImportError:
     from pandas.tseries import frequencies
 
 data_klasses = (pd.Series, pd.DataFrame)
+
+data_klasses = (pandas.Series, pandas.DataFrame)
+if pandas_lt_25_0:
+    data_klasses += (pandas.Panel,)
 
 try:
     import pandas.testing as testing

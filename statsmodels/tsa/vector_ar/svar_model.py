@@ -5,13 +5,14 @@ References
 ----------
 Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
 """
+from __future__ import print_function, division
+from statsmodels.compat.python import range
+
 import numpy as np
 import numpy.linalg as npl
 from numpy.linalg import slogdet
 
-from statsmodels.tools.decorators import deprecated_alias
-from statsmodels.tools.numdiff import approx_fprime, approx_hess
-import statsmodels.tsa.base.tsa_model as tsbase
+from statsmodels.tools.numdiff import approx_hess, approx_fprime
 from statsmodels.tsa.vector_ar.irf import IRAnalysis
 import statsmodels.tsa.vector_ar.util as util
 from statsmodels.tsa.vector_ar.var_model import VARProcess, VARResults
@@ -29,7 +30,7 @@ class SVAR(tsbase.TimeSeriesModel):
     r"""
     Fit VAR and then estimate structural components of A and B, defined:
 
-    .. math:: Ay_t = A_1 y_{t-1} + \ldots + A_p y_{t-p} + B\var(\epsilon_t)
+    .. math:: Ay_t = A_1 y_{t-1} + \ldots + A_p y_{t-p} + B \varepsilon_t
 
     Parameters
     ----------
@@ -78,12 +79,14 @@ class SVAR(tsbase.TimeSeriesModel):
             A = np.identity(self.neqs)
             self.A_mask = A_mask = np.zeros(A.shape, dtype=bool)
         else:
+            A = A.astype("U")
             A_mask = np.logical_or(A == 'E', A == 'e')
             self.A_mask = A_mask
         if B is None:
             B = np.identity(self.neqs)
             self.B_mask = B_mask = np.zeros(B.shape, dtype=bool)
         else:
+            B = B.astype("U")
             B_mask = np.logical_or(B == 'E', B == 'e')
             self.B_mask = B_mask
 
@@ -308,13 +311,22 @@ class SVAR(tsbase.TimeSeriesModel):
         Return numerical gradient
         """
         loglike = self.loglike
-        return approx_fprime(AB_mask, loglike, epsilon=1e-8)
+        if AB_mask.ndim > 1:
+            AB_mask = AB_mask.ravel()
+        grad = approx_fprime(AB_mask, loglike, epsilon=1e-8)
+
+        # workaround shape of grad if only one parameter #9302
+        if AB_mask.size == 1 and grad.ndim == 2:
+            grad = grad.ravel()
+        return grad
 
     def hessian(self, AB_mask):
         """
         Returns numerical hessian.
         """
         loglike = self.loglike
+        if AB_mask.ndim > 1:
+            AB_mask = AB_mask.ravel()
         return approx_hess(AB_mask, loglike)
 
     def _solve_AB(self, start_params, maxiter, override=False, solver='bfgs'):
@@ -355,10 +367,16 @@ class SVAR(tsbase.TimeSeriesModel):
         else: #TODO: change to a warning?
             print("Order/rank conditions have not been checked")
 
+        if solver == "bfgs":
+            kwargs = {"gtol": 1e-5}
+        else:
+            kwargs = {}
         retvals = super().fit(start_params=start_params,
                               method=solver, maxiter=maxiter,
-                              gtol=1e-20, disp=False).params
+                              disp=False, **kwargs).params
 
+        if retvals.ndim > 1:
+            retvals = retvals.ravel()
         A[A_mask] = retvals[:A_len]
         B[B_mask] = retvals[A_len:]
 
@@ -547,6 +565,10 @@ class SVARResults(SVARProcess, VARResults):
 
     _model_type = 'SVAR'
 
+    y = deprecated_alias("y", "endog", remove_version="0.11.0")
+    ys_lagged = deprecated_alias("ys_lagged", "endog_lagged",
+                                 remove_version="0.11.0")
+
     def __init__(self, endog, endog_lagged, params, sigma_u, lag_order,
                  A=None, B=None, A_mask=None, B_mask=None, model=None,
                  trend='c', names=None, dates=None):
@@ -608,7 +630,7 @@ class SVARResults(SVARProcess, VARResults):
 
         return IRAnalysis(self, P=P, periods=periods, svar=True)
 
-    def sirf_errband_mc(self, orth=False, repl=1000, steps=10,
+    def sirf_errband_mc(self, orth=False, repl=1000, T=10,
                         signif=0.05, seed=None, burn=100, cum=False):
         """
         Compute Monte Carlo integrated error bands assuming normally
@@ -616,11 +638,11 @@ class SVARResults(SVARProcess, VARResults):
 
         Parameters
         ----------
-        orth : bool, default False
-            Compute orthogonalized impulse response error bands
-        repl : int
+        orth: bool, default False
+            Compute orthoganalized impulse response error bands
+        repl: int
             number of Monte Carlo replications to perform
-        steps : int, default 10
+        T: int, default 10
             number of impulse response periods
         signif : float (0 < signif <1)
             Significance level for error bars, defaults to 95% CI
@@ -640,12 +662,10 @@ class SVARResults(SVARProcess, VARResults):
         Tuple of lower and upper arrays of ma_rep monte carlo standard errors
         """
         neqs = self.neqs
-        mean = self.mean()
         k_ar = self.k_ar
         coefs = self.coefs
         sigma_u = self.sigma_u
         intercept = self.intercept
-        df_model = self.df_model
         nobs = self.nobs
 
         ma_coll = np.zeros((repl, steps + 1, neqs, neqs))

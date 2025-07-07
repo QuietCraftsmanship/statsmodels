@@ -5,9 +5,9 @@ Author: Josef Perktold
 License: BSD-3
 """
 
-import warnings
-
 from statsmodels.compat.pandas import Appender
+
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -15,12 +15,13 @@ from pandas.api.types import CategoricalDtype
 from scipy import stats
 
 from statsmodels.base.model import (
-    Model,
-    LikelihoodModel,
     GenericLikelihoodModel,
     GenericLikelihoodModelResults,
+    LikelihoodModel,
+    Model,
 )
 import statsmodels.base.wrapper as wrap
+from statsmodels.formula.formulatools import advance_eval_env
 # for results wrapper:
 import statsmodels.regression.linear_model as lm
 from statsmodels.tools.decorators import cache_readonly
@@ -141,7 +142,7 @@ class OrderedModel(GenericLikelihoodModel):
                            "Missing values need to be removed.")
                     raise ValueError(msg)
             elif self.endog.ndim == 2:
-                if not hasattr(self, "design_info"):
+                if not hasattr(self, "model_spec"):
                     raise ValueError("2-dim endog not supported")
                 # this branch is currently only in support of from_formula
                 # we need to initialize k_levels correctly for df_resid
@@ -251,7 +252,7 @@ class OrderedModel(GenericLikelihoodModel):
 
         endog_name = formula.split("~")[0].strip()
         original_endog = data[endog_name]
-
+        advance_eval_env(kwargs)
         model = super().from_formula(
             formula, data=data, drop_cols=["Intercept"], *args, **kwargs)
 
@@ -270,7 +271,6 @@ class OrderedModel(GenericLikelihoodModel):
         return model
 
     from_formula.__func__.__doc__ = Model.from_formula.__doc__
-
 
     def cdf(self, x):
         """Cdf evaluated at x.

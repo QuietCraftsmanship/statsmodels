@@ -32,9 +32,9 @@ import numpy as np
 import numpy.fft as fft
 #import scipy.fftpack as fft
 from scipy import signal
+
 #from try_var_convolve import maxabs
 from statsmodels.tsa.arima_process import ArmaProcess
-
 
 #trying to convert old experiments to a class
 
@@ -205,7 +205,7 @@ class ArmaFft(ArmaProcess):
         hw = fft.fft(fft.fftshift(mapadded)) / fft.fft(fft.fftshift(arpadded))
         #return np.abs(spd)[n//2-1:]
         w = fft.fftfreq(n) * 2 * np.pi
-        wslice = slice(n//2-1, None, None)
+        slice(n//2-1, None, None)
         #return (hw*hw.conj()).real[wslice], w[wslice]
         return (hw*hw.conj()).real, w
 
@@ -218,8 +218,6 @@ class ArmaFft(ArmaProcess):
         #abs looks wrong
         hw = fft.fft(self.ma, n) / fft.fft(self.ar, n)
         w = fft.fftfreq(n) * 2 * np.pi
-        wslice = slice(None, n//2, None)
-        #return (np.abs(hw)**2)[wslice], w[wslice]
         return (np.abs(hw)**2) * 0.5/np.pi, w
 
     def _spddirect2(self, n):
@@ -374,19 +372,19 @@ class ArmaFft(ArmaProcess):
             fig = plt.figure()
         ax = fig.add_subplot(2,2,1)
         ax.plot(rvs)
-        ax.set_title('Random Sample \nar={}, ma={}'.format(self.ar, self.ma))
+        ax.set_title(f'Random Sample \nar={self.ar}, ma={self.ma}')
 
         ax = fig.add_subplot(2,2,2)
         ax.plot(acf)
-        ax.set_title('Autocorrelation \nar={}, ma={!r}s'.format(self.ar, self.ma))
+        ax.set_title(f'Autocorrelation \nar={self.ar}, ma={self.ma!r}s')
 
         ax = fig.add_subplot(2,2,3)
         ax.plot(wr, spdr)
-        ax.set_title('Power Spectrum \nar={}, ma={}'.format(self.ar, self.ma))
+        ax.set_title(f'Power Spectrum \nar={self.ar}, ma={self.ma}')
 
         ax = fig.add_subplot(2,2,4)
         ax.plot(pacf)
-        ax.set_title('Partial Autocorrelation \nar={}, ma={}'.format(self.ar, self.ma))
+        ax.set_title(f'Partial Autocorrelation \nar={self.ar}, ma={self.ma}')
 
         return fig
 
@@ -523,6 +521,7 @@ if __name__ == '__main__':
     plt.title('matplotlib')
 
     from nitime.algorithms import LD_AR_est
+
     #yule_AR_est(s, order, Nfreqs)
     wnt, spdnt = LD_AR_est(rvs, 10, 512)
     plt.figure()
