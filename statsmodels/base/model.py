@@ -1899,15 +1899,22 @@ class LikelihoodModelResults(Results):
             invcov = np.linalg.pinv(cov_p)
             J_ = np.linalg.matrix_rank(cov_p)
             if J_ < J:
+
+                import warnings
+                from statsmodels.tools.sm_exceptions import ValueWarning
+
                 warnings.warn('covariance of constraints does not have full '
                               'rank. The number of constraints is %d, but '
                               'rank is %d' % (J, J_), ValueWarning)
                 J = J_
 
+
+
         # TODO streamline computation, we do not need to compute J if given
         if df_constraints is not None:
             # let caller override J by df_constraint
             J = df_constraints
+
 
         if (hasattr(self, 'mle_settings') and
                 self.mle_settings['optimizer'] in ['l1', 'l1_cvxopt_cp']):

@@ -15,9 +15,14 @@ from numpy.testing import assert_allclose, assert_equal
 
 from statsmodels.genmod.families import family
 from statsmodels.genmod.generalized_linear_model import GLM
+
+from statsmodels.genmod.families import family
+from statsmodels.tools.sm_exceptions import ValueWarning
+
 from statsmodels.regression.linear_model import OLS, WLS
 from statsmodels.tools.sm_exceptions import ValueWarning
 from statsmodels.tools.tools import add_constant
+
 
 
 class ConstrainedCompareMixin:
@@ -189,8 +194,13 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
 
         #from statsmodels.genmod.tests.results.results_glm import Star98
         data = load()
+
+
+        #from statsmodels.genmod.tests.results.results_glm import Star98
+        data = load()
         data.exog = np.asarray(data.exog)
         data.endog = np.asarray(data.endog)
+
         exog = add_constant(data.exog, prepend=True)
         offset = np.ones(len(data.endog))
         exog_keep = exog[:, :-5]
@@ -216,6 +226,12 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
         assert_allclose(res1.resid_response, res2.resid_response, rtol=1e-8)
 
     def test_glm_attr(self):
+
+        for attr in ['llf', 'null_deviance', 'aic', 'bic', 'df_resid',
+                     'df_model', 'pearson_chi2', 'scale']:
+            assert_allclose(getattr(self.res1, attr),
+                            getattr(self.res2, attr), rtol=1e-10)
+
         for attr in ['llf', 'null_deviance', 'aic', 'df_resid',
                      'df_model', 'pearson_chi2', 'scale']:
             assert_allclose(getattr(self.res1, attr),
@@ -224,6 +240,7 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
             warnings.simplefilter("ignore", FutureWarning)
             # FutureWarning to silence BIC warning
             assert_allclose(self.res1.bic, self.res2.bic, rtol=1e-10)
+
 
     def test_wald(self):
         res1 = self.res1
@@ -234,8 +251,13 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
         use_f = False
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', ValueWarning)
+
+            wt2 = res2.wald_test(np.eye(k2)[1:], use_f=use_f)
+            wt1 = res1.wald_test(np.eye(k1)[1:], use_f=use_f)
+
             wt2 = res2.wald_test(np.eye(k2)[1:], use_f=use_f, scalar=True)
             wt1 = res1.wald_test(np.eye(k1)[1:], use_f=use_f, scalar=True)
+
         assert_allclose(wt2.pvalue, wt1.pvalue, atol=1e-20) # pvalue = 0
         assert_allclose(wt2.statistic, wt1.statistic, rtol=1e-8)
         assert_equal(wt2.df_denom, wt1.df_denom)
@@ -243,8 +265,13 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
         use_f = True
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', ValueWarning)
+
+            wt2 = res2.wald_test(np.eye(k2)[1:], use_f=use_f)
+            wt1 = res1.wald_test(np.eye(k1)[1:], use_f=use_f)
+
             wt2 = res2.wald_test(np.eye(k2)[1:], use_f=use_f, scalar=True)
             wt1 = res1.wald_test(np.eye(k1)[1:], use_f=use_f, scalar=True)
+
         assert_allclose(wt2.pvalue, wt1.pvalue, rtol=1) # pvalue = 8e-273
         assert_allclose(wt2.statistic, wt1.statistic, rtol=1e-8)
         assert_equal(wt2.df_denom, wt1.df_denom)
@@ -253,10 +280,15 @@ class TestGLMBinomialCountConstrained(ConstrainedCompareMixin):
 
         # smoke
         with warnings.catch_warnings():
+
+            warnings.simplefilter('ignore', ValueWarning)
+            # RuntimeWarnings because of truedivide and scipy distributions
+
             # RuntimeWarnings because of truedivide and scipy distributions
             # Future to silence BIC warning
             warnings.simplefilter("ignore", FutureWarning)
             warnings.simplefilter('ignore', ValueWarning)
+
             warnings.simplefilter('ignore', RuntimeWarning)
             self.res1.summary()
             self.res1.summary2()

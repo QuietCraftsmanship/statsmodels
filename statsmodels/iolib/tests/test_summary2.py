@@ -11,8 +11,11 @@ from statsmodels.iolib.summary2 import summary_col
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools.tools import add_constant
 
+class TestSummaryLatex(object):
+
 
 class TestSummaryLatex:
+
 
     def test_summarycol(self):
         # Test for latex output of summary_col object
@@ -173,6 +176,11 @@ Standard errors in parentheses.
         string_to_find = r"""\end{tabular}
 \begin{tabular}"""
         result = string_to_find in actual
+
+        assert(result is True)
+
+
+
         assert result is True
 
     def test_summarycol_fixed_effects(self):
@@ -296,3 +304,4 @@ class TestSummaryLabels:
         table = summary_col(results=self.mod, include_r2=False)
         assert "R-squared" not in str(table)
         assert "R-squared Adj." not in str(table)
+

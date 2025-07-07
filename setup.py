@@ -78,6 +78,192 @@ DISTNAME = "statsmodels"
 DESCRIPTION = "Statistical computations and models for Python"
 README = SETUP_DIR.joinpath("README.rst").read_text()
 LONG_DESCRIPTION = README
+
+MAINTAINER = 'Josef Perktold, Chad Fulton, Kerby Shedden'
+MAINTAINER_EMAIL ='pystatsmodels@googlegroups.com'
+URL = 'http://www.statsmodels.org/'
+LICENSE = 'BSD License'
+DOWNLOAD_URL = ''
+
+# These imports need to be here; setuptools needs to be imported first.
+from distutils.extension import Extension
+from distutils.command.build import build
+from distutils.command.build_ext import build_ext as _build_ext
+
+
+class build_ext(_build_ext):
+    def build_extensions(self):
+        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+
+        for ext in self.extensions:
+            if (hasattr(ext, 'include_dirs') and
+                    not numpy_incl in ext.include_dirs):
+                ext.include_dirs.append(numpy_incl)
+        _build_ext.build_extensions(self)
+
+
+def generate_cython():
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    print("Cythonizing sources")
+    p = subprocess.call([sys.executable,
+                          os.path.join(cwd, 'tools', 'cythonize.py'),
+                          'statsmodels'],
+                         cwd=cwd)
+    if p != 0:
+        raise RuntimeError("Running cythonize failed!")
+
+
+def init_cython_exclusion(filename):
+    with open(filename, 'w') as f:
+        pass
+
+
+def append_cython_exclusion(path, filename):
+    with open(filename, 'a') as f:
+        f.write(path + "\n")
+
+
+def strip_rc(version):
+    return re.sub(r"rc\d+$", "", version)
+
+
+def check_dependency_versions(min_versions):
+    """
+    Don't let pip/setuptools do this all by itself.  It's rude.
+
+    For all dependencies, try to import them and check if the versions of
+    installed dependencies match the minimum version requirements.  If
+    installed but version too low, raise an error.  If not installed at all,
+    return the correct ``setup_requires`` and ``install_requires`` arguments to
+    be added to the setuptools kwargs.  This prevents upgrading installed
+    dependencies like numpy (that should be an explicit choice by the user and
+    never happen automatically), but make things work when installing into an
+    empty virtualenv for example.
+
+    """
+    setup_requires = []
+    install_requires = []
+
+    try:
+        from numpy.version import short_version as npversion
+    except ImportError:
+        setup_requires.append('numpy')
+        install_requires.append('numpy')
+    else:
+        if not (LooseVersion(npversion) >= min_versions['numpy']):
+            raise ImportError("Numpy version is %s. Requires >= %s" %
+                              (npversion, min_versions['numpy']))
+
+    try:
+        import scipy
+    except ImportError:
+        install_requires.append('scipy')
+    else:
+        try:
+            from scipy.version import short_version as spversion
+        except ImportError:
+            from scipy.version import version as spversion  # scipy 0.7.0
+        if not (LooseVersion(spversion) >= min_versions['scipy']):
+            raise ImportError("Scipy version is %s. Requires >= %s" %
+                              (spversion, min_versions['scipy']))
+
+    try:
+        from pandas import __version__ as pversion
+    except ImportError:
+        install_requires.append('pandas')
+    else:
+        if not (LooseVersion(pversion) >= min_versions['pandas']):
+            ImportError("Pandas version is %s. Requires >= %s" %
+                        (pversion, min_versions['pandas']))
+
+    try:
+        from patsy import __version__ as patsy_version
+    except ImportError:
+        install_requires.append('patsy')
+    else:
+        # patsy dev looks like 0.1.0+dev
+        pversion = re.match("\d*\.\d*\.\d*", patsy_version).group()
+        if not (LooseVersion(pversion) >= min_versions['patsy']):
+            raise ImportError("Patsy version is %s. Requires >= %s" %
+                              (pversion, min_versions["patsy"]))
+
+    return setup_requires, install_requires
+
+
+MAJ = 0
+MIN = 9
+REV = 0
+ISRELEASED = True
+VERSION = '%d.%d.%d' % (MAJ,MIN,REV)
+
+classifiers = ['Development Status :: 4 - Beta',
+               'Environment :: Console',
+               'Programming Language :: Cython',
+               'Programming Language :: Python :: 2.7',
+               'Programming Language :: Python :: 3.3',
+               'Programming Language :: Python :: 3.4',
+               'Programming Language :: Python :: 3.5',
+               'Programming Language :: Python :: 3.6',
+               'Operating System :: OS Independent',
+               'Intended Audience :: End Users/Desktop',
+               'Intended Audience :: Developers',
+               'Intended Audience :: Science/Research',
+               'Natural Language :: English',
+               'License :: OSI Approved :: BSD License',
+               'Topic :: Office/Business :: Financial',
+               'Topic :: Scientific/Engineering']
+
+# Return the git revision as a string
+def git_version():
+    def _minimal_ext_cmd(cmd):
+        # construct minimal environment
+        env = {}
+        for k in ['SYSTEMROOT', 'PATH']:
+            v = os.environ.get(k)
+            if v is not None:
+                env[k] = v
+        # LANGUAGE is used on win32
+        env['LANGUAGE'] = 'C'
+        env['LANG'] = 'C'
+        env['LC_ALL'] = 'C'
+        out = subprocess.Popen(" ".join(cmd), stdout = subprocess.PIPE, env=env,
+                               shell=True).communicate()[0]
+        return out
+
+    try:
+        out = _minimal_ext_cmd(['git', 'rev-parse', 'HEAD'])
+        GIT_REVISION = out.strip().decode('ascii')
+    except OSError:
+        GIT_REVISION = "Unknown"
+
+    return GIT_REVISION
+
+def write_version_py(filename=pjoin(curdir, 'statsmodels/version.py')):
+    cnt = "\n".join(["",
+                    "# THIS FILE IS GENERATED FROM SETUP.PY",
+                    "short_version = '%(version)s'",
+                    "version = '%(version)s'",
+                    "full_version = '%(full_version)s'",
+                    "git_revision = '%(git_revision)s'",
+                    "release = %(isrelease)s", "",
+                    "if not release:",
+                    "    version = full_version"])
+    # Adding the git rev number needs to be done inside write_version_py(),
+    # otherwise the import of numpy.version messes up the build under Python 3.
+    FULLVERSION = VERSION
+    dowrite = True
+    if os.path.exists('.git'):
+        GIT_REVISION = git_version()
+    elif os.path.exists(filename):
+        # must be a source distribution, use existing version file
+        try:
+            from statsmodels.version import git_revision as GIT_REVISION
+        except ImportError:
+            dowrite = False
+            GIT_REVISION = "Unknown"
+    else:
+        GIT_REVISION = "Unknown"
+
 MAINTAINER = "statsmodels Developers"
 MAINTAINER_EMAIL = "pystatsmodels@googlegroups.com"
 URL = "https://www.statsmodels.org/"
@@ -173,6 +359,7 @@ exts = dict(
         "source": "statsmodels/nonparametric/_smoothers_lowess.pyx"
     },  # noqa: E501
 )
+
 
 statespace_exts = [
     "statsmodels/tsa/statespace/_initialization.pyx.in",

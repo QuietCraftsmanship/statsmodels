@@ -2667,6 +2667,18 @@ class MixedLMResults(base.LikelihoodModelResults, base.ResultMixin):
         param_names = self.model.data.param_names[:]
         k_fe_params = len(self.fe_params)
         k_re_params = len(param_names) - len(self.fe_params)
+        if xname_fe is not None:
+            if len(xname_fe) != k_fe_params:
+                raise ValueError("xname_fe should be a list of length %d" % k_fe_params)
+            param_names[:k_fe_params] = xname_fe
+        if xname_re is not None:
+            if len(xname_re) != k_re_params:
+                raise ValueError("xname_re should be a list of length %d" % k_re_params)
+
+
+        param_names = self.model.data.param_names[:]
+        k_fe_params = len(self.fe_params)
+        k_re_params = len(param_names) - len(self.fe_params)
 
         if xname_fe is not None:
             if len(xname_fe) != k_fe_params:
@@ -2678,6 +2690,7 @@ class MixedLMResults(base.LikelihoodModelResults, base.ResultMixin):
             if len(xname_re) != k_re_params:
                 msg = "xname_re should be a list of length %d" % k_re_params
                 raise ValueError(msg)
+
             param_names[k_fe_params:] = xname_re
 
         info["No. Observations:"] = str(self.model.n_totobs)

@@ -535,6 +535,7 @@ class TestGLMPoisson(CheckDiscreteGLM):
         cls.res1.rtol = 1e-11
 
 
+
 class TestGLMLogit(CheckDiscreteGLM):
 
     @classmethod
@@ -549,7 +550,11 @@ class TestGLMLogit(CheckDiscreteGLM):
         cls.res2 = mod1.fit(cov_type='cluster', cov_kwds=dict(groups=group))
 
 
+
+class TestGLMProbit(CheckDiscreteGLM):
+
 class TestGLMLogitOffset(CheckDiscreteGLM):
+
 
     @classmethod
     def setup_class(cls):
@@ -557,8 +562,14 @@ class TestGLMLogitOffset(CheckDiscreteGLM):
         cls.cov_type = 'cluster'
         offset = np.ones(endog_bin.shape[0])
 
+
+        mod1 = GLM(endog_bin, exog, family=families.Binomial(link=links.probit()))
+        cls.res1 = mod1.fit(method='newton',
+                            cov_type='cluster', cov_kwds=dict(groups=group))
+
         mod1 = GLM(endog_bin, exog, family=families.Binomial(), offset=offset)
         cls.res1 = mod1.fit(cov_type='cluster', cov_kwds=dict(groups=group))
+
 
         mod1 = smd.Logit(endog_bin, exog, offset=offset)
         cls.res2 = mod1.fit(cov_type='cluster', cov_kwds=dict(groups=group))
@@ -581,13 +592,20 @@ class TestGLMProbit(CheckDiscreteGLM):
     def test_score_hessian(self):
         res1 = self.res1
         res2 = self.res2
+
+        # Note scale is fixed at 1, so we don't need to fix it explicitly
+
         # Note scale is fixed at 1, so we do not need to fix it explicitly
+
         score1 = res1.model.score(res1.params * 0.98)
         score2 = res2.model.score(res1.params * 0.98)
         assert_allclose(score1, score2, rtol=1e-13)
 
         hess1 = res1.model.hessian(res1.params)
         hess2 = res2.model.hessian(res1.params)
+
+        assert_allclose(hess1, hess2, rtol=1e-10)
+
         assert_allclose(hess1, hess2, rtol=1e-13)
 
 
@@ -608,6 +626,7 @@ class TestGLMProbitOffset(CheckDiscreteGLM):
         mod1 = smd.Probit(endog_bin, exog, offset=offset)
         cls.res2 = mod1.fit(cov_type='cluster', cov_kwds=dict(groups=group))
         cls.rtol = 1e-6
+
 
 
 class TestGLMGaussNonRobust(CheckDiscreteGLM):
